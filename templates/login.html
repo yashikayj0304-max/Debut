@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% set bare = True %}{% block title %}Log in — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="authbox card"><h1>Log in</h1>
+<form method="post"><input type="hidden" name="invite" value="{{ token }}"><input type="hidden" name="next" value="{{ request.args.get('next','') }}">
+<label>Email<input type="email" name="email" value="{{ email }}" required autofocus></label><label>Password<input type="password" name="password" required></label>
+<button class="btn">Log in</button></form><p class="muted"><a href="{{ url_for('auth.forgot') }}">Forgot password?</a> · <a href="{{ url_for('auth.signup') }}">Create an account</a></p></div>
+{% endblock %}

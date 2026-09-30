@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>🔔 Notifications</h1><form method="post" action="{{ url_for('notifications_read') }}"><button class="btn ghost sm">Mark all read</button></form></div>
+<div class="card">{% for n in rows %}<div class="news" style="{{ '' if n['is_read'] else 'background:var(--pri2);border-radius:8px;padding-left:10px' }}">
+<a class="t" href="{{ url_for('notification_open', nid=n['id']) }}">{{ n['message'] }}</a> <span class="tag">{{ n['created_at']|string|truncate(16, True, '') }}</span></div>
+{% else %}<p class="muted">Nothing yet. You'll be notified when someone assigns you work, @mentions you, comments on your items, or sends something for approval.</p>{% endfor %}</div>
+{% endblock %}

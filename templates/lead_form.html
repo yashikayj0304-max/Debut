@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Get in touch — {{ ws['name'] }}{% endblock %}{% block body %}
+<div style="max-width:520px;margin:30px auto"><h1>Get in touch with {{ ws['name'] }}</h1>
+{% if done %}<div class="flash">Thank you! We've received your message and will get back to you soon.</div>
+{% else %}<p class="muted">Leave your details and we'll reach out.</p>
+<form method="post" class="card"><label>Your name<input name="name" value="{{ form.get('name','') }}" required></label><label>Email<input type="email" name="email" value="{{ form.get('email','') }}"></label>
+<label>Phone / WhatsApp<input name="phone" value="{{ form.get('phone','') }}"></label><label>Company (optional)<input name="company" value="{{ form.get('company','') }}"></label>
+<label>How can we help?<textarea name="message" rows="3">{{ form.get('message','') }}</textarea></label>
+<div style="position:absolute;left:-9999px" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
+<label style="font-weight:400"><input type="checkbox" name="consent" value="1" style="width:auto" required> I agree that {{ ws['name'] }} may contact me about my enquiry and store my details for that purpose.</label>
+<button class="btn">Send</button></form>{% endif %}</div>{% endblock %}

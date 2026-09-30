@@ -1,0 +1,61 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>🖼️ {{ b['name'] }}</h1><div>
+<form method="post" action="{{ url_for('board_arrange', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">🧹 Tidy up</button></form>
+<a class="btn ghost" href="{{ url_for('moodboards') }}">All boards</a>
+<form method="post" action="{{ url_for('board_delete', bid=b['id']) }}" style="display:inline" onsubmit="return confirm('Delete this whole board?')"><button class="btn danger">Delete board</button></form></div></div>
+<p class="muted">{{ b['description'] }} Drag any card to move it, drag the corner to resize, click to bring to front. Changes save as you go.</p>
+
+<div class="mb-toolbar">
+<form method="post" action="{{ url_for('board_add', bid=b['id']) }}" enctype="multipart/form-data"><input type="hidden" name="kind" value="upload"><input type="file" name="file" multiple accept="image/*" id="mb-file" style="display:none" onchange="this.form.submit()">
+<button type="button" class="btn sm" onclick="document.getElementById('mb-file').click()">🖼️ Upload image</button></form>
+<button type="button" class="btn ghost sm" onclick="toggle('mb-note')">📝 Note</button>
+<button type="button" class="btn ghost sm" onclick="toggle('mb-color')">🎨 Colour</button>
+<button type="button" class="btn ghost sm" onclick="toggle('mb-link')">🔗 Link</button>
+<button type="button" class="btn ghost sm" onclick="toggle('mb-image')">🌐 Image URL</button>
+</div>
+<div id="mb-note" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="note"><textarea name="content" rows="2" placeholder="Type a note or copy idea…" required autofocus></textarea><button class="btn sm">Add note</button></form></div>
+<div id="mb-color" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="color"><input type="color" name="content" value="#7c5cd6" style="width:56px"><input name="caption" placeholder="Name (e.g. Primary)"><button class="btn sm">Add colour</button></form></div>
+<div id="mb-link" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="link"><input type="url" name="content" placeholder="https://…" required autofocus><input name="caption" placeholder="Caption (optional)"><button class="btn sm">Add link</button></form></div>
+<div id="mb-image" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="image"><input name="content" placeholder="https://…/photo.jpg" required autofocus><input name="caption" placeholder="Caption (optional)"><button class="btn sm">Add image</button></form></div>
+
+{% if not items %}<div class="card" style="margin-top:14px"><b>This board is empty</b><p class="muted">Use the buttons above to add your first image, note, colour or link. Everything you add can be dragged anywhere on the canvas below.</p></div>{% endif %}
+
+<div class="mcanvas-wrap"><div class="mcanvas" id="canvas" data-topz="{{ (items|map(attribute='z')|max) if items else 1 }}">
+{% for i in items %}<div class="citem" data-id="{{ i['id'] }}" style="left:{{ i['x'] }}px;top:{{ i['y'] }}px;width:{{ i['w'] }}px;height:{{ i['h'] }}px;z-index:{{ i['z'] }}">
+<form method="post" action="{{ url_for('board_item_delete', iid=i['id']) }}" class="citem-del"><button class="btn danger sm" type="submit">✕</button></form>
+<div class="citem-body">
+{% if i['kind'] == 'image' %}<img src="{{ media(i['content']) }}" alt="" loading="lazy" draggable="false">{% if i['caption'] %}<div class="citem-cap">{{ i['caption'] }}</div>{% endif %}
+{% elif i['kind'] == 'color' %}<div class="color" style="background:{{ i['content'] }};height:100%" onclick="navigator.clipboard.writeText('{{ i['content'] }}')" title="Click to copy">{{ i['content'] }}<br>{{ i['caption'] }}</div>
+{% elif i['kind'] == 'note' %}<div class="citem-note">{{ i['content'] }}</div>
+{% else %}<div class="citem-note">🔗 <a href="{{ i['content'] }}" target="_blank" rel="noopener noreferrer">{{ i['caption'] or i['content']|truncate(40) }}</a></div>{% endif %}
+</div><div class="citem-resize"></div></div>{% endfor %}
+</div></div>
+{% endblock %}
+{% block scripts %}<script>
+function toggle(id){var el=document.getElementById(id);['mb-note','mb-color','mb-link','mb-image'].forEach(function(x){if(x!==id)document.getElementById(x).style.display='none';});el.style.display=el.style.display==='none'?'block':'none';}
+(function(){
+var canvas=document.getElementById('canvas');if(!canvas)return;
+var topz=parseInt(canvas.dataset.topz||'1',10);
+function place(el,x,y,w,h){el.style.left=x+'px';el.style.top=y+'px';if(w)el.style.width=w+'px';if(h)el.style.height=h+'px';}
+function save(el){api('/moodboards/item/'+el.dataset.id+'/place',{x:parseInt(el.style.left,10),y:parseInt(el.style.top,10),w:parseInt(el.style.width,10),h:parseInt(el.style.height,10),z:parseInt(el.style.zIndex,10)});}
+function bringFront(el){topz+=1;el.style.zIndex=topz;}
+canvas.querySelectorAll('.citem').forEach(function(item){
+ var body=item.querySelector('.citem-body'), handle=item.querySelector('.citem-resize');
+ body.addEventListener('pointerdown',function(e){
+  if(e.target.closest('a')) return;
+  e.preventDefault();bringFront(item);
+  var sx=e.clientX,sy=e.clientY,ox=item.offsetLeft,oy=item.offsetTop;
+  function move(ev){var nx=Math.max(0,Math.round((ox+ev.clientX-sx)/10)*10),ny=Math.max(0,Math.round((oy+ev.clientY-sy)/10)*10);place(item,nx,ny);}
+  function up(){document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);save(item);}
+  document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);
+ });
+ handle.addEventListener('pointerdown',function(e){
+  e.preventDefault();e.stopPropagation();bringFront(item);
+  var sx=e.clientX,sy=e.clientY,ow=item.offsetWidth,oh=item.offsetHeight;
+  function move(ev){var nw=Math.max(80,Math.round((ow+ev.clientX-sx)/10)*10),nh=Math.max(60,Math.round((oh+ev.clientY-sy)/10)*10);place(item,item.offsetLeft,item.offsetTop,nw,nh);}
+  function up(){document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);save(item);}
+  document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);
+ });
+});
+})();
+</script>{% endblock %}

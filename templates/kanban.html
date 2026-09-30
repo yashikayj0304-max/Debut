@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>{{ m.icon }} {{ m.title }} — Board</h1><div><a class="btn" href="{{ url_for('m_new', key=key) }}">+ New</a> <a class="btn ghost" href="{{ url_for('m_list', key=key) }}">List view</a></div></div>
+<div class="kan">{% for o in opts %}<div class="col"><h3>{{ o }} <span class="muted">({{ rows|selectattr(field, 'equalto', o)|list|length }})</span></h3>
+{% for r in rows if r[field] == o %}<div class="kcard"><a href="{{ url_for('m_edit', key=key, rid=r['id']) }}"><b>{{ r[title_f]|truncate(60) }}</b></a>
+<div class="muted">{{ r[sub_f] }}</div>
+<form method="post" action="{{ url_for('m_status', key=key, rid=r['id']) }}"><input type="hidden" name="next" value="{{ url_for('kanban', key=key) }}">
+<select name="value" onchange="this.form.submit()">{% for p in opts %}<option {% if p == o %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></form></div>{% endfor %}</div>{% endfor %}</div>
+{% endblock %}

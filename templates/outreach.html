@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>✉️ Outreach — {{ inf['name'] }}</h1><a class="btn ghost" href="{{ url_for('m_list', key='influencers') }}">Back</a></div>
+<p class="muted">{{ inf['platform'] }} · {{ inf['handle'] }} · {{ inf['email'] or 'no email saved' }}</p>
+<form class="card two" method="get"><label>Template<select name="t" onchange="this.form.submit()">{% for t in tpls %}<option value="{{ t['id'] }}" {% if t['id']|string == tid %}selected{% endif %}>{{ t['name'] }} ({{ t['channel'] }})</option>{% endfor %}</select></label>
+<label>Your brand<input name="brand" value="{{ brand }}"></label><label>Campaign / event<input name="campaign" value="{{ campaign }}"></label><label>Your name<input name="sender" value="{{ sender }}"></label><div><button class="btn">Refresh</button></div></form>
+<div class="card"><label>Subject<input id="sub" value="{{ subject }}"></label><label>Message<textarea id="msg" rows="12">{{ body }}</textarea></label>
+<button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('msg').value)">Copy message</button>
+{% if mailto %}<a class="btn ghost" href="{{ mailto }}">Open in email app</a>{% endif %}
+<form method="post" action="{{ url_for('influencer_contacted', iid=inf['id']) }}" style="display:inline"><button class="btn ghost">Mark contacted (+4-day follow-up)</button></form></div>
+{% endblock %}

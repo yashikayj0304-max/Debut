@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>⚡ Latest Updates</h1><div><a class="btn" href="?refresh=1&cat={{ cat }}">↻ Refresh</a> <a class="btn ghost" href="{{ url_for('m_list', key='feeds') }}">Manage sources</a></div></div>
+<p class="muted">Live headlines from your news sources (cached 15 min). Save useful ones to Reference Links.</p>
+<form class="filters" method="get"><select name="cat" onchange="this.form.submit()"><option value="">All categories</option>{% for c in cats %}<option {% if c == cat %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></form>
+{% if errors %}<p class="muted">⚠ Could not load: {{ errors|join(', ') }}</p>{% endif %}
+<div class="card">{% for i in items %}<div class="news"><a class="t" href="{{ i.url }}" target="_blank" rel="noopener">{{ i.title }}</a>
+<div class="muted">{{ i.source }} · {{ i.date }} · <span class="badge">{{ i.category }}</span></div><div>{{ i.summary }}</div>
+<form method="post" action="{{ url_for('updates_save') }}"><input type="hidden" name="title" value="{{ i.title }}"><input type="hidden" name="url" value="{{ i.url }}"><input type="hidden" name="source" value="{{ i.source }}"><button class="btn ghost sm">＋ Save to references</button></form></div>
+{% else %}<p class="muted">No items loaded (check your internet connection or feed sources).</p>{% endfor %}</div>
+{% endblock %}

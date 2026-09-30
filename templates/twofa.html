@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block body %}<div class="head"><h1>🔐 Two-factor login</h1></div>
+{% if on %}<div class="card" style="max-width:560px"><p>Two-factor is <b>on</b> for your account. To turn it off, confirm your password and a current code.</p>
+<form method="post" action="{{ url_for('ws.twofa_disable') }}"><label>Password<input type="password" name="password" required></label><label>Current code<input name="code" inputmode="numeric" required></label><button class="btn danger">Turn off two-factor</button></form>
+<p class="muted">Lost your phone? Use one of your recovery codes at login, or ask your platform admin to reset it.</p></div>
+{% else %}<div class="card" style="max-width:640px"><p><b>1.</b> Open your authenticator app and scan this code (or enter the key manually).</p>
+<div style="max-width:220px;margin:8px 0">{{ qr|safe }}</div><p class="muted">Key: <code>{{ secret }}</code></p>
+<p><b>2.</b> Enter the 6-digit code it shows to finish.</p>
+<form method="post" action="{{ url_for('ws.twofa_enable') }}" class="filters"><input name="code" inputmode="numeric" placeholder="123456" required><button class="btn">Turn on</button></form></div>{% endif %}
+{% endblock %}

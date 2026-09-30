@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block body %}<div class="head"><h1>💳 Plan &amp; billing</h1></div>
+<div class="card"><b>Current plan: {{ plan['name'] }}</b>
+<p class="muted">{% if plan_key == 'free' %}Free forever. Upgrade any time.{% elif plan_key == 'trial' %}Trial of all features, ends {{ ws['trial_ends'] }}, then you continue on Free.{% else %}Status: {{ ws['plan_status'] }} · current period ends {{ ws['period_end'] }}{% endif %}{% if ws['cancel_at_period_end'] %} · <b>cancels at period end, then continues on Free</b>{% endif %}</p>
+<p>Seats {{ seats }}/{{ plan['seats'] }}{% if plan['clients'] %} · Client portal {{ clients }}/{{ plan['clients'] }}{% endif %} · AI credits {{ used }}/{{ plan['ai_credits'] }} this month · Records {{ records }}/{{ '{:,}'.format(plan['records']) }}</p>
+{% if plan_key in C.PAID_PLANS and ws['plan_status'] in ('active','authenticated','pending') and not ws['cancel_at_period_end'] and role == 'owner' %}<form method="post" action="{{ url_for('billing.cancel') }}" onsubmit="return confirm('Cancel at the end of the current period?')"><button class="btn danger">Cancel subscription</button></form>{% endif %}</div>
+{% if mode == 'off' %}<div class="banner">Billing isn't configured on this server yet.</div>{% endif %}
+{% if mode == 'demo' %}<div class="banner">DEMO billing mode: plan changes are instant and no payment is taken. Set Razorpay keys for real payments.</div>{% endif %}
+<div id="msg" class="banner bad" style="display:none"></div>
+{% with cur=plan_key, cta='billing', can_buy=(role == 'owner' and mode != 'off'), cur_paid=(plan_key in C.PAID_PLANS) %}{% include "_plans.html" %}{% endwith %}
+<p class="muted">Prices in INR ({{ C.PRICE_NOTE }}). Payments are processed by Razorpay (UPI AutoPay, cards, netbanking).</p>
+{% endblock %}
+{% block scripts %}{% if mode == 'razorpay' %}<script src="https://checkout.razorpay.com/v1/checkout.js"></script>{% endif %}<script>
+function err(m){var e=document.getElementById('msg');e.textContent=m;e.style.display='block';}
+async function subscribe(plan){
+  var r=await api('/billing/subscribe/'+plan,{});var d=r.data;
+  if(!r.ok){err(d.error||'Something went wrong.');return;}
+  if(d.demo){location.reload();return;}
+  var rz=new Razorpay({key:d.key_id,subscription_id:d.subscription_id,name:d.name,description:d.description,prefill:{email:d.email},
+    handler:async function(resp){var v=await api('/billing/verify',resp);if(v.ok){location.reload();}else{err(v.data.error||'Verification failed. If you were charged, contact support.');}}});
+  rz.open();
+}
+</script>{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Send feedback{% endblock %}{% block body %}
+<div class="head"><h1>💬 Send feedback</h1></div>
+<div class="card" style="max-width:640px"><p class="muted">Tell us what to build, what's broken, or what confused you. It goes straight to the {{ C.APP_NAME }} team, together with the page you were on.</p>
+<form method="post"><input type="hidden" name="page" value="{{ page }}">
+<label>What kind of feedback?<select name="kind">{% for k in kinds %}<option value="{{ k }}">{{ {'idea':'An idea or request','problem':'Something is broken or confusing','question':'A question','praise':'Something I like'}[k] }}</option>{% endfor %}</select></label>
+<label>Your message<textarea name="message" rows="6" required placeholder="What were you trying to do? What happened? What did you expect?"></textarea></label>
+<button class="btn">Send</button> <a class="btn ghost" href="{{ page if page.startswith('/') else url_for('dashboard') }}">Cancel</a></form></div>{% endblock %}

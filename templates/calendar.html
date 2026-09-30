@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>📅 Content Calendar — {{ month_name }} {{ y }}</h1><div>
+<a class="btn ghost" href="?y={{ py }}&m={{ pm }}&channel={{ ch }}">◀</a> <a class="btn ghost" href="{{ url_for('calendar_view') }}">Today</a> <a class="btn ghost" href="?y={{ ny }}&m={{ nm }}&channel={{ ch }}">▶</a>
+<a class="btn" href="{{ url_for('m_new', key='content_items', next=request.full_path) }}">+ Content</a>
+<a class="btn ghost" href="{{ url_for('kanban', key='content_items') }}">Pipeline</a></div></div>
+<form class="filters" method="get"><input type="hidden" name="y" value="{{ y }}"><input type="hidden" name="m" value="{{ mth }}">
+<select name="channel" onchange="this.form.submit()"><option value="">All channels</option>{% for c in channels %}<option {% if c == ch %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></form>
+<p class="muted">Subscribe in Google/Apple/Outlook Calendar (private link, keep it secret): <input readonly value="{{ ics }}" onclick="this.select()" style="max-width:520px;display:inline-block"> {% if role in ('owner','admin','lead','manager') %}<form method="post" action="{{ url_for('ics_reset') }}" style="display:inline" onsubmit="return confirm('Old link stops working. Continue?')"><button class="btn ghost sm">Reset link</button></form>{% endif %}</p>
+<p class="muted">Drag a chip to another day to reschedule. Orange labels are key dates (edit them under Key Dates).</p>
+<table class="cal"><tr>{% for d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<th>{{ d }}</th>{% endfor %}</tr>
+{% for w in weeks %}<tr>{% for d in w %}{% set iso = d.isoformat() %}<td class="{{ 'out' if d.month != mth }} {{ 'today' if iso == today }}" data-date="{{ iso }}">
+<div class="d"><span>{{ d.day }}</span><a href="{{ url_for('m_new', key='content_items', publish_date=iso, next=request.full_path) }}">+</a></div>
+{% for n in kd.get(iso, []) %}<div class="kd">★ {{ n }}</div>{% endfor %}
+{% for r in by.get(iso, []) %}<a class="chip {{ r['status'] }}" draggable="true" data-id="{{ r['id'] }}" title="{{ r['channel'] }} · {{ r['status'] }}" href="{{ url_for('m_edit', key='content_items', rid=r['id'], next=request.full_path) }}">{{ r['channel'][:2] }} · {{ r['title'] }}</a>{% endfor %}</td>{% endfor %}</tr>{% endfor %}</table>
+{% if unscheduled %}<div class="card" style="margin-top:16px"><b>Unscheduled ({{ unscheduled|length }})</b> <span class="muted">— open and set a publish date</span><br>
+{% for r in unscheduled %}<a class="chip" style="display:inline-block;margin-right:6px" href="{{ url_for('m_edit', key='content_items', rid=r['id'], next=request.full_path) }}">{{ r['title'] }}</a>{% endfor %}</div>{% endif %}
+{% endblock %}
+{% block scripts %}<script>
+let dragId=null;
+document.querySelectorAll('.chip[draggable]').forEach(c=>c.addEventListener('dragstart',e=>{dragId=c.dataset.id}));
+document.querySelectorAll('td[data-date]').forEach(td=>{td.addEventListener('dragover',e=>e.preventDefault());
+td.addEventListener('drop',async e=>{e.preventDefault();if(!dragId)return;await api('/api/reschedule',{id:dragId,date:td.dataset.date});location.reload();});});
+</script>{% endblock %}

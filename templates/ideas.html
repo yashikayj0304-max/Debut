@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>💡 Idea Bank</h1><span class="muted">{{ ind['icon'] }} {{ ind['label'] }}</span></div>
+<p class="muted">{{ ind['blurb'] }} {% if role in ('owner','admin') %}Not your industry? <a href="{{ url_for('ws.account') }}">Change it in Account</a> to get a tailored kit.{% endif %}</p>
+<div class="card"><b>Content ideas</b><p class="muted">One click adds an idea to your content list, ready to schedule.</p>
+{% for pillar, group in ind['ideas']|groupby(0) %}<h4 style="margin:14px 0 4px;color:var(--pri-d)">{{ pillar }}</h4>{% for i in group %}<div class="news" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span>{{ i[1] }} <span class="badge">{{ i[2] }}</span> <span class="badge">{{ i[3] }}</span></span>
+<a class="btn ghost sm" href="{{ url_for('m_new', key='content_items', title=i[1], channel=i[2], format=i[3], notes='Idea pillar: ' ~ i[0]) }}">+ Add</a></div>{% endfor %}{% endfor %}</div>
+{% if ind['campaigns'] and role != 'creator' %}<div class="card"><b>Campaign &amp; promotion ideas</b>{% for c in ind['campaigns'] %}<div class="news"><b>{{ c[0] }}</b> <span class="badge">{{ c[1] }}</span> <span class="badge">{{ c[2] }}</span><div class="muted">{{ c[4] }}</div><div class="tag">Target: {{ c[3] }}</div>
+<a class="btn ghost sm" href="{{ url_for('m_new', key='campaigns', name=c[0], objective=c[1], channel=c[2], kpi_target=c[3], brief=c[4]) }}">+ Create campaign</a></div>{% endfor %}</div>{% endif %}
+{% if role != 'creator' %}<div class="card"><b>KPI scorecard for your industry</b><table style="box-shadow:none;margin-top:8px"><tr><th>Metric</th><th>Channel</th><th>How to measure</th><th></th></tr>
+{% for k in ind['kpis'] %}<tr><td><b>{{ k[0] }}</b></td><td>{{ k[1] }}</td><td class="muted">{{ k[2] }}</td><td>{% if can_kpi %}<a class="btn ghost sm" href="{{ url_for('m_new', key='kpis', metric=k[0], channel=k[1], notes=k[2]) }}">+ Log</a>{% else %}<span class="tag">🔒 paid plans</span>{% endif %}</td></tr>{% endfor %}</table></div>
+{% endif %}{% if ind['personas'] and role != 'creator' %}<div class="card"><b>Persona templates</b>{% for p in ind['personas'] %}<div class="news"><b>{{ p['name'] }}</b> <span class="tag">{{ p['role'] }}</span><div class="muted">{{ p['pain_points'] }}</div>
+{% if p['name'] in have_personas %}<span class="tag">✓ already in your Personas</span>{% else %}<a class="btn ghost sm" href="{{ url_for('m_new', key='personas', **p) }}">+ Add persona</a>{% endif %}</div>{% endfor %}</div>{% endif %}
+{% endblock %}

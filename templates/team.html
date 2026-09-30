@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>👥 Team &amp; roles</h1><span class="muted">{{ seats_used }} of {{ seats }} seats used ({{ plan['name'] }}){% if clients_allowed %} · {{ clients_used }} of {{ clients_allowed }} client-portal seats{% endif %}</span></div>
+<table><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>
+{% for m in members %}<tr><td>{{ m['name'] }}</td><td>{{ m['email'] }}</td><td>
+{% if m['role'] == 'client' %}<span class="pill">client</span> <span class="tag">{{ m['client_name'] }}</span> <a class="btn ghost sm" href="{{ url_for('portal', client=m['client_name']) }}">Preview portal</a>{% elif not m['editable'] %}<span class="pill">{{ m['role'] }}</span>{% else %}<form method="post" action="{{ url_for('ws.change_role') }}" style="display:flex;gap:6px"><input type="hidden" name="mid" value="{{ m['mid'] }}">
+<select name="role" onchange="this.form.submit()">{% for r in roles if r != 'client' %}<option {% if r == m['role'] %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></form>{% endif %}</td>
+<td>{% if m['editable'] %}<form method="post" action="{{ url_for('ws.remove_member') }}" onsubmit="return confirm('Remove this member?')"><input type="hidden" name="mid" value="{{ m['mid'] }}"><button class="btn danger sm">Remove</button></form>{% endif %}</td></tr>{% endfor %}</table>
+<div class="card" style="margin-top:16px"><b>Invite someone</b>{% if roles %}<form method="post" action="{{ url_for('ws.invite') }}" class="two" style="margin-top:8px"><label>Email<input type="email" name="email" required></label>
+<label>Role<select name="role" id="role-sel" onchange="document.getElementById('cn').style.display=this.value==='client'?'block':'none'">{% for r in roles %}<option {% if r == 'manager' %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
+<label id="cn" style="display:none">Client name (exactly as used in the “Client” field of their content)<input name="client_name" placeholder="e.g. Grand Orchid Hotels"></label><div><button class="btn">Send invite</button></div></form>{% endif %}</div>
+<div class="card"><b>What each role can do</b>
+<table style="box-shadow:none"><tr><th>Role</th><th>Access</th></tr>
+<tr><td><span class="pill">owner</span></td><td>Everything, including billing, plan changes, industry and deleting the workspace.</td></tr>
+<tr><td><span class="pill">admin</span></td><td>Everything except deleting the workspace or changing the subscription. Can manage leads, managers, creators and viewers.</td></tr>
+<tr><td><span class="pill">lead</span></td><td><b>Team lead:</b> sees and edits all marketing data, uses the Team hub (workload, approvals), manages managers, creators and viewers, exports data, reads the activity log. No billing or workspace settings.</td></tr>
+<tr><td><span class="pill">manager</span></td><td>Full access to marketing data and exports. No team management.</td></tr>
+<tr><td><span class="pill">creator</span></td><td>Content, tasks, references, mood boards and content orders (<b>without prices or costs</b>). Can send work for review but cannot approve or publish it.</td></tr>
+<tr><td><span class="pill">client</span></td><td><b>Client portal (Team and Agency plans):</b> sees only the content and campaigns tagged with their client name, can approve or request changes on items in Review, and comment. Never sees other clients, budgets, costs, internal notes or internal comments.</td></tr>
+<tr><td><span class="pill">viewer</span></td><td>Read-only access to everything on the plan, <b>including client lists and financials</b>. Best for internal stakeholders. For external clients, send the read-only report link (Client report) instead.</td></tr></table></div>
+{% if invites %}<div class="card"><b>Pending invites</b>{% for i in invites %}<div style="padding:4px 0">{{ i['email'] }} <span class="pill">{{ i['role'] }}</span> <span class="muted">expires {{ i['expires'] }}</span>
+<form method="post" action="{{ url_for('ws.revoke_invite', iid=i['id']) }}" style="display:inline"><button class="btn danger sm">Revoke</button></form></div>{% endfor %}</div>{% endif %}
+{% endblock %}

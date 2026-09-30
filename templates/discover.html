@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>🔭 Discover Influencers</h1><a class="btn ghost" href="{{ url_for('m_list', key='influencers') }}">My influencer list</a></div>
+<p class="muted">Enter a niche and this builds ready-made search links for every major platform. Open the results, pick prospects, and log them with “+ Add prospect”. Emails and follower counts must be verified on the profile itself.</p>
+<form class="card two" method="get"><label>Niche / keyword<input name="kw" value="{{ kw }}" placeholder="e.g. chocolate dessert, home baker, fitness, parenting" required></label>
+<label>City / region<input name="city" value="{{ city }}" placeholder="e.g. Delhi"></label><label>Language<input name="lang" value="{{ lang }}" placeholder="e.g. Hindi"></label><div style="align-self:end"><button class="btn">Build search links</button></div></form>
+{% if links %}<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">{% for p, items in links.items() %}<div class="card"><b>{{ p }}</b>
+{% for label, url in items %}<div style="padding:4px 0"><a href="{{ url }}" target="_blank" rel="noopener">{{ label }} ↗</a></div>{% endfor %}
+{% if p in platforms %}<p><a class="btn sm" href="{{ url_for('m_new', key='influencers', platform=p, niche=kw, city=city, language=lang, status='Prospect') }}">+ Add prospect</a></p>{% endif %}</div>{% endfor %}</div>{% endif %}
+<div class="card"><b>Discovery & analytics tools</b> <span class="muted">(third-party; pricing and coverage vary, check each site)</span><p>{% for n, u in tools %}<a class="badge" href="{{ u }}" target="_blank" rel="noopener">{{ n }} ↗</a> {% endfor %}</p>
+<p class="muted">Vetting checklist: engagement rate vs followers, comment quality (not just emojis), audience location, past sponsored posts, brand-safety scan of old content, and sample of recent reach.</p>
+<a class="btn ghost" href="{{ url_for('ai_studio') }}">Get an AI discovery plan →</a></div>
+{% endblock %}

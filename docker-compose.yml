@@ -1,0 +1,33 @@
+# Self-hosting on a single VPS:  cp .env.example .env  (edit)  &&  docker compose up -d --build
+# HTTPS (recommended): set DOMAIN in .env and run  docker compose --profile https up -d
+# Daily email digest (add to the host crontab, 08:00 IST = 02:30 UTC):
+#   30 2 * * *  cd /path/to/app && docker compose exec -T web python manage.py send-digests
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: debut
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: debut
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U debut"], interval: 5s, retries: 10}
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://debut:${DB_PASSWORD}@db:5432/debut
+      APP_ENV: production
+    depends_on: {db: {condition: service_healthy}}
+    volumes: [uploads:/data/uploads]
+    ports: ["127.0.0.1:8000:8000"]
+  caddy:
+    image: caddy:2-alpine
+    profiles: [https]
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment: {DOMAIN: "${DOMAIN:-localhost}"}
+    volumes: [./deploy/Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data]
+    depends_on: [web]
+volumes: {pgdata: {}, uploads: {}, caddy_data: {}}

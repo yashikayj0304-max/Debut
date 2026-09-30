@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>{{ m.icon }} {{ 'Edit' if row else 'New' }} — {{ m.title }}</h1></div>
+<form method="post" action="{{ url_for('m_save', key=key) }}" class="form card">
+{% if row %}<input type="hidden" name="id" value="{{ row['id'] }}">{% endif %}<input type="hidden" name="next" value="{{ nxt }}">
+{% for n, label, typ, opts in m.fields %}{% if n not in hidden %}{% set val = row[n] if row else defaults.get(n, '') %}
+<label>{{ label }}
+{% if typ == 'textarea' %}<textarea name="{{ n }}" rows="4">{{ val }}</textarea>
+{% elif typ == 'select' %}<select name="{{ n }}">{% for o in opts %}<option {% if val == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+{% elif typ == 'number' %}<input type="number" step="any" name="{{ n }}" value="{{ val }}">
+{% else %}<input type="{{ typ if typ in ('date', 'url', 'color') else 'text' }}" name="{{ n }}" value="{{ val or ('#7c5cd6' if typ == 'color' else '') }}"{% if n in ('assignee', 'owner') %} list="team-names" autocomplete="off"{% endif %}>{% endif %}</label>{% endif %}{% endfor %}
+<datalist id="team-names">{% for t in team_names %}<option value="{{ t }}">{% endfor %}</datalist>
+<button class="btn">Save</button> <a class="btn ghost" href="{{ nxt or url_for('m_list', key=key) }}">Cancel</a></form>
+{% if row %}<div class="card form" id="comments"><b>💬 Comments</b> <span class="muted">— use @Name to notify a teammate</span>
+{% for c in comments %}<div class="news"><b>{{ c['uname'] or 'Someone' }}</b> <span class="tag">{{ c['created_at']|string|truncate(16, True, '') }}</span>{% if c['client_visible'] %} <span class="pill">visible to client</span>{% endif %}<div style="white-space:pre-wrap">{{ c['body'] }}</div>
+{% if c['user_id'] == user['id'] or role in TEAM_MANAGERS %}<form method="post" action="{{ url_for('comment_delete', cid=c['id']) }}" style="display:inline"><button class="btn danger sm">Delete</button></form>{% endif %}</div>{% else %}<p class="muted">No comments yet.</p>{% endfor %}
+<form method="post" action="{{ url_for('comment_add', key=key, rid=row['id']) }}" style="margin-top:8px"><textarea name="body" rows="2" placeholder="Write a comment…" required></textarea><div style="margin-top:6px"><button class="btn sm">Comment</button>{% if key == 'content_items' and row['client'] and role in ('owner','admin','lead','manager') %} <label style="display:inline;font-weight:400"><input type="checkbox" name="client_visible" value="1" style="width:auto"> Share with client ({{ row['client'] }}) — otherwise private to your team</label>{% endif %}</div></form></div>{% endif %}
+{% if row and key == 'events' %}<div class="card form"><b>Event checklist</b><p class="muted">Adds dated tasks (relative to the event date) to your Tasks board.</p>
+<form method="post" action="{{ url_for('event_checklist', eid=row['id']) }}" style="display:inline"><input type="hidden" name="mode" value="online"><button class="btn">+ Online event checklist</button></form>
+<form method="post" action="{{ url_for('event_checklist', eid=row['id']) }}" style="display:inline"><input type="hidden" name="mode" value="offline"><button class="btn ghost">+ Offline event checklist</button></form></div>{% endif %}
+{% if row and key == 'content_orders' and role != 'creator' %}<a class="btn" href="{{ url_for('order_match', oid=row['id']) }}">Find matching creators</a>{% endif %}
+{% if row and key == 'influencers' %}<a class="btn" href="{{ url_for('outreach', iid=row['id']) }}">✉ Draft outreach</a>{% endif %}
+{% endblock %}

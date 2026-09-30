@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% block title %}Help &amp; guides{% endblock %}{% block body %}
+<div class="head"><h1>❓ Help &amp; guides</h1><div>{% if role != 'client' %}<button class="btn ghost" onclick="startTour()">🧭 Take the tour again</button>{% endif %} <a class="btn" href="/feedback?from=/help">💬 Ask us or send feedback</a></div></div>
+<div class="card"><b>🖼️ Visual tour of the app</b><p class="muted">Real screenshots of every screen and role: dashboards, calendar, Market Pulse, Team hub, the client portal, mobile and more.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Visual-Tour.pdf') }}" target="_blank">Open PDF</a></div>
+<div class="two"><div class="card"><b>📘 Guide for personal brands</b><p class="muted">Set up in 30 minutes, your first 7 days, AI drafts in your voice, opportunities, leads, KPIs and a weekly rhythm.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Guide-Personal-Branding.pdf') }}" target="_blank">Open PDF</a></div>
+<div class="card"><b>📗 Guide for agencies &amp; teams</b><p class="muted">Roles, the Team hub, approvals, delegation, agency operations, client work and a leader's weekly routine.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Guide-Agencies-and-Teams.pdf') }}" target="_blank">Open PDF</a></div></div>
+<div class="card"><b>🗺️ Where is everything?</b><p class="muted">A quick map from "I want to..." to the menu path.</p>
+<table style="box-shadow:none;margin-top:8px"><tr><th>I want to…</th><th>Go to</th></tr>
+<tr><td>Plan a launch or campaign strategy</td><td>Strategy &gt; GTM Plans</td></tr>
+<tr><td>See who I'm marketing to</td><td>Strategy &gt; Personas / ICP</td></tr>
+<tr><td>Keep my colours, fonts and voice consistent</td><td>Strategy &gt; Brand Kit</td></tr>
+<tr><td>Schedule posts and see the month at a glance</td><td>Content &gt; Calendar</td></tr>
+<tr><td>Collect visual inspiration for a launch</td><td>Content &gt; Mood Boards</td></tr>
+<tr><td>Get content or campaign ideas for my industry</td><td>Content &gt; Idea Bank</td></tr>
+<tr><td>Draft copy, plans or a calendar with AI</td><td>Intelligence &gt; AI Studio</td></tr>
+<tr><td>See live news and trends for my industry</td><td>Intelligence &gt; Market Pulse</td></tr>
+<tr><td>Find and contact influencers</td><td>Campaigns &gt; Discover Influencers</td></tr>
+<tr><td>Track leads and enquiries</td><td>Growth &gt; Leads</td></tr>
+<tr><td>Log and chart my KPIs</td><td>Growth &gt; KPI Log / Analytics</td></tr>
+<tr><td>Run a client's content through review and approval</td><td>Content Ops (agency workflow) / Team hub</td></tr>
+<tr><td>See what my whole team is working on</td><td>👑 Team hub (sidebar, owners/admins/leads)</td></tr>
+<tr><td>Invite a teammate or a client</td><td>👥 Team &amp; roles</td></tr>
+<tr><td>Send a client a read-only report</td><td>📑 Client report</td></tr>
+<tr><td>Connect a website form or the API</td><td>🔌 Integrations</td></tr>
+<tr><td>Change plan or payment details</td><td>💳 Plan (Billing)</td></tr>
+<tr><td>Turn on two-factor login or change my brand colour</td><td>⚙ Account</td></tr>
+</table></div>
+<div class="card"><b>Quick answers</b>
+<div class="news"><b>How do I start?</b><div class="muted">Follow the “Get started” checklist on your Dashboard. Each step opens the right page.</div></div>
+<div class="news"><b>Does {{ C.APP_NAME }} post to LinkedIn or Instagram for me?</b><div class="muted">No. You plan and draft here, post on the platform yourself, then mark the item Published.</div></div>
+<div class="news"><b>Why is a menu item locked (🔒)?</b><div class="muted">It's part of a higher plan. You can see everything you have; nothing is deleted if you stay on Free.</div></div>
+<div class="news"><b>AI says I've used my credits.</b><div class="muted">Credits reset each month and depend on your plan. Verify your email to use AI.</div></div>
+<div class="news"><b>How do I add a teammate?</b><div class="muted">Team &amp; roles &gt; Invite someone (Team and Agency plans have more seats). Use the lowest role that works.</div></div>
+<div class="news"><b>How do I get my data out?</b><div class="muted">“Export data” in the menu downloads everything as spreadsheets. You can also delete your workspace under Account.</div></div>
+<div class="news"><b>I lost my phone (two-factor).</b><div class="muted">Use one of your recovery codes on the code screen, or contact us to reset it.</div></div></div>
+<div class="card"><b>Still stuck?</b><p class="muted">Use <b>Send feedback</b> (it includes the page you were on) or see our <a href="{{ url_for('contact') }}">Contact page</a>.</p></div>{% endblock %}

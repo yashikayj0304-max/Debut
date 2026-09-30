@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block body %}<div class="head"><h1>🔌 Integrations</h1></div>
+<div class="card"><b>📥 Lead capture (all plans)</b><p class="muted">Turn your bio link, website or a QR code into a lead machine. Every enquiry lands in your Leads list as “New”.</p>
+<label>Hosted enquiry form (share this link)<input readonly value="{{ form_url }}" onclick="this.select()"></label>
+<label>Website / Zapier webhook (POST JSON or form fields: name, email, phone, company, message, source)<input readonly value="{{ hook_url }}" onclick="this.select()"></label>
+<pre style="background:var(--pri2);padding:12px;border-radius:10px;overflow:auto">curl -X POST {{ hook_url }} \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Asha","email":"asha@example.com","message":"Interested in a demo","source":"Landing page"}'</pre>
+<p class="muted">The webhook accepts requests from any website. Only collect details people have agreed to share; add a consent line to your own forms. <form method="post" action="{{ url_for('ws.hook_reset') }}" style="display:inline" onsubmit="return confirm('The old webhook URL will stop working. Continue?')"><button class="btn ghost sm">Reset webhook URL</button></form></p></div>
+<div class="card"><b>📅 Calendar &amp; client reports</b><p class="muted">Subscribe your calendar app to your content plan, and share a read-only monthly report with clients.</p>
+<a class="btn ghost" href="{{ url_for('calendar_view') }}">Calendar subscribe link</a> <a class="btn ghost" href="{{ url_for('report') }}">Client report (with share link)</a></div>
+<div class="card"><b>🔑 REST API (Team &amp; Agency plans)</b>
+{% if not has_api %}<p class="muted">Connect Zapier, Make, Google Sheets or your own scripts (push KPIs from analytics, create leads and content, read everything). Available on the Team and Agency plans.</p>{% if role in ('owner','admin') %}<a class="btn" href="{{ url_for('billing.billing') }}">See plans</a>{% endif %}
+{% else %}<p class="muted">Every module is available at <code>{{ base }}/api/v1/&lt;module&gt;</code> (GET list, GET one, POST create, PATCH update, DELETE). Send <code>Authorization: Bearer &lt;key&gt;</code>. <code>GET {{ base }}/api/v1/</code> lists all modules and fields.</p>
+<table style="box-shadow:none"><tr><th>Name</th><th>Key</th><th>Scope</th><th>Last used</th><th></th></tr>
+{% for k in keys %}<tr><td>{{ k['name'] }}</td><td><code>{{ k['prefix'] }}…</code></td><td><span class="pill">{{ k['scope'] }}</span></td><td class="tag">{{ k['last_used'] or 'never' }}</td>
+<td>{% if role in ('owner','admin') %}<form method="post" action="{{ url_for('ws.api_key_revoke', kid=k['id']) }}" onsubmit="return confirm('Revoke this key?')"><button class="btn danger sm">Revoke</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="5" class="muted">No keys yet.</td></tr>{% endfor %}</table>
+{% if role in ('owner','admin') %}<form method="post" action="{{ url_for('ws.api_key_create') }}" class="filters" style="max-width:none;margin-top:10px"><input name="name" placeholder="Key name (e.g. Zapier)"><select name="scope" style="max-width:220px"><option value="read">Read only</option><option value="write">Read &amp; write</option></select><button class="btn">Create key</button></form>{% endif %}
+<pre style="background:var(--pri2);padding:12px;border-radius:10px;overflow:auto">curl -X POST {{ base }}/api/v1/kpis -H "Authorization: Bearer gtm_YOURKEY" -H "Content-Type: application/json" \
+  -d '{"metric":"Website sessions","channel":"Website","period":"2026-09-01","value":"12840","target":"15000"}'</pre>{% endif %}</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block body %}<div class="head"><h1>🛠 Platform admin</h1><span class="muted">You (the platform owner) can see every workspace here</span></div>
+<div class="grid" style="margin:12px 0"><div class="tile"><span class="muted">MRR (INR, excl. GST)</span><b>₹{{ '{:,}'.format(mrr) }}</b></div><div class="tile"><span class="muted">Paying workspaces</span><b>{{ n_paid }}</b></div><div class="tile"><span class="muted">Active trials</span><b>{{ n_trials }}</b></div><div class="tile"><span class="muted">Free workspaces</span><b>{{ n_free }}</b></div><div class="tile"><span class="muted">All workspaces / users</span><b>{{ n_ws }} / {{ n_users }}</b></div></div>
+<h3>Launch metrics</h3>
+<div class="grid" style="margin:8px 0"><div class="tile"><span class="muted">New users (7 / 30 days)</span><b>{{ metrics.users_7 }} / {{ metrics.users_30 }}</b></div><div class="tile"><span class="muted">New workspaces (7 days)</span><b>{{ metrics.ws_7 }}</b></div>
+<div class="tile"><span class="muted">Workspaces active in 7 days</span><b>{{ metrics.active_7 }}</b></div><div class="tile"><span class="muted">AI credits today / 30 days</span><b>{{ metrics.ai_today }} / {{ metrics.ai_30 }}</b></div>
+<div class="tile"><span class="muted">New subscriptions (30 days)</span><b>{{ metrics.subs_30 }}</b></div><a class="tile" href="{{ url_for('admin.feedback_inbox') }}" style="text-decoration:none"><span class="muted">Open feedback</span><b>{{ metrics.open_feedback }}</b></a></div>
+{% if metrics.signups %}<p class="muted">Signups by day (last 14 days): {% for d, n in metrics.signups %}<span class="badge">{{ d[5:] }}: {{ n }}</span> {% endfor %}</p>{% endif %}
+{% if metrics.ending %}<div class="card"><b>Trials ending in the next 3 days: reach out personally</b>{% for e in metrics.ending %}<div class="news">{{ e['name'] }} <span class="tag">{{ e['email'] }} · ends {{ e['trial_ends'] }}</span></div>{% endfor %}</div>{% endif %}
+<form class="filters" method="get"><input name="q" value="{{ term }}" placeholder="Search workspace, slug, owner or user email…"><button class="btn">Search</button></form>
+<h3>Workspaces</h3>
+<table><tr><th>Workspace</th><th>Owner</th><th>Industry</th><th>Plan</th><th>Status</th><th>Members</th><th></th></tr>
+{% for r in rows %}<tr><td>{{ r['name'] }}<div class="tag">{{ r['slug'] }} · trial ends {{ r['trial_ends'] or '—' }}</div></td><td>{{ r['owner_email'] }}</td><td>{{ industries[r['industry']]['icon'] if r['industry'] in industries else '' }} {{ r['industry'] }}</td><td>{{ r['plan'] }}</td><td>{{ r['plan_status'] }}</td><td>{{ r['members'] }}</td>
+<td style="white-space:nowrap"><form method="post" action="{{ url_for('admin.support', wid=r['id']) }}" style="display:inline"><button class="btn sm">Open (read-only)</button></form>
+<form method="post" action="{{ url_for('admin.act', wid=r['id']) }}" style="display:inline"><input type="hidden" name="action" value="extend"><button class="btn ghost sm">+14d trial</button></form>
+<form method="post" action="{{ url_for('admin.act', wid=r['id']) }}" style="display:inline-flex;gap:4px"><input type="hidden" name="action" value="set_plan"><select name="plan" style="width:auto">{% for k in plans if k != 'trial' %}<option>{{ k }}</option>{% endfor %}</select><button class="btn ghost sm">Set plan</button></form></td></tr>{% endfor %}</table>
+<h3 style="margin-top:22px">Users</h3>
+<table><tr><th>Name</th><th>Email</th><th>Verified</th><th>Workspaces</th><th>Last login</th><th></th></tr>
+{% for u in users %}<tr><td>{{ u['name'] }}</td><td>{{ u['email'] }}</td><td>{{ '✓' if u['email_verified'] else '—' }}</td><td>{{ u['n_ws'] }}</td><td class="tag">{{ (u['last_login'] or '—')|string|truncate(16, True, '') }}</td>
+<td>{% if not u['email_verified'] %}<form method="post" action="{{ url_for('admin.verify_user', uid=u['id']) }}"><button class="btn ghost sm">Mark verified</button></form>{% endif %}</td></tr>{% endfor %}</table>
+<p class="muted">“Open (read-only)” shows you the customer's workspace exactly as they see it, without being able to change anything. Each use is written to that workspace's activity log, and the Privacy Policy discloses this support access.</p>
+{% endblock %}

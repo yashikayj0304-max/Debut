@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}Contact {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div style="max-width:720px;margin:0 auto"><h1>Contact us</h1>
+<p class="muted">We're a small team and we read everything. Tell us the page you were on and what you expected to happen.</p>
+<div class="card"><table style="box-shadow:none">
+<tr><td><b>Business name</b></td><td>{{ C.COMPANY_NAME }}</td></tr>
+{% if C.COMPANY_ADDRESS %}<tr><td><b>Address</b></td><td>{{ C.COMPANY_ADDRESS }}</td></tr>{% endif %}
+<tr><td><b>Email</b></td><td><a href="mailto:{{ C.SUPPORT_EMAIL }}">{{ C.SUPPORT_EMAIL }}</a></td></tr>
+{% if C.SUPPORT_PHONE %}<tr><td><b>Phone / WhatsApp</b></td><td>{{ C.SUPPORT_PHONE }}</td></tr>{% endif %}
+<tr><td><b>Support hours</b></td><td>{{ C.SUPPORT_HOURS }}</td></tr>
+<tr><td><b>Response time</b></td><td>We aim to reply within one working day.</td></tr>
+{% if C.COMPANY_GSTIN %}<tr><td><b>GSTIN</b></td><td>{{ C.COMPANY_GSTIN }}</td></tr>{% endif %}
+</table></div>
+<div class="card"><b>Privacy and grievances</b><p class="muted">For access, correction or deletion of your personal data, or any privacy complaint, write to {% if C.GRIEVANCE_OFFICER %}<b>{{ C.GRIEVANCE_OFFICER }}</b> (Grievance Officer) at {% endif %}<a href="mailto:{{ C.GRIEVANCE_EMAIL }}">{{ C.GRIEVANCE_EMAIL }}</a>. We acknowledge complaints within 48 hours and aim to resolve them within 30 days.</p></div>
+{% if user %}<div class="card"><b>Already using {{ C.APP_NAME }}?</b> Use the <b>Send feedback</b> button in the menu: it reaches us with the page you were on.</div>{% endif %}</div>{% endblock %}

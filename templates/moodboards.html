@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>🖼️ Mood Boards</h1></div><p class="muted">Collect images, colours, notes and links into visual boards for each campaign or launch.</p>
+<form method="post" action="{{ url_for('board_new') }}" class="card two"><label>Board name<input name="name" required placeholder="e.g. Diwali 2026 — chocolate gifting"></label><label>Description<input name="description"></label><div><button class="btn">Create board</button></div></form>
+<div class="grid">{% for b in boards %}<a class="tile" href="{{ url_for('board_view', bid=b['id']) }}">
+{% if covers[b['id']] %}<img src="{{ media(covers[b['id']]['content']) }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px">{% endif %}
+<b style="font-size:16px">{{ b['name'] }}</b><span class="muted">{{ b['n'] }} items · {{ b['description'] }}</span></a>{% else %}<p class="muted">No boards yet.</p>{% endfor %}</div>
+{% endblock %}

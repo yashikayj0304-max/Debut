@@ -1,0 +1,9 @@
+.git
+.env
+venv
+__pycache__
+*.pyc
+gtm.db
+uploads
+tests
+.pytest_cache

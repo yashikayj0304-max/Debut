@@ -1,0 +1,4 @@
+# Optional, installed in the Docker image: object storage, error monitoring, shared rate-limit storage
+boto3>=1.34
+sentry-sdk>=2.0
+redis>=5.0

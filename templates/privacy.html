@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block body %}<h1>Privacy Policy</h1>
+<div class="banner">TEMPLATE. Have this reviewed against India's Digital Personal Data Protection Act, 2023 and any other laws that apply to you before launching.</div>
+<p class="muted">Last updated: [date]</p>
+<h3>What we collect</h3><p>Account data (name, email, password hash), workspace content you enter (plans, calendars, contacts of creators/influencers/leads, uploaded images), billing status (payments are handled by Razorpay; we do not store card details), and technical logs (IP address, browser, actions in an audit log).</p>
+<h3>Why we use it</h3><p>To provide and secure the service, bill you, send transactional emails (verification, password reset, invites), prevent abuse, and improve the product.</p>
+<h3>Your customers' and contacts' data</h3><p>You are the controller of personal data about people you store in your workspace (for example creators, influencers, leads). You must have a lawful basis to store and contact them. We process it only on your instructions to run the service.</p>
+<h3>AI processing</h3><p>When you use AI features, the text you submit and selected workspace context is sent to our AI provider (Anthropic) to generate a response. [Confirm provider terms and update this section.]</p>
+<h3>Support access</h3><p>Authorised staff of {{ C.COMPANY_NAME }} can open a read-only view of a workspace to provide support or investigate abuse. Each such access is recorded in the workspace's activity log.</p>
+<h3>Sharing</h3><p>We share data only with service providers who help run the service (hosting, database, email, payments, AI, error monitoring), or when required by law.</p>
+<h3>Retention and your rights</h3><p>You can export your data and delete your workspace from Account settings. You may request access, correction or erasure by emailing {{ C.SUPPORT_EMAIL }}.</p>
+<h3>Security</h3><p>Data is encrypted in transit; passwords are hashed; access is controlled by workspace and role. No system is perfectly secure; we will notify affected users of a breach as required by law.</p>
+<h3>Cookies</h3><p>{{ C.APP_NAME }} uses only essential cookies: one to keep you signed in and one to protect forms from forgery. We do not use advertising cookies.{% if C.GA_MEASUREMENT_ID %} Our public marketing pages (not the app) use Google Analytics to count visits.{% endif %}</p>
+<h3>Children</h3><p>The service is intended for people aged 18 and over and for businesses. We do not knowingly collect data from children.</p>
+<h3>Grievance officer</h3><p>{% if C.GRIEVANCE_OFFICER %}{{ C.GRIEVANCE_OFFICER }}, {% endif %}<a href="mailto:{{ C.GRIEVANCE_EMAIL }}">{{ C.GRIEVANCE_EMAIL }}</a>. See also our <a href="{{ url_for('contact') }}">Contact page</a>.</p>
+<h3>Contact</h3><p>{{ C.COMPANY_NAME }}{% if C.COMPANY_ADDRESS %}, {{ C.COMPANY_ADDRESS }}{% endif %} · {{ C.SUPPORT_EMAIL }}</p>
+{% endblock %}

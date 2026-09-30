@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>📊 Content Ops Dashboard</h1><div><a class="btn" href="{{ url_for('m_new', key='content_orders') }}">+ New order</a>
+<a class="btn ghost" href="{{ url_for('kanban', key='content_orders') }}">Order board</a> <a class="btn ghost" href="{{ apply_url }}" target="_blank">Creator apply form ↗</a></div></div>
+<p class="muted">Your content marketplace/agency workflow: Client → Brief → Match creator → Draft → QA → Client review → Delivery → Invoice.</p>
+<div class="grid" style="margin:14px 0">
+<div class="tile"><span class="muted">Orders</span><b>{{ n_orders }}</b></div>
+<div class="tile"><span class="muted">Revenue (approved/delivered)</span><b>₹{{ '{:,.0f}'.format(rev) }}</b></div>
+<div class="tile"><span class="muted">Gross margin</span><b>{{ ((rev - cost) / rev * 100)|round(1) if rev else 0 }}%</b></div>
+<div class="tile"><span class="muted">Open pipeline value</span><b>₹{{ '{:,.0f}'.format(pipe) }}</b></div>
+<div class="tile"><span class="muted">To collect</span><b>₹{{ '{:,.0f}'.format(money_in) }}</b></div>
+<div class="tile"><span class="muted">To pay out</span><b>₹{{ '{:,.0f}'.format(money_out) }}</b></div></div>
+<div class="two">
+<div class="card"><b>⚠ Overdue orders ({{ overdue|length }})</b>{% for o in overdue %}<div style="padding:4px 0"><a href="{{ url_for('m_edit', key='content_orders', rid=o['id']) }}">{{ o['title'] }}</a> <span class="muted">due {{ o['due_date'] }} · {{ o['creator'] or 'unassigned' }}</span></div>{% else %}<p class="muted">None 🎉</p>{% endfor %}</div>
+<div class="card"><b>👤 Unassigned orders ({{ unassigned|length }})</b>{% for o in unassigned %}<div style="padding:4px 0"><a href="{{ url_for('order_match', oid=o['id']) }}">{{ o['title'] }}</a> <span class="muted">{{ o['type'] }} · find creators →</span></div>{% else %}<p class="muted">All open orders have a creator.</p>{% endfor %}</div>
+<div class="card"><b>Orders by status</b><p>{% for s in statuses %}{% if stat.get(s) %}<span class="badge">{{ s }}: {{ stat[s] }}</span> {% endif %}{% endfor %}{% if not stat %}<span class="muted">No orders yet</span>{% endif %}</p></div>
+<div class="card"><b>Creator pipeline</b><p>{% for s, n in pc.items() %}<span class="badge">{{ s }}: {{ n }}</span> {% else %}<span class="muted">No creators yet. Share your public apply link (button above).</span>{% endfor %}</p></div></div>
+<div class="card"><b>Creator performance</b><table><tr><th>Creator</th><th>Orders</th><th>Delivered</th><th>Avg quality</th><th>Margin earned (₹)</th></tr>
+{% for c in creators %}<tr><td>{{ c[0] }}</td><td>{{ c[1] }}</td><td>{{ c[2] }}</td><td>{{ c[3] }}</td><td>{{ '{:,.0f}'.format(c[4]) }}</td></tr>{% else %}<tr><td colspan="5" class="muted">Assign creators to orders to see performance.</td></tr>{% endfor %}</table></div>
+{% endblock %}

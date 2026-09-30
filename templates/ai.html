@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>🤖 AI Marketing Studio</h1></div>
+{% if not has_key %}<div class="card" style="border-color:var(--warn)">⚠ AI is not configured on this server yet (set ANTHROPIC_API_KEY).</div>{% endif %}
+<p class="muted">AI credits this month: <b id="cred">{{ used }} / {{ limit }}</b>. Most tasks cost 1 credit; bigger ones (calendar, GTM plan, reports) cost 2-3.</p>
+<p class="muted">Generate strategy, copy, briefs, calendars and reports. Outputs are drafts — review before publishing.</p>
+<div class="two"><div class="card">
+<label>What do you need?<select id="task">{% set tl = tasks|list %}
+{% if n_mine %}<optgroup label="For {{ ind['label'] }}">{% for k, l, c in tl[:n_mine] %}<option value="{{ k }}">{{ l }} ({{ c }} cr)</option>{% endfor %}</optgroup>{% endif %}
+{% if n_live %}<optgroup label="Live web research (with sources)">{% for k, l, c in tl[n_mine:n_mine + n_live] %}<option value="{{ k }}">{{ l }} ({{ c }} cr)</option>{% endfor %}</optgroup>{% endif %}
+<optgroup label="General marketing">{% for k, l, c in tl[n_mine + n_live:] %}<option value="{{ k }}">{{ l }} ({{ c }} cr)</option>{% endfor %}</optgroup></select></label>
+<label>Product / brand<input id="product" placeholder="e.g. Asha's Kitchen: cold-pressed juices, launching in Pune"></label>
+<label>Target audience<input id="audience" placeholder="e.g. urban professionals 25-40 who care about health"></label>
+<label>Tone<input id="tone" placeholder="e.g. playful, premium, warm"></label>
+<label>Extra instructions<textarea id="extra" rows="3" placeholder="For calendars: start date + number of days + channels. For anything: constraints, budget, must-include points."></textarea></label>
+{% if web %}<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="research" style="width:auto"> Use live web research for this task (+{{ extra }} credits): searches the web now and lists its sources</label>{% endif %}
+<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="use_plan" checked style="width:auto"> Use my latest GTM Plan, Brand Kit and Personas as context</label>
+<button class="btn" id="go" onclick="run()">Generate</button> <span id="st" class="muted"></span></div>
+<div><div class="out" id="out">Output appears here.</div><div id="srcs" class="muted" style="margin-top:8px"></div><p><button class="btn ghost" onclick="navigator.clipboard.writeText(out.innerText)">Copy</button>
+<button class="btn ghost" onclick="save()">Save to Content Library</button> <button class="btn" id="imp" style="display:none" onclick="imp()">Import into Calendar</button></p></div></div>
+{% endblock %}
+{% block scripts %}<script>
+const $=id=>document.getElementById(id);let raw='',srcList=[];const FORCE={{ force|tojson }};function sync(){const r=$('research');if(!r)return;const f=FORCE.indexOf($('task').value)>=0;if(f){r.checked=true}r.disabled=f}
+$('task').addEventListener('change',sync);sync();
+async function run(){$('go').disabled=true;$('st').textContent='Working… (can take up to a minute)';$('imp').style.display='none';
+const r=await api('/api/ai',{task:$('task').value,product:$('product').value,audience:$('audience').value,tone:$('tone').value,extra:$('extra').value,use_plan:$('use_plan').checked,research:!!($('research')&&$('research').checked)});
+const d=r.data;$('go').disabled=false;$('st').textContent='';
+if(d.error){$('out').textContent='Error: '+d.error;return}raw=d.text;$('out').textContent=raw;srcList=d.sources||[];$('srcs').innerHTML=srcList.length?'<b>Sources</b><br>'+srcList.map(function(x){var a=document.createElement('a');a.href=x.url;a.textContent=x.title;a.target='_blank';a.rel='noopener noreferrer';return a.outerHTML}).join('<br>'):'';$('cred').textContent=d.used+' / '+d.limit;if($('task').value==='calendar')$('imp').style.display='inline-block';}
+async function save(){if(!raw)return;await api('/api/save_asset',{title:$('task').selectedOptions[0].text+' — '+($('product').value||'untitled'),type:$('task').value,body:raw+(srcList.length?'\n\nSources:\n'+srcList.map(x=>x.title+' - '+x.url).join('\n'):'')});alert('Saved to Content Library');}
+async function imp(){const r=await api('/api/import_calendar',{text:raw});const d=r.data;if(d.error)alert(d.error);else{alert('Imported '+d.n+' items');location.href='/calendar';}}
+</script>{% endblock %}

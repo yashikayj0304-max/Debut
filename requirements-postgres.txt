@@ -1,0 +1,4 @@
+# Only needed to run against PostgreSQL (production, or testing locally against Postgres).
+# Not needed for local development on SQLite (the default) — kept separate so a missing
+# compiler/build-tools on some Windows setups can't break the plain local dev install.
+psycopg2-binary>=2.9

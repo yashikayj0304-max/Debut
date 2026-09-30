@@ -1,0 +1,18 @@
+<div class="plans">{% for k, p in plans.items() if k != 'trial' %}
+<div class="plan {{ 'cur' if cur == k }} {{ 'pop' if k == 'team' and cta != 'billing' }}"><h3>{{ p.name }}</h3><div class="muted">{{ p.blurb }}</div>
+{% if p.price == 0 %}<div class="price">₹0</div><div class="per">free forever</div>
+{% else %}<div class="price">₹{{ '{:,}'.format(p.price) }}</div><div class="per">per month {{ C.PRICE_NOTE }}</div>{% endif %}
+<ul><li>{{ p.seats }} team seat{{ 's' if p.seats > 1 }}</li><li>{{ p.ai_credits }} AI credits / month</li><li>Up to {{ '{:,}'.format(p.records) }} records</li>
+<li>{{ 'Unlimited' if p.boards >= 999 else p.boards }} mood boards</li>
+<li>Market Pulse: live news, trends &amp; videos for {{ p.watch }} topics</li>
+<li>Calendar, GTM plans, personas, competitors, brand kit, launch checklist, tasks, campaigns, leads, references, news feed</li>
+<li class="{{ 'y' if 'influencers' in p.features else 'n' }}">{% if 'influencers' in p.features %}✓{% else %}✗{% endif %} Influencer discovery &amp; outreach</li>
+<li class="{{ 'y' if 'analytics' in p.features else 'n' }}">{% if 'analytics' in p.features %}✓{% else %}✗{% endif %} KPI tracking &amp; analytics</li>
+<li class="{{ 'y' if 'import' in p.features else 'n' }}">{% if 'import' in p.features %}✓{% else %}✗{% endif %} CSV import</li>
+<li class="{{ 'y' if 'content_ops' in p.features else 'n' }}">{% if 'content_ops' in p.features %}✓{% else %}✗{% endif %} Content Ops (creator network, orders, invoices)</li>
+<li class="{{ 'y' if p.clients else 'n' }}">{% if p.clients %}✓{% else %}✗{% endif %} Client portal{% if p.clients %}: {{ p.clients }} client seats{% endif %}</li>
+<li class="{{ 'y' if 'api' in p.features else 'n' }}">{% if 'api' in p.features %}✓{% else %}✗{% endif %} REST API &amp; integrations</li>
+<li class="{{ 'y' if 'group' in p.features else 'n' }}">{% if 'group' in p.features %}✓{% else %}✗{% endif %} Group mode: Team Lead role, team hub, approvals</li>
+<li class="{{ 'y' if 'promo_events' in p.features else 'n' }}">{% if 'promo_events' in p.features %}✓{% else %}✗{% endif %} Promotions &amp; events (online + offline)</li></ul>
+{% if cta == 'billing' %}{% if cur == k %}<span class="pill">Current plan</span>{% elif k != 'free' and can_buy %}<button class="btn" onclick="subscribe('{{ k }}')">{{ 'Switch to' if cur_paid else 'Choose' }} {{ p.name }}</button>{% endif %}
+{% else %}<a class="btn {{ 'ghost' if k == 'free' }}" href="{{ url_for('auth.signup') }}">{{ 'Start free' if k == 'free' else 'Get started' }}</a>{% endif %}</div>{% endfor %}</div>

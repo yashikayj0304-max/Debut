@@ -1,0 +1,86 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token() }}"><meta name="theme-color" content="{{ brand.pri if brand else '#7c5cd6' }}">
+{% set _t = self.title() %}{% set _d = (meta_desc or C.APP_NAME ~ " is a go-to-market and marketing workspace for brands, agencies, founders and personal brands: plans, content calendar, mood boards, AI drafting, team approvals and client reports.") %}
+<meta name="description" content="{{ _d }}"><link rel="canonical" href="{{ C.APP_URL }}{{ request.path }}">
+<meta property="og:type" content="website"><meta property="og:site_name" content="{{ C.APP_NAME }}"><meta property="og:title" content="{{ _t }}"><meta property="og:description" content="{{ _d }}"><meta property="og:url" content="{{ C.APP_URL }}{{ request.path }}"><meta property="og:image" content="{{ C.APP_URL }}{{ url_for('static', filename='icons/icon-512.png') }}"><meta name="twitter:card" content="summary">
+{% if user and ws and not bare %}<meta name="robots" content="noindex,nofollow">{% endif %}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5cd6'/%3E%3Cpath d='M9 21l5-10 4 6 5-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"><title>{% block title %}{{ C.APP_NAME }}{% endblock %}</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% if brand %}<style>:root{--pri:{{ brand.pri }};--pri-d:{{ brand.pri_d }};--pri2:{{ brand.pri2 }};--pri3:{{ brand.pri3 }};--accent:{{ brand.accent }}}
+aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{% endif %}</head>
+<body class="{{ 'app' if (user and ws and not bare) else 'pub' }}">
+{% if user and ws and not bare %}
+<div class="mobbar"><button class="menu-btn" aria-label="Menu" onclick="document.body.classList.toggle('nav-open')">☰</button><a class="brand" href="{{ url_for('dashboard') }}"><img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt=""> {{ C.APP_NAME }}</a><a class="bell" href="{{ url_for('notifications') }}">🔔{% if unread %}<span class="dot">{{ unread if unread < 10 else '9+' }}</span>{% endif %}</a></div><div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
+<aside><h2><a href="{{ url_for('dashboard') }}" style="padding:0"><img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt=""> {{ C.APP_NAME }}</a></h2>
+{% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
+{% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
+{% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
+{% if role != 'client' %}<form class="srch" method="get" action="{{ url_for('search') }}"><input name="q" placeholder="Search everything…" style="margin:8px 0" data-tour="search"></form>{% endif %}
+<a href="{{ url_for('dashboard') }}" data-tour="dashboard">🏠 Dashboard</a>
+<a href="{{ url_for('notifications') }}" data-tour="bell">🔔 Notifications{% if unread %} <span class="pill">{{ unread }}</span>{% endif %}</a>
+{% for g, items in NAV.items() %}<h4{% if loop.first %} data-tour="modules"{% endif %}>{{ g }}</h4>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}{% endfor %}
+<div class="side-foot">
+{% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">💳 Plan: <span class="pill">{{ plan['name'] }}</span></a>{% endif %}
+{% if role in TEAM_MANAGERS %}<a href="{{ url_for('team_hub') }}">👑 Team hub{{ ' 🔒' if 'group' not in plan['features'] }}</a><a href="{{ url_for('ws.team') }}">👥 Team &amp; roles</a><a href="{{ url_for('ws.activity') }}">🕘 Activity</a>{% endif %}
+{% if role in ('owner','admin','lead','manager') %}<a href="{{ url_for('report') }}">📑 Client report</a><a href="{{ url_for('ws.integrations') }}">🔌 Integrations</a><a href="{{ url_for('ws.export_zip') }}">⬇ Export data</a>{% elif role not in ('creator', 'client') %}<a href="{{ url_for('report') }}">📑 Report</a>{% endif %}
+{% if is_admin %}<a href="{{ url_for('admin.index') }}">🛠 Admin</a>{% elif admin_needs_2fa %}<a href="{{ url_for('ws.twofa') }}">🔐 Turn on 2FA to unlock Admin</a>{% endif %}
+<a href="{{ url_for('help_centre') }}" data-tour="help">❓ Help &amp; guides</a>
+<a href="/feedback?from={{ request.path }}" data-tour="feedback">💬 Send feedback</a>
+<a href="{{ url_for('ws.account') }}">⚙ {{ user['name'] or user['email'] }}</a>
+<form method="post" action="{{ url_for('auth.logout') }}" style="padding:3px 8px"><button class="btn ghost sm">Log out</button></form></div></aside>
+<main>
+{% if support %}<div class="banner bad">🛠 <b>Support view</b> of {{ ws['name'] }}: read-only. <form method="post" action="{{ url_for('admin.exit_support') }}" style="display:inline"><button class="btn ghost sm">Exit support view</button></form></div>{% endif %}
+{% if lapsed %}<div class="banner">Your {{ 'trial' if ws['plan'] == 'trial' else 'subscription' }} has ended, so you're on the <b>Free</b> plan now. Your data is safe; some features are locked and limits apply. {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">Choose a plan →</a>{% endif %}</div>
+{% elif trial_left is not none and trial_left <= 7 %}<div class="banner">Free trial of all features: <b>{{ trial_left }} day(s) left</b>. After that you keep the Free plan. {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">See plans →</a>{% endif %}</div>{% endif %}
+{% if not user['email_verified'] %}<div class="banner">Please verify your email. <form method="post" action="{{ url_for('ws.account_verify') }}" style="display:inline"><button class="btn ghost sm">Resend link</button></form></div>{% endif %}
+{% else %}
+{% if not hide_chrome %}<header class="top"><a class="brand" href="{{ url_for('landing') }}"><img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt=""> {{ C.APP_NAME }}</a><a href="{{ url_for('pricing') }}">Pricing</a><span class="sp"></span>
+{% if user %}<a href="{{ url_for('dashboard') }}">Open app</a>{% else %}<a href="{{ url_for('auth.login') }}">Log in</a><a class="btn" href="{{ url_for('auth.signup') }}">Start free</a>{% endif %}</header>{% endif %}
+<main class="pubmain">
+{% endif %}
+{% for m in get_flashed_messages() %}<div class="flash">{{ m }}</div>{% endfor %}
+{% block body %}{% endblock %}
+{% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
+</main>
+<script>
+window.CSRF=document.querySelector('meta[name=csrf-token]').content;
+document.querySelectorAll('form').forEach(function(f){if((f.method||'').toLowerCase()==='post'&&!f.querySelector('[name=csrf_token]')){var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);}});
+(function(){var p=location.pathname,best=null;document.querySelectorAll("aside>a[href],aside .side-foot a[href]").forEach(function(a){var h=a.getAttribute("href").split("?")[0];if(h===p||(h!=="/app"&&h.length>1&&p.indexOf(h)===0)){if(!best||h.length>best.getAttribute("href").length)best=a;}});if(best)best.classList.add("on");})();
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}
+function switchWs(id){var f=document.createElement('form');f.method='post';f.action='/switch/'+id;var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);document.body.appendChild(f);f.submit();}
+async function api(url,body){var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':window.CSRF},body:JSON.stringify(body||{})});var d={};try{d=await r.json()}catch(e){}return {ok:r.ok,status:r.status,data:d};}
+
+// ---------- first-time tour: a few spotlighted tips pointing at where things live ----------
+var TOUR_STEPS=[
+ {sel:"[data-tour=dashboard]",title:"You are here: the Dashboard",text:"Your home screen: what\'s due, what\'s publishing soon, and quick links into every module."},
+ {sel:"[data-tour=modules]",title:"Everything is grouped here",text:"Plans, content, campaigns and more are grouped by topic in this menu. Scroll down to see them all."},
+ {sel:"[data-tour=search]",title:"Can\'t find something?",text:"Search looks across every module at once: tasks, content, contacts, everything."},
+ {sel:"[data-tour=bell]",title:"Notifications",text:"You\'ll hear here when someone assigns you work, mentions you, or needs your approval."},
+ {sel:"[data-tour=help]",title:"Help \u0026 guides",text:"Full guides and a quick \u2018where is everything\u2019 reference live here, any time you need them."},
+ {sel:"[data-tour=feedback]",title:"Something confusing, or an idea?",text:"Send feedback goes straight to the team, with the page you were on attached."}
+];
+function tourStep(i){
+ document.querySelectorAll('.tour-pop,.tour-mask').forEach(function(e){e.remove()});
+ if(i>=TOUR_STEPS.length){api('/account/onboarded',{});return;}
+ var st=TOUR_STEPS[i],el=document.querySelector(st.sel);
+ if(!el){tourStep(i+1);return;}
+ el.scrollIntoView({block:'center'});
+ setTimeout(function(){
+  var r=el.getBoundingClientRect();
+  var mask=document.createElement('div');mask.className='tour-mask';
+  mask.style.cssText='position:fixed;left:'+(r.left-6)+'px;top:'+(r.top-6)+'px;width:'+(r.width+12)+'px;height:'+(r.height+12)+'px;border-radius:10px;box-shadow:0 0 0 4000px rgba(43,36,66,.45),0 0 0 3px var(--pri);z-index:9998;pointer-events:none;transition:all .2s';
+  document.body.appendChild(mask);
+  var pop=document.createElement('div');pop.className='tour-pop';
+  var top=Math.min(window.innerHeight-160,Math.max(10,r.bottom+12));
+  var left=Math.min(window.innerWidth-300,Math.max(10,r.left));
+  pop.style.cssText='position:fixed;left:'+left+'px;top:'+top+'px;max-width:280px;background:#fff;border-radius:12px;box-shadow:var(--shadow-lg);padding:14px 16px;z-index:9999;font-size:13px';
+  pop.innerHTML='<b style="color:var(--pri-d)">'+st.title+'</b><p style="margin:6px 0 10px;color:var(--mut)">'+st.text+'</p><div style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:11px">'+(i+1)+' / '+TOUR_STEPS.length+'</span><span><button id="tourSkip" class="btn ghost sm" style="margin-right:6px">Skip</button><button id="tourNext" class="btn sm">'+(i+1<TOUR_STEPS.length?'Next':'Done')+'</button></span></div>';
+  document.body.appendChild(pop);
+  document.getElementById('tourNext').onclick=function(){tourStep(i+1);};
+  document.getElementById('tourSkip').onclick=function(){document.querySelectorAll('.tour-pop,.tour-mask').forEach(function(e){e.remove()});api('/account/onboarded',{});};
+ },250);
+}
+function startTour(){tourStep(0);}
+{% if user and ws and not bare and not user['onboarded'] and role not in ('client',) %}window.addEventListener('load',function(){setTimeout(startTour,600);});{% endif %}
+</script>{% if C.GA_MEASUREMENT_ID and not (user and ws and not bare) %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ C.GA_MEASUREMENT_ID }}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config","{{ C.GA_MEASUREMENT_ID }}",{anonymize_ip:true});</script>{% endif %}
+{% block scripts %}{% endblock %}</body></html>

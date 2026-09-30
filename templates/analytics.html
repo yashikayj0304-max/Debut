@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>📊 Analytics</h1><a class="btn" href="{{ url_for('m_new', key='kpis', next='/analytics') }}">+ Log KPI</a></div>
+<p class="muted">Charts are built from the KPI Log, Campaigns and Leads. Log metrics weekly for trends.</p>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
+{% for name in series %}<div class="card"><b>{{ name }}</b><canvas id="k{{ loop.index }}" height="140"></canvas></div>{% endfor %}
+<div class="card"><b>Budget vs spent</b><canvas id="bud" height="140"></canvas></div>
+<div class="card"><b>Lead funnel</b><canvas id="fun" height="140"></canvas></div></div>
+{% if not series %}<p class="muted">No KPI data yet — log a few entries to see trend lines.</p>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script><script>
+const S={{ series|tojson }},C={{ camps|tojson }},FU={{ funnel|tojson }};
+Object.keys(S).forEach((k,i)=>{new Chart(document.getElementById('k'+(i+1)),{type:'line',data:{labels:S[k].map(x=>x.d),datasets:[{label:'Actual',data:S[k].map(x=>x.v),borderColor:'#4f46e5',tension:.3},{label:'Target',data:S[k].map(x=>x.t),borderColor:'#16a34a',borderDash:[5,5]}]}})});
+new Chart(document.getElementById('bud'),{type:'bar',data:{labels:C.map(x=>x.n),datasets:[{label:'Budget',data:C.map(x=>x.b),backgroundColor:'#c7d2fe'},{label:'Spent',data:C.map(x=>x.s),backgroundColor:'#4f46e5'}]}});
+new Chart(document.getElementById('fun'),{type:'bar',data:{labels:FU.map(x=>x.s),datasets:[{label:'Leads',data:FU.map(x=>x.c),backgroundColor:'#4f46e5'}]},options:{indexAxis:'y'}});
+</script>{% endblock %}

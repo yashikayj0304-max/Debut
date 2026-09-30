@@ -1,0 +1,7 @@
+Flask>=3.0,<4
+Flask-WTF>=1.2,<2
+Flask-Limiter>=3.5
+SQLAlchemy>=2.0,<3
+requests>=2.31
+gunicorn>=22 ; sys_platform != "win32"
+segno>=1.6

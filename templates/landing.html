@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% set meta_desc = C.APP_NAME ~ ": plan, launch and grow your brand. Go-to-market plans, content calendar, mood boards, AI drafting, team approvals and client reports for brands, agencies, founders and personal brands in India. Free plan available." %}{% block title %}{{ C.APP_NAME }}: plan, launch and grow your brand{% endblock %}{% block body %}
+<section class="hero"><h1>Every great brand starts with a debut.<br>Plan it, launch it, grow it.</h1>
+<p>Go-to-market plans, content calendar, mood boards, creator marketplace, influencer discovery &amp; outreach, promotions, events and AI drafting. Built for brands, agencies, founders and personal brands in India.</p>
+<a class="btn" href="{{ url_for('auth.signup') }}" style="padding:11px 24px;font-size:15px">Start free</a> <a class="btn ghost" href="{{ url_for('pricing') }}" style="padding:11px 24px;font-size:15px">See pricing</a>
+<p class="tag" style="margin-top:10px">Free plan forever. Every new workspace also gets {{ C.TRIAL_DAYS }} days of all features. No credit card.</p></section>
+<div class="feat">
+<div class="card"><b>📅 Content calendar</b><p class="muted">Drag-and-drop planning across every channel, with festival dates, promotions and events overlaid. Subscribe from Google Calendar.</p></div>
+<div class="card"><b>🖼️ Mood boards</b><p class="muted">Collect images, colours, notes and links into shareable visual direction for each launch.</p></div>
+<div class="card"><b>🚀 GTM planning</b><p class="muted">Plans, personas, competitor battlecards, brand kit and an 8-phase launch checklist that turns into tasks.</p></div>
+<div class="card"><b>✍️ Content Ops</b><p class="muted">Creator network, briefs, matching, QA, revisions, client review, invoices and margin tracking.</p></div>
+<div class="card"><b>🤳 Influencers &amp; PR</b><p class="muted">Discover prospects on every platform, track outreach, templates and follow-ups.</p></div>
+<div class="card"><b>🎪 Promotions &amp; events</b><p class="muted">Online and offline promotions and events with auto-generated checklists and ROI tracking.</p></div>
+<div class="card"><b>🤖 AI Studio</b><p class="muted">Strategy, copy, briefs, calendars and reports drafted in seconds, using your plan and brand kit as context.</p></div>
+<div class="card"><b>📈 KPIs &amp; UTM</b><p class="muted">Consistent tracking links, KPI logs against targets, budget and funnel charts.</p></div>
+<div class="card"><b>📡 Live Market Pulse</b><p class="muted">Live headlines from India and around the world, trending searches, competitor mentions, rising topics and an AI brief for your industry. AI research can also search the web and cite its sources.</p></div>
+<div class="card"><b>💬 Collaboration</b><p class="muted">Comments with @mentions, notifications, a daily digest, approvals and a Team hub so nothing slips.</p></div>
+<div class="card"><b>📑 Client reports</b><p class="muted">A clean monthly report you can print to PDF or share as a read-only link, no login needed.</p></div>
+<div class="card"><b>🔌 Integrations &amp; API</b><p class="muted">Lead-capture form and webhook on every plan; REST API keys on Team and Agency to connect Zapier, Make or your own tools.</p></div>
+<div class="card"><b>🔐 Secure by design</b><p class="muted">Two-factor login, role-based access, audit log, private workspaces and full data export.</p></div>
+<div class="card"><b>📱 Works on your phone</b><p class="muted">Install it like an app on Android or iPhone. Check approvals and log leads on the go.</p></div>
+<div class="card"><b>👑 Group mode</b><p class="muted">A team lead sees everything, approves work, balances workload and manages the team, without touching billing. Creators can't publish their own work or see your margins, and each client gets a private portal to review and approve their own work.</p></div></div>
+<h2 style="text-align:center">Built for your industry</h2><p class="muted" style="text-align:center">Pick your industry at signup and get a tailored launch checklist, key dates, news feeds, KPI scorecard, personas, content and campaign ideas, and AI that speaks your category.</p>
+<div class="feat">{% for i in inds %}<div class="card"><b>{{ i['icon'] }} {{ i['label'] }}</b><p class="muted">{{ i['blurb'] }}</p></div>{% endfor %}</div>
+<h2 style="text-align:center">Start free, upgrade when you grow</h2>{% with cur='', cta='signup' %}{% include "_plans.html" %}{% endwith %}
+{% endblock %}

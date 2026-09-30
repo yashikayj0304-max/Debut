@@ -1,0 +1,35 @@
+# Render Blueprint for a completely FREE test deployment: New > Blueprint > connect your repo.
+# Both services below are on Render's free plan (no credit card). Two real limits of the free plan:
+#  - The free database expires 30 days after creation (fine for testing; don't store anything you need to keep).
+#  - The free web service "sleeps" after 15 minutes with no visits and takes ~30-60s to wake back up on the
+#    next request - the first click after a while looks slow, that's normal, not broken.
+# APP_ENV is set to "production" (needed for correct behaviour behind Render's proxy) but BILLING_MODE is left
+# as "demo" (the default when no Razorpay keys are set) so the Billing page works without any real payment setup.
+services:
+  - type: web
+    name: debut
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - {key: APP_ENV, value: production}
+      - {key: SECRET_KEY, generateValue: true}
+      - {key: DATABASE_URL, fromDatabase: {name: gtm-db, property: connectionString}}
+      - {key: APP_URL, sync: false}          # fill in with the https://xxxx.onrender.com URL Render gives you, after first deploy
+      - {key: COMPANY_NAME, sync: false}
+      - {key: SUPPORT_EMAIL, sync: false}
+      - {key: ADMIN_EMAILS, sync: false}     # your own login email, so you get admin access
+      - {key: ANTHROPIC_API_KEY, sync: false}   # optional: only needed to test real AI Studio output
+      - {key: SMTP_HOST, sync: false}
+      - {key: SMTP_USER, sync: false}
+      - {key: SMTP_PASSWORD, sync: false}
+      - {key: SMTP_FROM, sync: false}
+      - {key: RAZORPAY_KEY_ID, sync: false}      # leave all three blank to stay in free demo billing mode
+      - {key: RAZORPAY_KEY_SECRET, sync: false}
+      - {key: RAZORPAY_WEBHOOK_SECRET, sync: false}
+      - {key: RAZORPAY_PLAN_STARTER, sync: false}
+      - {key: RAZORPAY_PLAN_TEAM, sync: false}
+      - {key: RAZORPAY_PLAN_AGENCY, sync: false}
+databases:
+  - name: gtm-db
+    plan: free

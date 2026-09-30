@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block body %}<div class="head"><h1>✅ Two-factor is on</h1></div>
+<div class="card" style="max-width:560px"><p><b>Save these recovery codes now.</b> Each works once if you lose your phone. They will not be shown again.</p>
+<pre style="background:var(--pri2);padding:14px;border-radius:10px;font-size:15px;line-height:1.8">{% for c in codes %}{{ c }}
+{% endfor %}</pre><a class="btn" href="{{ url_for('ws.account') }}">I've saved them</a></div>{% endblock %}

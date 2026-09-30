@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block title %}Market Pulse{% endblock %}{% block body %}
+<div class="head"><h1>📡 Market Pulse</h1><div>{% if can_refresh %}<form method="post" action="{{ url_for('pulse_refresh') }}" style="display:inline"><button class="btn" {{ 'disabled' if wait }}>⟳ Refresh now</button></form>{% endif %}
+{% if can_refresh and data and ai %}<button class="btn ghost" id="brief-btn" onclick="brief()">✨ AI brief ({{ cost }} credits)</button>{% endif %} <a class="btn ghost" href="{{ url_for('m_list', key='watchlist') }}">Watchlist</a></div></div>
+<p class="muted">Live headlines, trends and videos for your industry, competitors and keywords, from India and around the world. {% if data %}Updated <b>{{ 'just now' if age < 2 else (age|int ~ ' min ago' if age < 120 else ((age / 60)|int ~ ' h ago')) }}</b>.{% endif %}
+Sources on: news ({{ {'google_rss': 'Google News', 'gnews': 'GNews', 'newsdata': 'NewsData'}.get(provider, provider) }}){% if data and 'Hacker News' in data['sources'] %}, Hacker News{% endif %}{% if yt %}, YouTube{% endif %}, trending searches.</p>
+{% if wait and can_refresh %}<div class="banner">Refreshed recently. You can refresh again in about {{ wait }} minute(s).</div>{% endif %}
+{% if not data %}<div class="card"><b>Nothing here yet</b><p class="muted">Press <b>Refresh now</b> to pull live headlines, trending searches{% if yt %} and videos{% endif %} for the {{ watch|length }} thing(s) you track below. {% if not can_refresh %}Ask an owner, admin, lead or manager to refresh.{% endif %}</p></div>
+{% else %}
+{% if data['terms'] %}<div class="card"><b>📈 Rising in headlines</b> <span class="muted">— words and phrases that keep appearing across your sources{% if data['terms'][0]|length > 2 %}; “new” means it wasn't in the last refresh{% endif %}</span>
+<div style="margin-top:8px">{% for t in data['terms'] %}<span class="badge" style="margin:3px">{{ t[0] }} · {{ t[1] }}{% if t|length > 2 and t[2] %} <b style="color:var(--ok)">new</b>{% endif %}</span> {% endfor %}</div></div>{% endif %}
+{% if data['trends'] and (data['trends'].get('India') or data['trends'].get('Global')) %}<div class="two">{% for region in ('India', 'Global') %}{% if data['trends'].get(region) %}<div class="card"><b>🔥 Searching for today: {{ region }}</b>{% for t in data['trends'][region][:10] %}<div class="news"><b>{{ t['term'] }}</b> <span class="tag">{{ t['traffic'] }}</span>{% if t['context'] %}<div class="muted">{{ t['context'] }}</div>{% endif %}</div>{% endfor %}<p class="tag">Trending searches are broad. Use them for timely hooks, not as your strategy.</p></div>{% endif %}{% endfor %}</div>{% endif %}
+<div id="brief-card" class="card" style="display:none"><b>✨ AI brief</b> <span class="muted" id="brief-st"></span><div class="out" id="out" style="margin-top:8px;white-space:pre-wrap"></div>
+<p><button class="btn ghost sm" onclick="navigator.clipboard.writeText(out.innerText)">Copy</button> <button class="btn ghost sm" onclick="saveBrief()">Save to Content Library</button></p></div>
+{% for grp in data['groups'] %}<div class="card"><b>{{ '🏷' if grp['type'] == 'Competitor' else '🔎' }} {{ grp['term'] }}</b> <span class="badge">{{ grp['type'] }}</span> <span class="badge">{{ grp['region'] }}</span>
+{% for i in grp['items'] %}<div class="news" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><span class="badge" style="font-size:10px">{{ {'news': 'News', 'hn': 'HN', 'youtube': 'YouTube', 'reddit': 'Reddit'}.get(i['kind'], i['kind']) }}</span>
+{% if i['url'] %}<a class="t" href="{{ i['url'] }}" target="_blank" rel="noopener noreferrer">{{ i['title'] }}</a>{% else %}{{ i['title'] }}{% endif %} <span class="tag">{{ i['source'] }}{% if i['date'] %} · {{ i['date'] }}{% endif %}{% if i['extra'] %} · {{ i['extra'] }}{% endif %}</span></div>
+{% if can_refresh and i['url'] %}<div style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('m_new', key='content_items', title='Idea: ' ~ i['title'][:100], notes='Inspired by: ' ~ i['url']) }}">💡 Idea</a>
+<form method="post" action="{{ url_for('updates_save') }}" style="display:inline"><input type="hidden" name="title" value="{{ i['title'] }}"><input type="hidden" name="url" value="{{ i['url'] }}"><input type="hidden" name="source" value="{{ i['source'] }}"><button class="btn ghost sm">🔗 Save</button></form></div>{% endif %}</div>
+{% else %}<p class="muted">Nothing found for this in the last week.{% if grp['errors'] %} ({{ grp['errors']|join('; ') }}){% endif %}</p>{% endfor %}</div>{% endfor %}
+{% if data['errors'] %}<div class="card" style="border-color:var(--warn)"><b>Notes on sources</b><p class="muted">Some sources could not be reached this time. Everything else above is live. {{ data['errors'][:6]|join(' · ') }}</p></div>{% endif %}
+{% endif %}
+<div class="two"><div class="card"><b>What we track for you</b> <span class="muted">({{ watch|length }} of {{ limit }} allowed on your plan)</span>{% for w in watch %}<div class="news">{{ w['term'] }} <span class="tag">{{ w['type'] }} · {{ w['region'] }}</span></div>{% else %}<p class="muted">Nothing yet. Add keywords, brands or competitors.</p>{% endfor %}
+<p class="muted">Competitors you add under <b>Competitors</b> are tracked automatically.</p><a class="btn ghost sm" href="{{ url_for('m_new', key='watchlist') }}">+ Add to watchlist</a></div>
+{% if can_refresh %}<div class="card"><b>📅 Add public holidays to Key Dates</b><p class="muted">Plan around real dates. Pulled live from a public holiday service.</p>
+<form method="post" action="{{ url_for('pulse_holidays') }}" class="filters" style="max-width:none"><select name="country">{% for c, n in countries %}<option value="{{ c }}">{{ n }}</option>{% endfor %}</select><select name="year"><option>{{ year }}</option><option>{{ year + 1 }}</option></select><button class="btn ghost">Add holidays</button></form></div>{% endif %}</div>
+<p class="tag">Headlines belong to their publishers: click through to read the original. Trend words are computed from headlines and are a signal, not a forecast.</p>
+{% endblock %}
+{% block scripts %}<script>
+let briefText='';
+async function brief(){var b=document.getElementById('brief-btn');b.disabled=true;var c=document.getElementById('brief-card');c.style.display='block';document.getElementById('brief-st').textContent='Working… (up to a minute)';document.getElementById('out').textContent='';
+ var r=await api('/api/pulse/brief',{});b.disabled=false;var d=r.data||{};document.getElementById('brief-st').textContent='';
+ if(d.error){document.getElementById('out').textContent='Error: '+d.error;return}briefText=d.text;document.getElementById('out').textContent=d.text;}
+async function saveBrief(){if(!briefText)return;await api('/api/save_asset',{title:'Market Pulse brief',type:'pulse_brief',body:briefText});alert('Saved to Content Library');}
+</script>{% endblock %}

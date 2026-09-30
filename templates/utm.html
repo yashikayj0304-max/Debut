@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>🏷️ UTM Link Builder</h1></div><p class="muted">Consistent tracking links so every click is attributable in GA4.</p>
+<form method="post" action="{{ url_for('m_save', key='utm_links') }}" class="card form" id="f"><input type="hidden" name="next" value="/utm">
+<div class="two"><label>Label<input name="name" placeholder="e.g. Diwali IG story 1"></label><label>Base URL<input name="base_url" id="base_url" type="url" placeholder="https://yoursite.com/landing" required></label>
+<label>utm_source<input name="source" id="source" list="src" placeholder="instagram"></label><label>utm_medium<input name="medium" id="medium" list="med" placeholder="social"></label>
+<label>utm_campaign<input name="campaign" id="campaign" list="camps" placeholder="diwali_2026"></label><label>utm_term<input name="term" id="term"></label><label>utm_content<input name="content" id="content" placeholder="story_v1"></label></div>
+<datalist id="src"><option>instagram<option>facebook<option>linkedin<option>youtube<option>google<option>newsletter<option>whatsapp<option>influencer</datalist>
+<datalist id="med"><option>social<option>cpc<option>email<option>referral<option>display<option>organic<option>influencer</datalist>
+<datalist id="camps">{% for c in camps %}<option>{{ c }}{% endfor %}</datalist>
+<label>Generated URL<input name="full_url" id="full_url" readonly></label>
+<button class="btn">Save link</button> <button type="button" class="btn ghost" onclick="navigator.clipboard.writeText(document.getElementById('full_url').value)">Copy</button></form>
+<table><tr><th>Label</th><th>Campaign</th><th>Source / medium</th><th>URL</th><th></th></tr>
+{% for r in rows %}<tr><td>{{ r['name'] }}</td><td>{{ r['campaign'] }}</td><td>{{ r['source'] }} / {{ r['medium'] }}</td><td>{{ r['full_url']|truncate(60) }}</td>
+<td><form method="post" action="{{ url_for('m_delete', key='utm_links', rid=r['id']) }}"><input type="hidden" name="next" value="/utm"><button class="btn danger sm">✕</button></form></td></tr>{% endfor %}</table>
+{% endblock %}
+{% block scripts %}<script>
+const ids=['source','medium','campaign','term','content'];
+function build(){const b=document.getElementById('base_url').value.trim();if(!b){document.getElementById('full_url').value='';return}
+const p=new URLSearchParams();ids.forEach(i=>{const v=document.getElementById(i).value.trim();if(v)p.set('utm_'+i,v.toLowerCase().replace(/\s+/g,'_'))});
+document.getElementById('full_url').value=b+(b.includes('?')?'&':'?')+p.toString();}
+document.querySelectorAll('#f input').forEach(i=>i.addEventListener('input',build));
+</script>{% endblock %}

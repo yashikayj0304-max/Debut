@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}{{ ws['name'] }} report {{ r.label }}{% endblock %}{% block body %}
+<div class="report">
+<div class="head"><div><h1>📑 {{ ws['name'] }}: marketing report</h1><span class="muted">{{ r.label }}</span></div>
+<div class="noprint"><a class="btn ghost sm" href="?month={{ prev_m }}">◀ {{ prev_m }}</a> <a class="btn ghost sm" href="?month={{ next_m }}">{{ next_m }} ▶</a> <button class="btn sm" onclick="window.print()">Print / save PDF</button></div></div>
+{% if share %}<div class="card noprint"><b>Share with your client</b> <span class="muted">— read-only link, no login needed. Reset it any time from Calendar → Reset link.</span><input readonly value="{{ share }}" onclick="this.select()"></div>{% endif %}
+<div class="grid" style="margin:12px 0"><div class="tile"><span class="muted">Content published</span><b>{{ r.published }}</b></div><div class="tile"><span class="muted">Content scheduled this month</span><b>{{ r.content|length }}</b></div>
+<div class="tile"><span class="muted">New leads</span><b>{{ r.leads|length }}</b></div><div class="tile"><span class="muted">Campaign spend</span><b>₹{{ '{:,.0f}'.format(r.spent) }}</b><span class="tag">of ₹{{ '{:,.0f}'.format(r.budget) }} budget</span></div></div>
+<h3>KPIs</h3>{% if r.kpis %}<table><tr><th>Metric</th><th>Channel</th><th>Latest</th><th>Target</th><th>Progress</th></tr>
+{% for k in r.kpis %}<tr><td><b>{{ k.metric }}</b></td><td>{{ k.channel }}</td><td>{{ k.value }}</td><td>{{ k.target or '—' }}</td><td>{% if k.pct is not none %}<div style="background:var(--pri2);border-radius:99px;height:10px;width:140px;display:inline-block;vertical-align:middle"><div style="background:{{ 'var(--ok)' if k.pct >= 100 else 'var(--pri)' }};height:10px;border-radius:99px;width:{{ [k.pct, 100]|min }}%"></div></div> {{ k.pct }}%{% else %}—{% endif %}</td></tr>{% endfor %}</table>
+{% else %}<p class="muted">No KPI entries for this month.</p>{% endif %}
+<h3 style="margin-top:20px">Campaigns</h3>{% if r.camps %}<table><tr><th>Campaign</th><th>Status</th><th>Channel</th><th>Budget</th><th>Spent</th><th>Target</th></tr>{% for c in r.camps %}<tr><td>{{ c['name'] }}</td><td><span class="badge">{{ c['status'] }}</span></td><td>{{ c['channel'] }}</td><td>₹{{ c['budget'] or 0 }}</td><td>₹{{ c['spent'] or 0 }}</td><td>{{ c['kpi_target'] }}</td></tr>{% endfor %}</table>{% else %}<p class="muted">No campaigns active this month.</p>{% endif %}
+<h3 style="margin-top:20px">Content</h3>{% if r.content %}<p>{% for ch, n in r.by_channel %}<span class="badge">{{ ch }}: {{ n }}</span> {% endfor %}</p>
+<table><tr><th>Date</th><th>Title</th><th>Channel</th><th>Format</th><th>Status</th></tr>{% for c in r.content %}<tr><td>{{ c['publish_date'] }}</td><td>{{ c['title'] }}</td><td>{{ c['channel'] }}</td><td>{{ c['format'] }}</td><td><span class="badge">{{ c['status'] }}</span></td></tr>{% endfor %}</table>{% else %}<p class="muted">No content scheduled this month.</p>{% endif %}
+<h3 style="margin-top:20px">Leads</h3>{% if r.leads %}<p>{% for st, n in r.lead_stage %}<span class="badge">{{ st }}: {{ n }}</span> {% endfor %}</p>{% else %}<p class="muted">No new leads this month.</p>{% endif %}
+{% if r.promos or r.events %}<h3 style="margin-top:20px">Promotions &amp; events</h3><table><tr><th>Name</th><th>Type</th><th>When</th><th>Status</th></tr>
+{% for p in r.promos %}<tr><td>🏷️ {{ p['name'] }}</td><td>{{ p['type'] }}</td><td>{{ p['start_date'] }} → {{ p['end_date'] or 'ongoing' }}</td><td>{{ p['status'] }}</td></tr>{% endfor %}
+{% for e in r.events %}<tr><td>🎪 {{ e['name'] }}</td><td>{{ e['type'] }}</td><td>{{ e['date'] }}</td><td>{{ e['status'] }}</td></tr>{% endfor %}</table>{% endif %}
+{% if r.audits.n %}<h3 style="margin-top:20px">Retail audits</h3><p>{{ r.audits.n }} store visits · in stock in <b>{{ (r.audits.in_stock / r.audits.n * 100)|round|int }}%</b> · POSM correct in <b>{{ (r.audits.posm_ok / r.audits.n * 100)|round|int }}%</b></p>{% endif %}
+<p class="muted" style="margin-top:24px">Generated {{ C.APP_NAME }} · {{ r.label }}</p></div>
+{% endblock %}

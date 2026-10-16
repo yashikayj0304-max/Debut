@@ -66,11 +66,11 @@ def _pk():
 
 
 EXTRA_COLUMNS = {
-    "workspaces": [("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''")],
+    "workspaces": [("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
     "memberships": [("client_name", "TEXT DEFAULT ''")],
     "invites": [("client_name", "TEXT DEFAULT ''")],
     "comments": [("client_visible", "INTEGER DEFAULT 0")],
-    "users": [("totp_secret", "TEXT DEFAULT ''"), ("totp_on", "INTEGER DEFAULT 0"), ("totp_last", "INTEGER DEFAULT 0"), ("recovery", "TEXT DEFAULT ''"), ("digest", "INTEGER DEFAULT 1"), ("onboarded", "INTEGER DEFAULT 0")],
+    "users": [("totp_secret", "TEXT DEFAULT ''"), ("totp_on", "INTEGER DEFAULT 0"), ("totp_last", "INTEGER DEFAULT 0"), ("recovery", "TEXT DEFAULT ''"), ("digest", "INTEGER DEFAULT 1"), ("onboarded", "INTEGER DEFAULT 0"), ("pin_hash", "TEXT DEFAULT ''")],
     "board_items": [("x", "INTEGER DEFAULT -1"), ("y", "INTEGER DEFAULT -1"), ("w", "INTEGER DEFAULT 240"), ("h", "INTEGER DEFAULT 170"), ("z", "INTEGER DEFAULT 1")],
 }
 

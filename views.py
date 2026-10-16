@@ -1,5 +1,5 @@
 """Product views. Every query is scoped by workspace_id; see tests/test_app.py for tenant-isolation checks."""
-import os, re, io, csv, json, calendar as pycal, datetime as dt
+import os, re, io, csv, json, base64, calendar as pycal, datetime as dt
 from collections import OrderedDict, Counter
 from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
@@ -166,7 +166,7 @@ def dashboard():
              ("Add content to the calendar", cnt("content_items") > 0, url_for("m_new", key="content_items")),
              ("Create a mood board", cnt("boards") > 0, url_for("moodboards")),
              third,
-             ("Capture your first lead (Integrations)", cnt("leads") > 0, url_for("ws.integrations") if g.role in ("owner", "admin", "lead", "manager") else url_for("m_new", key="leads")),
+             ("Capture your first lead", cnt("leads") > 0, url_for("ws.integrations") if g.role in ("owner", "admin", "lead", "manager") else url_for("m_new", key="leads")),
              ("Invite a teammate", cnt("memberships") > 1, url_for("ws.team")),
              ("Verify your email", bool(g.user["email_verified"]), url_for("ws.account"))]
     return render_template("dashboard.html", upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
@@ -208,14 +208,18 @@ def _hidden(key):
 
 @route("/m/<key>/new")
 def m_new(key):
-    return render_template("crud_form.html", key=key, m=mod(key), row=None, defaults=request.args, nxt=safe_next(""), team_names=S.team_names(W()), hidden=_hidden(key))
+    modal = request.args.get("modal") == "1"
+    tpl = "crud_form_frag.html" if modal else "crud_form.html"
+    return render_template(tpl, key=key, m=mod(key), row=None, defaults=request.args, nxt=safe_next(""), team_names=S.team_names(W()), hidden=_hidden(key), required=REQUIRED.get(key, set()), modal=modal)
 
 
 @route("/m/<key>/<int:rid>/edit")
 def m_edit(key, rid):
     row = row_or_404(key, rid)
+    modal = request.args.get("modal") == "1"
+    tpl = "crud_form_frag.html" if modal else "crud_form.html"
     comments = q("SELECT c.*, u.name AS uname FROM comments c LEFT JOIN users u ON u.id=c.user_id WHERE c.workspace_id=? AND c.module=? AND c.record_id=? ORDER BY c.id", (W(), key, rid))
-    return render_template("crud_form.html", key=key, m=mod(key), row=row, defaults={}, nxt=safe_next(""), team_names=S.team_names(W()), comments=comments, hidden=_hidden(key))
+    return render_template(tpl, key=key, m=mod(key), row=row, defaults={}, nxt=safe_next(""), team_names=S.team_names(W()), comments=comments, hidden=_hidden(key), required=REQUIRED.get(key, set()), modal=modal)
 
 
 def clean_fields(m, source, quiet=False, partial=False):
@@ -289,9 +293,21 @@ def m_save(key):
     if raw_id and not rid:
         abort(400)
     old = row_or_404(key, rid) if rid else None
+    modal = request.form.get("modal") == "1"
+    tpl = "crud_form_frag.html" if modal else "crud_form.html"
     data = clean_fields(m, request.form)
     for f in _hidden(key):          # freelancers can neither see nor change the agency's money fields
         data.pop(f, None)
+    missing = [label for n, label, typ, opts in m["fields"] if n in REQUIRED.get(key, set()) and not (data.get(n) or "").strip()]
+    if missing:
+        flash("Please fill in: " + ", ".join(missing) + ".")
+        if rid:
+            row = dict(old) if old else {}
+            row.update(data)
+            row["id"] = rid
+            comments = q("SELECT c.*, u.name AS uname FROM comments c LEFT JOIN users u ON u.id=c.user_id WHERE c.workspace_id=? AND c.module=? AND c.record_id=? ORDER BY c.id", (W(), key, rid))
+            return render_template(tpl, key=key, m=m, row=row, defaults={}, nxt=safe_next(url_for("m_list", key=key)), team_names=S.team_names(W()), comments=comments, hidden=_hidden(key), required=REQUIRED.get(key, set()), modal=modal), 400
+        return render_template(tpl, key=key, m=m, row=None, defaults=data, nxt=safe_next(url_for("m_list", key=key)), team_names=S.team_names(W()), hidden=_hidden(key), required=REQUIRED.get(key, set()), modal=modal), 400
     if key in RESTRICTED and "status" in data:
         data["status"] = gate_status(key, data["status"], old["status"] if old else "")
     if rid:
@@ -339,6 +355,59 @@ def m_export(key):
     return Response(buf.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={key}.csv"})
 
 
+@route("/m/<key>/template")
+def m_template(key):
+    """A blank, header-only CSV so people can see the exact column format before importing."""
+    m = mod(key)
+    names = [x[0] for x in m["fields"]]
+    labels = [x[1] for x in m["fields"]]
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(names)
+    w.writerow([f"(e.g. {l})" for l in labels])
+    return Response(buf.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={key}-template.csv"})
+
+
+def _mock_value(label, typ, opts):
+    """A plausible example value for one field, used to fill in the downloadable Excel mock."""
+    if typ == "select" and opts:
+        return opts[0]
+    if typ == "number":
+        return 1000
+    if typ == "date":
+        return S.today().isoformat()
+    if typ == "url":
+        return "https://example.com"
+    return f"Example {label.lower()}"
+
+
+@route("/m/<key>/template.xlsx")
+def m_template_xlsx(key):
+    """A downloadable Excel (.xlsx) mock of this module: real headers plus one filled-in example row, so the
+    expected format is obvious before you build your own data and import it back with CSV import."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    m = mod(key)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = (m["title"] or key)[:31]
+    names = [x[0] for x in m["fields"]]
+    labels = [x[1] for x in m["fields"]]
+    ws.append(labels)
+    for c in ws[1]:
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor="7C5CD6")
+    ws.append([_mock_value(l, t, o) for n, l, t, o in m["fields"]])
+    for i, l in enumerate(labels, start=1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = max(14, min(32, len(l) + 4))
+    ws.freeze_panes = "A2"
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     headers={"Content-Disposition": f"attachment; filename={key}-mock-template.xlsx"})
+
+
 @route("/m/<key>/import", methods=["POST"])
 def m_import(key):
     m = mod(key)
@@ -380,8 +449,12 @@ def kanban(key):
     m = mod(key)
     field = m.get("kanban") or abort(404)
     opts = next(x for x in m["fields"] if x[0] == field)[3]
-    rows = q(f"SELECT * FROM {key} WHERE workspace_id=? ORDER BY id DESC LIMIT 500", (W(),))
-    return render_template("kanban.html", key=key, m=m, field=field, opts=opts, rows=rows, title_f=m["fields"][0][0], sub_f=m["cols"][1] if len(m["cols"]) > 1 else m["fields"][0][0])
+    has_due = any(n == "due_date" for n, *_ in m["fields"])
+    sort_due = has_due and request.args.get("sort") == "due"
+    order = "due_date ASC, id DESC" if sort_due else "id DESC"
+    rows = q(f"SELECT * FROM {key} WHERE workspace_id=? ORDER BY {order} LIMIT 500", (W(),))
+    return render_template("kanban.html", key=key, m=m, field=field, opts=opts, rows=rows, title_f=m["fields"][0][0],
+                           sub_f=m["cols"][1] if len(m["cols"]) > 1 else m["fields"][0][0], has_due=has_due, sort_due=sort_due)
 
 
 @route("/m/<key>/<int:rid>/status", methods=["POST"])
@@ -414,7 +487,7 @@ def search():
             rows = q(f"SELECT * FROM {key} WHERE workspace_id=? AND ({where}) ORDER BY id DESC LIMIT 5", [W()] + [f"%{term.lower()}%"] * len(fields))
             if rows:
                 results.append((key, m, rows, m["fields"][0][0]))
-    return render_template("search.html", term=term, results=results)
+    return render_template("search.html", term=term, results=results, has_key=bool(C.ANTHROPIC_API_KEY))
 
 
 # ----------------------------------------------------------------- calendar
@@ -522,6 +595,40 @@ def board_new():
     return redirect(url_for("board_view", bid=bid))
 
 
+def _svg_placeholder(label, bg="#7c5cd6", fg="#ffffff"):
+    """A self-contained placeholder picture (no external image host involved) so the sample board always
+    renders, even offline — a real upload or image URL replaces it in seconds via the 🔄 button."""
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360">'
+           f'<rect width="100%" height="100%" fill="{bg}"/>'
+           f'<text x="50%" y="46%" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="{fg}" text-anchor="middle">{label}</text>'
+           f'<text x="50%" y="58%" font-family="Arial, sans-serif" font-size="14" fill="{fg}" text-anchor="middle" opacity=".85">tap 🔄 on the card to replace it</text></svg>')
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
+
+
+SAMPLE_BOARD_ITEMS = [
+    ("image", _svg_placeholder("Reference shot"), "Reference shot — swap for your own"),
+    ("color", "#7c5cd6", "Primary brand colour"), ("color", "#f1ecff", "Light background tint"),
+    ("note", "Mood: warm, festive, a little playful. Think golden-hour light, not studio-flat.", "Overall mood"),
+    ("note", "Hero shot idea: product on a textured surface, soft natural light, one prop max.", "Hero shot"),
+    ("link", "https://www.pinterest.com/search/pins/?q=festive%20product%20photography", "Inspiration search"),
+    ("note", "Caption tone: short, warm, one emoji max. Avoid hard-sell language.", "Caption style"),
+    ("image", _svg_placeholder("Palette / texture", bg="#2b2442"), "Palette / texture reference"),
+]
+
+
+@route("/moodboards/sample", methods=["POST"])
+def board_sample():
+    """A ready-made example board so a first-time user sees the format before building their own."""
+    if q("SELECT COUNT(*) c FROM boards WHERE workspace_id=?", (W(),), one=True)["c"] >= g.plan["boards"]:
+        flash(f"The {g.plan['name']} plan includes {g.plan['boards']} mood boards. Upgrade for more.")
+        return redirect(url_for("moodboards"))
+    bid = ins("boards", dict(workspace_id=W(), name="Sample board (edit or delete me)", description="A worked example — drag things around, then make your own."))
+    for kind, content, caption in SAMPLE_BOARD_ITEMS:
+        ins("board_items", dict(workspace_id=W(), board_id=bid, kind=kind, content=content, caption=caption, **_next_slot(bid)))
+    S.audit("create", f"board#{bid} (sample)")
+    return redirect(url_for("board_view", bid=bid))
+
+
 @route("/moodboards/<int:bid>")
 def board_view(bid):
     b = board_or_404(bid)
@@ -593,6 +700,56 @@ def board_item_place(iid):
         abort(400)
     ex("UPDATE board_items SET x=?, y=?, w=?, h=?, z=? WHERE id=? AND workspace_id=?", (x, y, w, h, z, iid, W()))
     return jsonify(ok=True)
+
+
+@route("/moodboards/item/<int:iid>/edit", methods=["POST"])
+def board_item_edit(iid):
+    """Edit a note/colour/link card's text in place on the canvas (no page reload) — images keep their file but can get a new caption."""
+    it = q("SELECT * FROM board_items WHERE id=? AND workspace_id=?", (iid, W()), one=True) or abort(404)
+    d = S.jbody()
+    caption = S.clean_text(d.get("caption", ""), 200)
+    if it["kind"] == "note":
+        content = S.clean_text(d.get("content", ""), 2000)
+        if not content:
+            return jsonify(error="Note can't be empty."), 400
+        ex("UPDATE board_items SET content=?, caption=? WHERE id=?", (content, caption, iid))
+    elif it["kind"] == "color":
+        content = d.get("content", "")
+        if not re.match(r"^#[0-9a-fA-F]{6}$", content or ""):
+            return jsonify(error="Enter a valid hex colour, e.g. #7c5cd6."), 400
+        ex("UPDATE board_items SET content=?, caption=? WHERE id=?", (content, caption, iid))
+    elif it["kind"] == "link":
+        content = S.clean_url(d.get("content", ""))
+        if not content:
+            return jsonify(error="Enter a valid http(s) link."), 400
+        ex("UPDATE board_items SET content=?, caption=? WHERE id=?", (content, caption, iid))
+    else:  # image: caption always changes here; the picture can be swapped either by pasting a new URL or by uploading a file (board_item_replace_image below)
+        new_url = S.clean_url(d.get("content", ""))
+        if new_url:
+            old_content = it["content"]
+            ex("UPDATE board_items SET content=?, caption=? WHERE id=?", (new_url, caption, iid))
+            if old_content and not old_content.startswith("http") and not old_content.startswith("data:"):
+                S.delete_file(old_content)
+        else:
+            ex("UPDATE board_items SET caption=? WHERE id=?", (caption, iid))
+    return jsonify(ok=True)
+
+
+@route("/moodboards/item/<int:iid>/replace-image", methods=["POST"])
+def board_item_replace_image(iid):
+    """Swap the picture on an existing image card in place — position, size and z-order stay put, so a card never has to be deleted and re-added just to change the photo."""
+    it = q("SELECT * FROM board_items WHERE id=? AND workspace_id=? AND kind='image'", (iid, W()), one=True) or abort(404)
+    f = request.files.get("file")
+    data = f.read(10 * 1024 * 1024 + 1) if f else b""
+    ext = S.sniff_image(data) if data and len(data) <= 10 * 1024 * 1024 else None
+    if not ext:
+        return jsonify(error="Choose a PNG, JPG, GIF or WebP image up to 10 MB."), 400
+    new_content = S.store_file(W(), ext, data)
+    old_content = it["content"]
+    ex("UPDATE board_items SET content=? WHERE id=?", (new_content, iid))
+    if old_content and not old_content.startswith("http"):
+        S.delete_file(old_content)
+    return jsonify(ok=True, url=S.media_url(new_content))
 
 
 @route("/moodboards/<int:bid>/arrange", methods=["POST"])
@@ -847,6 +1004,37 @@ def api_ai():
     return jsonify(text=text, sources=[dict(url=u, title=tl) for u, tl in sources], used=used + cost, limit=limit)
 
 
+@route("/api/ask", methods=["POST"])
+@limiter.limit("10 per minute;60 per hour")
+def api_ask():
+    """Ask Debut: a free-form question answered using this workspace's own data as context."""
+    d = S.jbody()
+    question = S.clean_text(d.get("q", ""), 500)
+    if not question:
+        return jsonify(error="Type a question first."), 400
+    if not C.ANTHROPIC_API_KEY:
+        return jsonify(error="AI is not configured on this server yet."), 400
+    if not g.user["email_verified"]:
+        return jsonify(error="Please verify your email to use Ask Debut."), 403
+    cost = C.AI_COST.get("ask_debut", 1)
+    err, used, limit = ai_guard(cost)
+    if err:
+        return err
+    parts = ["The user is asking a question inside their own marketing workspace. Answer directly and specifically using the context below where relevant. "
+             "If the answer depends on their own data and nothing below covers it, say so plainly instead of guessing. Keep it concise — a few sentences or a short list, not an essay.",
+             f"QUESTION: {question}"]
+    parts += workspace_context()
+    counts = {m["title"]: q(f"SELECT COUNT(*) c FROM {key} WHERE workspace_id=?", (W(),), one=True)["c"] for key, m in list(MODULES.items())[:12] if not locked(key)}
+    parts.append("WHAT THEY HAVE IN THE APP RIGHT NOW: " + ", ".join(f"{k}: {v}" for k, v in counts.items() if v))
+    try:
+        text, _ = claude_call(SYSTEM + "\nYou are 'Ask Debut', a built-in assistant inside the Debut marketing app. You can also point the user to the right page in the app by name (e.g. 'see GTM Plans' or 'check Market Pulse') when that's the real answer.",
+                               "\n".join(parts), 900, research=False)
+    except Exception as e:
+        return ai_fail(e)
+    ins("ai_usage", dict(workspace_id=W(), user_id=g.user["id"], task="ask_debut", credits=cost, month=S.month_key()))
+    return jsonify(text=text, used=used + cost, limit=limit)
+
+
 @route("/api/save_asset", methods=["POST"])
 def api_save_asset():
     d = S.jbody()
@@ -1095,6 +1283,14 @@ def comment_delete(cid):
 def notifications():
     rows = q("SELECT * FROM notifications WHERE user_id=? AND workspace_id=? ORDER BY id DESC LIMIT 60", (g.user["id"], W()))
     return render_template("notifications.html", rows=rows)
+
+
+@route("/notifications/recent")
+def notifications_recent():
+    """Powers the bell's corner pop-up (the full Notifications page stays as its own tab)."""
+    rows = q("SELECT id, message, link, is_read, created_at FROM notifications WHERE user_id=? AND workspace_id=? ORDER BY id DESC LIMIT 8", (g.user["id"], W()))
+    return jsonify(items=[dict(id=r["id"], message=r["message"], link=url_for("notification_open", nid=r["id"]), is_read=bool(r["is_read"]),
+                               created_at=str(r["created_at"])[:16]) for r in rows])
 
 
 @route("/notifications/read", methods=["POST"])
@@ -1392,7 +1588,8 @@ def pulse_page():
     data = S.latest_pulse(W())
     age = S.pulse_age_minutes(data) if data else None
     watch = S.pulse_watch(W(), g.plan["watch"])
-    return render_template("pulse.html", data=data, age=age, watch=watch, limit=g.plan["watch"], can_refresh=g.role in PULSE_ROLES and g.role != "viewer",
+    watch_rows = q("SELECT * FROM watchlist WHERE workspace_id=? ORDER BY id DESC", (W(),))
+    return render_template("pulse.html", data=data, age=age, watch=watch, watch_rows=watch_rows, limit=g.plan["watch"], can_refresh=g.role in PULSE_ROLES and g.role != "viewer",
                            wait=max(0, C.PULSE_MIN_REFRESH_MINUTES - int(age)) if age is not None else 0, stale=age is None or age > C.PULSE_CACHE_MINUTES,
                            yt=bool(C.YOUTUBE_API_KEY), provider=C.NEWS_PROVIDER, countries=HOLIDAY_COUNTRIES, year=S.today().year, ai=bool(C.ANTHROPIC_API_KEY), cost=C.AI_COST.get("pulse_brief", 2))
 
@@ -1411,6 +1608,34 @@ def pulse_refresh():
     fresh = S.run_pulse(W(), g.ws["industry"], g.plan)
     S.audit("pulse_refresh", f"{sum(len(x['items']) for x in fresh['groups'])} items")
     flash("Market Pulse refreshed." + (f" {len(fresh['errors'])} source(s) had a problem: see the notes at the bottom." if fresh["errors"] else ""))
+    return redirect(url_for("pulse_page"))
+
+
+@route("/pulse/watch/add", methods=["POST"])
+@S.roles(*PULSE_ROLES)
+def pulse_watch_add():
+    """Add a source to track, right from the Market Pulse page itself - no separate Watchlist tab to find."""
+    term = S.clean_text(request.form.get("term"), 120)
+    if not term:
+        flash("Enter a keyword, brand, competitor or subreddit to track.")
+        return redirect(url_for("pulse_page"))
+    if q("SELECT COUNT(*) c FROM watchlist WHERE workspace_id=?", (W(),), one=True)["c"] >= g.plan["watch"]:
+        flash(f"Your {g.plan['name']} plan can track {g.plan['watch']} items in Market Pulse. Remove one or upgrade for more.")
+        return redirect(url_for("pulse_page"))
+    typ = request.form.get("type", "Keyword")
+    region = request.form.get("region", "India")
+    ins("watchlist", dict(workspace_id=W(), term=term, type=typ if typ in ("Keyword", "Competitor", "Brand", "Subreddit") else "Keyword",
+                           region=region if region in ("India", "Global", "Both") else "India", notes=""))
+    S.audit("create", "watchlist")
+    flash(f"Now tracking “{term}”.")
+    return redirect(url_for("pulse_page"))
+
+
+@route("/pulse/watch/<int:wid>/remove", methods=["POST"])
+@S.roles(*PULSE_ROLES)
+def pulse_watch_remove(wid):
+    ex("DELETE FROM watchlist WHERE id=? AND workspace_id=?", (wid, W()))
+    S.audit("delete", f"watchlist#{wid}")
     return redirect(url_for("pulse_page"))
 
 

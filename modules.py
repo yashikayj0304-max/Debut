@@ -40,6 +40,41 @@ OUTREACH = [
 def F(n, l, t="text", o=None):
     return (n, l, t, o or [])
 
+
+# Fields that must be filled in before a record of that module can be saved — just the one or two
+# identity fields each record genuinely needs, not every field (so forms stay fast to fill in).
+REQUIRED = {
+    "gtm_plans": {"name", "product", "budget"},
+    "personas": {"name"},
+    "competitors": {"name"},
+    "brand_kit": {"name"},
+    "content_items": {"title"},
+    "assets": {"title"},
+    "reference_links": {"title"},
+    "keywords": {"keyword"},
+    "campaigns": {"name"},
+    "influencers": {"name"},
+    "pr_contacts": {"name"},
+    "experiments": {"hypothesis"},
+    "leads": {"name"},
+    "kpis": {"metric"},
+    "tasks": {"title"},
+    "key_dates": {"name"},
+    "feeds": {"name"},
+    "clients": {"name"},
+    "creators": {"name"},
+    "content_orders": {"title"},
+    "rate_card": {"service"},
+    "payments": {"party"},
+    "promotions": {"name"},
+    "events": {"name"},
+    "outreach_templates": {"name"},
+    "utm_links": {"name"},
+    "pitches": {"name"},
+    "accounts": {"company"},
+    "retail_audits": {"store"},
+}
+
 STATUS = ["Idea", "Planned", "In progress", "Review", "Approved", "Scheduled", "Published", "On hold"]
 TASK_STATUS = ["Backlog", "To do", "In progress", "Review", "Done"]
 PRIORITY = ["Low", "Medium", "High", "Urgent"]
@@ -278,6 +313,9 @@ AI_TASKS = OrderedDict([
     ("content_review", ("Editor QA of a draft", "Act as a senior editor. The draft to review is in the extra instructions. Score it 1-10 on structure, accuracy, originality risk, SEO, tone and grammar, list specific fixes, and give a revised intro. Flag any claims needing verification.")),
     ("creator_test", ("Creator screening test & rubric", "Design a paid screening test for the given skill (task, brief, time limit) and a scoring rubric with pass mark, so unsuitable freelancers are filtered without manager time.")),
     ("influencer_discovery", ("Influencer discovery plan (no fake names)", "Build an influencer discovery plan: ideal creator archetypes per platform and tier, selection criteria, red flags, hashtags and search queries to use on each platform, budget ranges to expect (labelled estimates), and a scoring sheet. IMPORTANT: do NOT invent real people, handles, emails or follower counts; describe types and how to find them.")),
+    ("problem_assessment", ("Client problem assessment & action plan", "Act as a senior marketing consultant brought in to diagnose this client's situation. Based on the situation described below, and their GTM plan, personas and brand kit if provided: "
+        "1) list the TOP 3-5 problems holding them back, ranked by business impact; 2) for each, give the most likely root cause (not just the symptom); 3) give a prioritised action plan split into Do this week / Do this month / Do this quarter, each action concrete and assigned a rough effort (Low/Med/High) and expected impact (Low/Med/High); "
+        "4) end with a short list of the specific information you'd still need from the client to sharpen this further. Be direct and specific to their situation, never generic boilerplate. If the situation described is too thin to diagnose properly, say exactly what's missing instead of guessing.")),
     ("outreach", ("Personalised outreach messages", "Write outreach messages (email + short DM + follow-up after 4 days) for the audience described in the extra instructions, personalised, concise, with a clear ask.")),
     ("promo_plan", ("Promotion plan (online + offline)", "Design 5 promotion mechanics for the product, split between online and offline, each with mechanic, target, funding, expected uplift (estimate), risks, T&C essentials, tracking method, and a recommendation on which to run.")),
     ("contest", ("Contest / giveaway mechanics + T&C", "Design a social media contest: mechanic, entry rules, judging, prize structure, timeline, promotion plan, and a plain-language T&C checklist (note: have legal review it; platform rules and local laws apply).")),

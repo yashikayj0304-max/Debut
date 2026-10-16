@@ -21,15 +21,15 @@ class SafeInt(IntegerConverter):
         kw.setdefault("max", 2**31 - 1)
         super().__init__(map, **kw)
 
-PUBLIC = {"landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.signup", "auth.forgot", "auth.reset",
+PUBLIC = {"landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap"}
 VIEWER_WRITE_OK = {"auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
-CLIENT_OK = {"dashboard", "portal", "portal_item", "portal_decide", "portal_comment", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "auth.logout", "auth.switch_ws",
+CLIENT_OK = {"dashboard", "portal", "portal_item", "portal_decide", "portal_comment", "notifications", "notifications_recent", "notifications_read", "notification_open", "feedback", "help_centre", "auth.logout", "auth.switch_ws",
              "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify", "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.onboarded"}
 CREATOR_OK = {"dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_status", "calendar_view", "search", "moodboards", "board_view", "media", "ideas",
               "auth.logout", "auth.switch_ws", "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify",
-              "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_arrange"}
+              "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
 FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order_assign": "content_ops", "discover": "influencers", "outreach": "influencers",
               "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "ai_studio": "ai", "api_ai": "ai"}
 
@@ -98,7 +98,7 @@ def create_app(config=None, init=True, database_url=None):
                     g.plan_key = S.plan_key(ws)
                     g.plan = C.PLANS[g.plan_key]
         ep = request.endpoint
-        if C.MAINTENANCE and ep not in ("health", "billing.webhook", "manifest", "service_worker", "auth.login", "auth.login_2fa", "auth.logout") and not S.is_platform_admin(g.user):
+        if C.MAINTENANCE and ep not in ("health", "billing.webhook", "manifest", "service_worker", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.logout") and not S.is_platform_admin(g.user):
             return render_template("error.html", code=503, msg=f"{C.APP_NAME} is being updated and will be back in a few minutes. Your data is safe.", bare=True), 503
         if ep is None or ep in PUBLIC or ep == "auth.logout":
             return
@@ -161,7 +161,7 @@ def create_app(config=None, init=True, database_url=None):
                         continue
                     groups[grp].append((f"{icon} {label}{lock(feat_of.get(ep))}", url_for(ep)))
             for k, m in MODULES.items():
-                if k == "utm_links" or (creator and k not in CREATOR_MODULES):
+                if k in ("utm_links", "watchlist") or (creator and k not in CREATOR_MODULES):
                     continue
                 if k in IND.MODULE_INDUSTRIES and g.ws["industry"] not in IND.MODULE_INDUSTRIES[k]:
                     continue

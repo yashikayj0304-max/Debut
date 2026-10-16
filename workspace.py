@@ -1,5 +1,5 @@
 """Team management, activity log, account settings, data export and workspace deletion."""
-import io, csv, json, secrets, zipfile, datetime as dt
+import io, csv, json, re, secrets, zipfile, datetime as dt
 import segno
 import totp
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, session, abort, Response, jsonify
@@ -14,6 +14,16 @@ from werkzeug.security import check_password_hash
 from views import _csv_safe
 
 bp = Blueprint("ws", __name__)
+
+
+def _safe_back(url, default_endpoint="ws.account"):
+    """Redirect back to wherever the request came from, kept to our own app (no open redirects)."""
+    from urllib.parse import urlparse
+    if url:
+        p = urlparse(url)
+        if not p.netloc or p.netloc == request.host:
+            return p.path + (("?" + p.query) if p.query else "")
+    return url_for(default_endpoint)
 
 
 def _members(wid):
@@ -139,13 +149,66 @@ def account_verify():
     if not g.user["email_verified"]:
         send_verify(g.user)
         flash("Verification email sent.")
+    # Stay on whatever page the "Resend link" button was clicked from (the banner shows on every
+    # page) instead of forcing a jump to the Account page - the click should just confirm it was sent.
+    return redirect(_safe_back(request.referrer, "dashboard"))
+
+
+@bp.route("/account/pin", methods=["POST"])
+def account_pin():
+    f = request.form
+    if f.get("remove"):
+        ex("UPDATE users SET pin_hash='' WHERE id=?", (g.user["id"],))
+        flash("PIN sign-in removed.")
+        return redirect(url_for("ws.account"))
+    if not check_password_hash(g.user["password_hash"], f.get("current", "")):
+        flash("Current password is incorrect.")
+        return redirect(url_for("ws.account"))
+    pin = S.clean_text(f.get("pin"), 6)
+    if not re.fullmatch(r"\d{4,6}", pin or ""):
+        flash("PIN must be 4-6 digits.")
+        return redirect(url_for("ws.account"))
+    ex("UPDATE users SET pin_hash=? WHERE id=?", (generate_password_hash(pin), g.user["id"]))
+    S.audit("pin_set")
+    flash("PIN sign-in is on. You'll be asked for it at your next login.")
+    return redirect(url_for("ws.account"))
+
+
+@bp.route("/account/logo", methods=["POST"])
+@S.roles("owner", "admin")
+def account_logo():
+    f = request.files.get("file")
+    data = f.read(5 * 1024 * 1024 + 1) if f else b""
+    ext = S.sniff_image(data) if data and len(data) <= 5 * 1024 * 1024 else None
+    if not ext:
+        flash("Choose a PNG, JPG, GIF or WebP logo up to 5 MB.")
+        return redirect(url_for("ws.account"))
+    old = g.ws["logo_url"]
+    ex("UPDATE workspaces SET logo_url=? WHERE id=?", (S.store_file(g.ws["id"], ext, data), g.ws["id"]))
+    if old:
+        S.delete_file(old)
+    S.audit("logo_set")
+    flash("Logo updated.")
+    return redirect(url_for("ws.account"))
+
+
+@bp.route("/account/logo/remove", methods=["POST"])
+@S.roles("owner", "admin")
+def account_logo_remove():
+    if g.ws["logo_url"]:
+        S.delete_file(g.ws["logo_url"])
+        ex("UPDATE workspaces SET logo_url='' WHERE id=?", (g.ws["id"],))
     return redirect(url_for("ws.account"))
 
 
 @bp.route("/workspace/rename", methods=["POST"])
 @S.roles("owner", "admin")
 def rename():
-    ex("UPDATE workspaces SET name=? WHERE id=?", (S.clean_text(request.form.get("name"), 80) or g.ws["name"], g.ws["id"]))
+    name = S.clean_text(request.form.get("name"), 80)
+    if not name:
+        flash("Enter a workspace name.")
+    else:
+        ex("UPDATE workspaces SET name=? WHERE id=?", (name, g.ws["id"]))
     return redirect(url_for("ws.account"))
 
 

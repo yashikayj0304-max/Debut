@@ -36,19 +36,29 @@ def start_session(uid, ws_id=None):
     ex("UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE id=?", (uid,))
 
 
+PW_HINT = "At least 8 characters, with one UPPERCASE letter and one special character (e.g. ! @ # $ %)."
+
+
 def check_password(pw, email=""):
     if len(pw) < 8:
-        return "Password must be at least 8 characters."
+        return "Password must be at least 8 characters, with one uppercase letter and one special character."
     if len(pw) > 200:
         return "Password is too long (max 200 characters)."
+    if not re.search(r"[A-Z]", pw):
+        return "Password must include at least one UPPERCASE letter."
+    if not re.search(r"[^A-Za-z0-9]", pw):
+        return "Password must include at least one special character (e.g. ! @ # $ %)."
     if pw.lower() in WEAK or pw.lower() == email.lower():
         return "That password is too easy to guess."
     return None
 
 
 def dev_link(sent, link):
-    if not sent and not C.PROD:
-        flash("DEV (email not configured): " + C.APP_URL + link)
+    # Shown whenever the email genuinely wasn't delivered (no SMTP configured yet, or a transient
+    # send failure) - not only in dev. Without this, a site with no SMTP set up yet leaves people
+    # with no way at all to verify their email or reset a forgotten password, in production too.
+    if not sent:
+        flash(("DEV: " if not C.PROD else "") + "We couldn't email this link (mail isn't set up yet), so here it is - open it to continue: " + C.APP_URL + link)
 
 
 def send_verify(user):
@@ -77,6 +87,14 @@ def find_invite(token):
     return None
 
 
+def invite_workspace(token):
+    """The company/workspace a pending invite link belongs to, so login/signup can show its name front and centre."""
+    inv = find_invite(token)
+    if not inv:
+        return None
+    return q("SELECT name, logo_url FROM workspaces WHERE id=?", (inv["workspace_id"],), one=True)
+
+
 @bp.route("/signup", methods=["GET", "POST"])
 @limiter.limit("10 per hour", methods=["POST"])
 def signup():
@@ -84,11 +102,13 @@ def signup():
         return redirect(url_for("dashboard"))
     token = request.values.get("invite", "")
     inv = find_invite(token)
+    inv_ws = invite_workspace(token)
     if request.method == "POST":
         f = request.form
         email = (inv["email"] if inv else S.clean_text(f.get("email"), 254)).lower()
         name, pw = S.clean_text(f.get("name"), 80), f.get("password", "")
-        wsname = S.clean_text(f.get("workspace"), 80) or (name + "'s workspace" if name else "My workspace")
+        wsname_in = S.clean_text(f.get("workspace"), 80)
+        wsname = wsname_in or (name + "'s workspace" if name else "My workspace")
         industry = f.get("industry", "general")
         industry = industry if industry in IND.INDUSTRIES else "general"
         err = None
@@ -104,21 +124,22 @@ def signup():
             err = "That email is already registered. Log in or reset your password."
         if err:
             flash(err)
-            return render_template("signup.html", inv=inv, token=token, form=f, industries=IND.CHOICES), 400
+            return render_template("signup.html", inv=inv, inv_ws=inv_ws, token=token, form=f, industries=IND.CHOICES), 400
         try:
             uid = ins("users", dict(email=email, name=name, password_hash=generate_password_hash(pw)))
         except IntegrityError:   # two signups with the same email at the same moment
             D.conn().rollback()
             flash("That email is already registered. Log in or reset your password.")
-            return render_template("signup.html", inv=inv, token=token, form=f, industries=IND.CHOICES), 400
+            return render_template("signup.html", inv=inv, inv_ws=inv_ws, token=token, form=f, industries=IND.CHOICES), 400
         user = q("SELECT * FROM users WHERE id=?", (uid,), one=True)
         wid = accept_invite(token, user) if inv else S.create_workspace(uid, wsname, industry, kit=bool(f.get("kit")))
         start_session(uid, wid)
         S.audit("signup", email, wid=wid, uid=uid)
+        S.audit("dpdp_consent", f"{email} accepted Terms/Privacy at signup", wid=wid, uid=uid)
         send_verify(user)
         flash("Welcome! Your workspace is ready.")
         return redirect(url_for("dashboard"))
-    return render_template("signup.html", inv=inv, token=token, form={}, industries=IND.CHOICES)
+    return render_template("signup.html", inv=inv, inv_ws=inv_ws, token=token, form={}, industries=IND.CHOICES)
 
 
 def finish_login(user, token="", nxt=None):
@@ -139,13 +160,39 @@ def login():
         user = q("SELECT * FROM users WHERE email=?", (email,), one=True)
         if not user or len(pw) > 200 or not check_password_hash(user["password_hash"], pw):
             flash("Incorrect email or password.")
-            return render_template("login.html", token=token, email=email), 401
+            return render_template("login.html", token=token, email=email, inv_ws=invite_workspace(token)), 401
         if user["totp_on"]:                    # password ok; second factor still required
             session.clear()
             session["pending_2fa"] = dict(uid=user["id"], invite=token, nxt=safe_next(""), ts=int(time.time()))
             return redirect(url_for("auth.login_2fa"))
+        if user["pin_hash"]:                   # lighter-weight second factor: a 4-6 digit PIN
+            session.clear()
+            session["pending_pin"] = dict(uid=user["id"], invite=token, nxt=safe_next(""), ts=int(time.time()))
+            return redirect(url_for("auth.login_pin"))
         return finish_login(user, token, safe_next(url_for("dashboard")))
-    return render_template("login.html", token=token, email="")
+    return render_template("login.html", token=token, email="", inv_ws=invite_workspace(token))
+
+
+@bp.route("/login/pin", methods=["GET", "POST"])
+@limiter.limit("10 per 15 minutes", methods=["POST"])
+def login_pin():
+    p = session.get("pending_pin")
+    if not p or time.time() - p.get("ts", 0) > 600:
+        session.pop("pending_pin", None)
+        flash("Please log in again.")
+        return redirect(url_for("auth.login"))
+    user = q("SELECT * FROM users WHERE id=?", (S.to_int(p.get("uid")) or 0,), one=True)
+    if not user or not user["pin_hash"]:
+        session.pop("pending_pin", None)
+        return redirect(url_for("auth.login"))
+    if request.method == "POST":
+        code = S.clean_text(request.form.get("code"), 10)
+        if not check_password_hash(user["pin_hash"], code):
+            flash("That PIN didn't match.")
+            return render_template("login_pin.html"), 401
+        session.pop("pending_pin", None)
+        return finish_login(user, p.get("invite", ""), p.get("nxt"))
+    return render_template("login_pin.html")
 
 
 @bp.route("/login/2fa", methods=["GET", "POST"])
@@ -251,10 +298,10 @@ def verify(token):
     try:
         uid = ser("verify").loads(token, max_age=7 * 86400)
         ex("UPDATE users SET email_verified=1 WHERE id=?", (uid,))
-        flash("Email verified. Thank you!")
+        ok = True
     except (BadSignature, SignatureExpired):
-        flash("That verification link is invalid or expired. Request a new one from your Account page.")
-    return redirect(url_for("dashboard") if g.user else url_for("auth.login"))
+        ok = False
+    return render_template("verified.html", ok=ok)
 
 
 @bp.route("/workspace/new", methods=["GET", "POST"])

@@ -127,7 +127,8 @@ PLANS = OrderedDict([
                     blurb="Agencies & content businesses", rzp_env="RAZORPAY_PLAN_AGENCY")),
 ])
 PAID_PLANS = [k for k in PLANS if k not in ("free", "trial")]
-AI_COST = {"calendar": 3, "gtm_plan": 2, "report": 2, "event_plan": 2, "blog": 2, "competitor": 2, "pulse_brief": 2, "research_market": 2, "research_competitor": 2, "research_trends": 2}
+AI_COST = {"calendar": 3, "gtm_plan": 2, "report": 2, "event_plan": 2, "blog": 2, "competitor": 2, "pulse_brief": 2, "research_market": 2, "research_competitor": 2, "research_trends": 2,
+           "problem_assessment": 2, "ask_debut": 1}
 ROLES = ["owner", "admin", "lead", "manager", "creator", "viewer", "client"]
 # Who may assign / change / remove whom: an actor can only touch roles ranked strictly below their own (owner is never assignable).
 RANK = {"owner": 5, "admin": 4, "lead": 3, "manager": 2, "creator": 1, "viewer": 0, "client": -1}

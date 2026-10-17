@@ -9,7 +9,7 @@
 <p class="muted">Drag a chip to another day to reschedule. Orange labels are key dates (edit them under Key Dates).</p>
 <table class="cal"><tr>{% for d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<th>{{ d }}</th>{% endfor %}</tr>
 {% for w in weeks %}<tr>{% for d in w %}{% set iso = d.isoformat() %}<td class="{{ 'out' if d.month != mth }} {{ 'today' if iso == today }}" data-date="{{ iso }}">
-<div class="d"><span>{{ d.day }}</span><a href="{{ url_for('m_new', key='content_items', publish_date=iso, next=request.full_path) }}">+</a></div>
+<div class="d"><span>{{ d.day }}</span><span class="daylinks"><a href="{{ url_for('ideas') }}" title="Idea Bank">💡</a><a href="{{ url_for('moodboards') }}" title="Mood Boards">🖼</a><a href="{{ url_for('m_new', key='content_items', publish_date=iso, next=request.full_path) }}" title="Add content">+</a></span></div>
 {% for n in kd.get(iso, []) %}<div class="kd">★ {{ n }}</div>{% endfor %}
 {% for r in by.get(iso, []) %}<a class="chip {{ r['status'] }}" draggable="true" data-id="{{ r['id'] }}" title="{{ r['channel'] }} · {{ r['status'] }}" href="{{ url_for('m_edit', key='content_items', rid=r['id'], next=request.full_path) }}">{{ r['channel'][:2] }} · {{ r['title'] }}</a>{% endfor %}</td>{% endfor %}</tr>{% endfor %}</table>
 {% if unscheduled %}<div class="card" style="margin-top:16px"><b>Unscheduled ({{ unscheduled|length }})</b> <span class="muted">— open and set a publish date</span><br>

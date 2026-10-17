@@ -1,20 +1,82 @@
 {% extends "base.html" %}{% block body %}<div class="head"><h1>⚙ Account</h1></div>
 <div class="two"><div class="card"><b>Profile</b><form method="post" action="{{ url_for('ws.account_profile') }}"><label>Name<input name="name" value="{{ user['name'] }}"></label><p class="muted">{{ user['email'] }} {% if user['email_verified'] %}✓ verified{% else %}(not verified){% endif %}</p><button class="btn">Save</button></form></div>
-<div class="card"><b>Change password</b><form method="post" action="{{ url_for('ws.account_password') }}"><label>Current password<input type="password" name="current" required></label><label>New password (8+)<input type="password" name="new" minlength="8" required></label><button class="btn">Update</button></form></div></div>
+<div class="card"><b>Change password</b><form method="post" action="{{ url_for('ws.account_password') }}"><label>Current password<input type="password" name="current" required></label><label>New password<input type="password" name="new" minlength="8" required></label><p class="muted" style="margin-top:-6px">At least 8 characters, with one UPPERCASE letter and one special character (e.g. ! @ # $ %).</p><button class="btn">Update</button></form></div></div>
 <div class="two"><div class="card"><b>🔐 Two-factor login</b><p class="muted">{% if user['totp_on'] %}On. You'll enter a code from your authenticator app at login.{% else %}Add a second step at login using an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password).{% endif %}</p><a class="btn {{ 'ghost' if user['totp_on'] }}" href="{{ url_for('ws.twofa') }}">{{ 'Manage' if user['totp_on'] else 'Set up two-factor' }}</a></div>
+<div class="card"><b>🔢 PIN sign-in</b><p class="muted">{% if user['pin_hash'] %}On. You'll be asked for your PIN after your password at login &mdash; a lighter option than an authenticator app.{% else %}A quick 4-6 digit PIN as a second login step, for when an authenticator app is too much.{% endif %}</p>
+{% if user['pin_hash'] %}<form method="post" action="{{ url_for('ws.account_pin') }}"><input type="hidden" name="remove" value="1"><button class="btn ghost sm">Turn off PIN sign-in</button></form>
+{% else %}<form method="post" action="{{ url_for('ws.account_pin') }}" class="filters" style="max-width:none"><input type="password" name="current" placeholder="Current password" required style="max-width:160px"><input name="pin" inputmode="numeric" maxlength="6" placeholder="4-6 digit PIN" required style="max-width:140px"><button class="btn sm">Turn on</button></form>{% endif %}</div></div>
 <div class="card"><b>✉ Daily digest</b><p class="muted">One email a day, only when something needs you: overdue or upcoming tasks, content publishing soon, approvals waiting.</p>
-<form method="post" action="{{ url_for('ws.account_digest') }}"><input type="hidden" name="on" value="{{ 0 if user['digest'] else 1 }}"><button class="btn ghost">{{ 'Turn off' if user['digest'] else 'Turn on' }}</button> <span class="muted">Currently {{ 'on' if user['digest'] else 'off' }}</span></form></div></div>
-{% if role in ('owner','admin') %}<div class="card"><b>🎨 Brand colours</b>
+<form method="post" action="{{ url_for('ws.account_digest') }}"><input type="hidden" name="on" value="{{ 0 if user['digest'] else 1 }}"><button class="btn ghost">{{ 'Turn off' if user['digest'] else 'Turn on' }}</button> <span class="muted">Currently {{ 'on' if user['digest'] else 'off' }}</span></form></div>
+{% if role in ('owner','admin') %}<div class="card"><b>🖼 Company logo</b><p class="muted">Shown at the top of your workspace instead of the plain Debut mark, and in the client portal and reports.</p>
+{% if ws['logo_url'] %}<img src="{{ media(ws['logo_url']) }}" alt="" style="height:48px;border-radius:8px;display:block;margin-bottom:8px">{% endif %}
+<form method="post" action="{{ url_for('ws.account_logo') }}" enctype="multipart/form-data" class="filters" style="max-width:none"><input type="file" name="file" accept="image/png,image/jpeg,image/gif,image/webp" required><button class="btn sm">Upload</button></form>
+{% if ws['logo_url'] %}<form method="post" action="{{ url_for('ws.account_logo_remove') }}" style="margin-top:6px"><button class="btn ghost sm">Remove logo</button></form>{% endif %}</div>
+<div class="card"><b>🎨 Brand colours</b>
 {% if industry and ws['industry'] == 'personal_brand' %}<p class="muted">Personal-brand workspaces always use the Debut lavender theme, so your dashboard looks consistent with the guides and community. This is not customisable for this industry.</p>
-{% else %}<p class="muted">Match Debut to your company's brand colour. It recolours the sidebar, buttons and highlights across your workspace, the client portal and printable reports &mdash; useful if clients see this workspace.</p>
-<form method="post" action="{{ url_for('ws.account_theme') }}" class="filters" style="max-width:none;align-items:center">
-<input type="color" name="color" value="{{ ws['brand_color'] or '#7c5cd6' }}" style="width:56px;height:38px;padding:2px" oninput="document.getElementById('swatch').style.background=this.value">
-<span id="swatch" style="display:inline-block;width:80px;height:38px;border-radius:8px;vertical-align:middle;background:{{ ws['brand_color'] or '#7c5cd6' }};border:1px solid var(--line)"></span>
+{% else %}<p class="muted">Match Debut to your company's brand colours. The <b>primary</b> colour recolours the sidebar, buttons and highlights across your workspace, the client portal and printable reports. The <b>secondary</b> colour adds a second tone to gradients and accents (the logo wordmark, headings) &mdash; useful if clients see this workspace. Pick a secondary colour, or leave it blank and Debut will choose a lighter shade of your primary automatically.</p>
+<form method="post" action="{{ url_for('ws.account_theme') }}" style="max-width:none">
+<div style="display:flex;flex-wrap:wrap;gap:22px;margin-bottom:10px">
+<div><label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px">Primary</label>
+<div style="display:flex;align-items:center;gap:8px">
+<input type="color" name="color" id="pri-input" value="{{ ws['brand_color'] or '#7c5cd6' }}" style="width:48px;height:38px;padding:2px" oninput="document.getElementById('pri-swatch').style.background=this.value;updatePreview()">
+<span id="pri-swatch" style="display:inline-block;width:60px;height:38px;border-radius:8px;background:{{ ws['brand_color'] or '#7c5cd6' }};border:1px solid var(--line)"></span>
+</div></div>
+<div><label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px">Secondary <span class="muted" style="font-weight:400">(optional)</span></label>
+<div style="display:flex;align-items:center;gap:8px">
+<input type="color" id="sec-input" value="{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }}" {% if not ws['secondary_color'] %}disabled{% endif %} style="width:48px;height:38px;padding:2px" oninput="document.getElementById('sec-field').value=this.value;updatePreview()">
+<span id="sec-swatch" style="display:inline-block;width:60px;height:38px;border-radius:8px;background:{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }};border:1px solid var(--line)"></span>
+<input type="hidden" name="secondary" id="sec-field" value="{{ ws['secondary_color'] or '' }}">
+<button type="button" class="btn ghost sm" id="auto-btn" onclick="setAutoSecondary()" title="Clear so Debut picks a lighter shade of your primary colour automatically" {% if not ws['secondary_color'] %}disabled{% endif %}>Auto</button>
+<button type="button" class="btn ghost sm" id="custom-btn" onclick="setCustomSecondary()" {% if ws['secondary_color'] %}disabled{% endif %}>Custom&hellip;</button>
+</div></div>
+<div><label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px">Preview</label>
+<div id="combo-preview" style="width:140px;height:38px;border-radius:8px;border:1px solid var(--line);background:linear-gradient(90deg,{{ ws['brand_color'] or '#7c5cd6' }},{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }})"></div></div>
+</div>
 <button class="btn">Apply</button></form>
+<script>
+function mixWhite(hex,amt){
+ hex=(hex||'#7c5cd6').replace('#','');
+ if(hex.length!==6)return '#'+hex;
+ var r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
+ r=Math.round(r+(255-r)*amt);g=Math.round(g+(255-g)*amt);b=Math.round(b+(255-b)*amt);
+ return '#'+[r,g,b].map(function(v){return v.toString(16).padStart(2,'0')}).join('');
+}
+function currentSecondary(){
+ var field=document.getElementById('sec-field');
+ if(field.value)return field.value;
+ return mixWhite(document.getElementById('pri-input').value,0.35);
+}
+function updatePreview(){
+ var pri=document.getElementById('pri-input').value;
+ var sec=currentSecondary();
+ document.getElementById('sec-swatch').style.background=sec;
+ document.getElementById('combo-preview').style.background='linear-gradient(90deg,'+pri+','+sec+')';
+}
+function setAutoSecondary(){
+ document.getElementById('sec-field').value='';
+ document.getElementById('sec-input').disabled=true;
+ document.getElementById('auto-btn').disabled=true;
+ document.getElementById('custom-btn').disabled=false;
+ updatePreview();
+}
+function setCustomSecondary(){
+ var input=document.getElementById('sec-input');
+ input.disabled=false;
+ if(!document.getElementById('sec-field').value){input.value=document.getElementById('pri-input').value;document.getElementById('sec-field').value=input.value;}
+ document.getElementById('auto-btn').disabled=false;
+ document.getElementById('custom-btn').disabled=true;
+ updatePreview();
+}
+document.getElementById('pri-input').addEventListener('input',function(){
+ document.getElementById('pri-swatch').style.background=this.value;
+ updatePreview();
+});
+</script>
 {% if ws['brand_color'] %}<form method="post" action="{{ url_for('ws.account_theme_reset') }}" style="margin-top:8px"><button class="btn ghost sm">Reset to Debut lavender</button></form>{% endif %}{% endif %}</div>
 <div class="card"><b>Industry</b><p class="muted">Tailors your Idea Bank, AI Studio and starter kit. Currently: <b>{{ industry['icon'] }} {{ industry['label'] }}</b>.</p>
 <form method="post" action="{{ url_for('ws.industry_update') }}" class="filters" style="max-width:none"><select name="industry" style="max-width:340px">{% for k, l in industries %}<option value="{{ k }}" {% if k == ws['industry'] %}selected{% endif %}>{{ l }}</option>{% endfor %}</select><button class="btn ghost">Save</button><button class="btn" name="kit" value="1">Save &amp; load starter kit</button></form></div>
-<div class="card"><b>Workspace</b><form method="post" action="{{ url_for('ws.rename') }}" class="filters"><input name="name" value="{{ ws['name'] }}"><button class="btn ghost">Rename</button></form>
+<div class="card"><b>Workspace</b><form method="post" action="{{ url_for('ws.rename') }}" class="filters"><input name="name" value="{{ ws['name'] }}" maxlength="80" required><button class="btn ghost">Rename</button></form>
+<p class="muted">Up to 80 characters. This is the name shown at the top of the app and (once you invite teammates) on their sign-in screen too.</p>
 <p class="muted">URL name: <code>{{ ws['slug'] }}</code> · Plan: {{ plan['name'] }}</p><a class="btn ghost" href="{{ url_for('ws.export_zip') }}">⬇ Export all data (ZIP of CSVs)</a></div>{% endif %}
 {% if role == 'owner' and candidates %}<div class="card"><b>Transfer ownership</b><p class="muted">Hand this workspace and its billing to a teammate (for example if you sell the agency or step back). You become an Admin. Choose someone who is already an Admin, Lead or Manager.</p>
 <form method="post" action="{{ url_for('ws.transfer_ownership') }}" onsubmit="return confirm('Transfer ownership? You will lose owner-only powers.')"><label>New owner<select name="mid">{% for c in candidates %}<option value="{{ c['mid'] }}">{{ c['name'] or c['email'] }} ({{ c['role'] }})</option>{% endfor %}</select></label>

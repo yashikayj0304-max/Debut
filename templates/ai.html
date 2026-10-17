@@ -11,7 +11,7 @@
 <label>Product / brand<input id="product" placeholder="e.g. Asha's Kitchen: cold-pressed juices, launching in Pune"></label>
 <label>Target audience<input id="audience" placeholder="e.g. urban professionals 25-40 who care about health"></label>
 <label>Tone<input id="tone" placeholder="e.g. playful, premium, warm"></label>
-<label>Extra instructions<textarea id="extra" rows="3" placeholder="For calendars: start date + number of days + channels. For anything: constraints, budget, must-include points."></textarea></label>
+<label>Extra instructions<textarea id="extra" rows="3" placeholder="For calendars: start date + number of days + channels. For problem assessment: describe the situation — what's not working, what you've tried, any numbers you have. For anything: constraints, budget, must-include points."></textarea></label>
 {% if web %}<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="research" style="width:auto"> Use live web research for this task (+{{ extra }} credits): searches the web now and lists its sources</label>{% endif %}
 <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="use_plan" checked style="width:auto"> Use my latest GTM Plan, Brand Kit and Personas as context</label>
 <button class="btn" id="go" onclick="run()">Generate</button> <span id="st" class="muted"></span></div>

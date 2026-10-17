@@ -47,7 +47,7 @@ workspace.py   team & roles, activity, account, 2FA, integrations/API keys, expo
 admin.py       platform-owner console at /admin (+ read-only support view)
 views.py       all product screens
 templates/     ~45 HTML pages       static/  CSS, vendored Chart.js, PWA icons
-tests/         pytest suite (110 tests)
+tests/         pytest suite (132 tests)
 docs/          customer guides (PDF) and this developer guide
 Launch Debut.bat  Windows one-click local launcher
 deploy/        Caddyfile, backup.sh
@@ -77,7 +77,7 @@ You (developer) create: hosting account, Postgres, storage bucket (if used), Sen
 ```bash
 python3.12 -m venv venv && source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt pytest
-python -m pytest -q tests                                # expect: 110 passed (SQLite)
+python -m pytest -q tests                                # expect: 132 passed (SQLite)
 python app.py                                            # http://127.0.0.1:8001 (dev mode, demo billing)
 ```
 
@@ -88,7 +88,7 @@ Run the suite against Postgres too (recommended):
 ```bash
 pip install -r requirements-postgres.txt
 docker run -d --name pgtest -e POSTGRES_USER=gtm -e POSTGRES_PASSWORD=gtm -e POSTGRES_DB=gtm_test -p 5432:5432 postgres:16
-TEST_DATABASE_URL=postgresql+psycopg2://gtm:gtm@localhost:5432/gtm_test python -m pytest -q tests   # expect: 110 passed
+TEST_DATABASE_URL=postgresql+psycopg2://gtm:gtm@localhost:5432/gtm_test python -m pytest -q tests   # expect: 132 passed
 ```
 
 > ⚠️ **NEVER set `TEST_DATABASE_URL` to a real database.** The test fixture runs `TRUNCATE ... CASCADE` on every table.

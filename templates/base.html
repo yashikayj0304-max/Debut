@@ -6,28 +6,49 @@
 {% if user and ws and not bare %}<meta name="robots" content="noindex,nofollow">{% endif %}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5cd6'/%3E%3Cpath d='M9 21l5-10 4 6 5-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"><title>{% block title %}{{ C.APP_NAME }}{% endblock %}</title>
 <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-{% if brand %}<style>:root{--pri:{{ brand.pri }};--pri-d:{{ brand.pri_d }};--pri2:{{ brand.pri2 }};--pri3:{{ brand.pri3 }};--accent:{{ brand.accent }}}
+{% if brand %}<style>:root{--pri:{{ brand.pri }};--pri-d:{{ brand.pri_d }};--pri2:{{ brand.pri2 }};--pri3:{{ brand.pri3 }};--accent:{{ brand.accent }};--sec:{{ brand.sec }};--sec-d:{{ brand.sec_d }}}
 aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{% endif %}</head>
 <body class="{{ 'app' if (user and ws and not bare) else 'pub' }}">
 {% if user and ws and not bare %}
-<div class="mobbar"><button class="menu-btn" aria-label="Menu" onclick="document.body.classList.toggle('nav-open')">☰</button><a class="brand" href="{{ url_for('dashboard') }}"><img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt=""> {{ C.APP_NAME }}</a><a class="bell" href="{{ url_for('notifications') }}">🔔{% if unread %}<span class="dot">{{ unread if unread < 10 else '9+' }}</span>{% endif %}</a></div><div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
-<aside><h2><a href="{{ url_for('dashboard') }}" style="padding:0"><img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt=""> {{ C.APP_NAME }}</a></h2>
+<div class="topbar">
+<button class="menu-btn" aria-label="Menu" onclick="document.body.classList.toggle('nav-open')">☰</button>
+<a class="tb-brand" href="{{ url_for('dashboard') }}">{% if ws['logo_url'] %}<img class="logo" src="{{ media(ws['logo_url']) }}" alt="">{% else %}<img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="">{% endif %}<span>{{ ws['name'] }}</span></a>
+<div class="tb-right">
+{% if role != 'client' %}<form class="tb-search" method="get" action="{{ url_for('search') }}"><input name="q" placeholder="Ask Debut — search everything…" data-tour="search"></form>{% endif %}
+<div class="dd"><button type="button" class="tb-ic" onclick="toggleDD(this)" aria-label="Help">❓</button><div class="dd-menu">
+<a href="{{ url_for('help_centre') }}" data-tour="help">📘 Help &amp; guides</a>
+<a href="{{ url_for('ws.account') }}">⚙ Settings</a>
+<a href="/feedback?from={{ request.path }}" data-tour="feedback">💬 Send feedback</a>
+<a href="{{ url_for('ws.account') }}">👤 Profile</a></div></div>
+<div class="dd"><button type="button" class="tb-ic" data-tour="bell" onclick="toggleDD(this);loadNotifs()" aria-label="Notifications">🔔{% if unread %}<span class="dot">{{ unread if unread < 10 else '9+' }}</span>{% endif %}</button>
+<div class="dd-menu dd-wide" id="notifDD"><div class="muted" style="padding:10px">No notifications yet.</div></div></div>
+<div class="dd"><button type="button" class="tb-profile" onclick="toggleDD(this)">{{ (user['name'] or user['email'])[:1]|upper }}<span class="tb-name">{{ user['name'] or user['email'] }}</span> ▾</button><div class="dd-menu">
+<a href="{{ url_for('ws.account') }}">⚙ Account settings</a>
+<form method="post" action="{{ url_for('auth.logout') }}"><button class="dd-item" type="submit">↪ Log out</button></form></div></div>
+</div></div>
+<div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
+<dialog id="overlayModal" class="overlay-modal"><div class="overlay-head"><button type="button" class="btn ghost sm" onclick="document.getElementById('overlayModal').close()">✕ Close</button></div><div id="overlayBody" class="overlay-body"><p class="muted" style="padding:20px">Loading…</p></div></dialog>
+<div class="appcols">
+<aside>
 {% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
 {% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
-{% if role != 'client' %}<form class="srch" method="get" action="{{ url_for('search') }}"><input name="q" placeholder="Search everything…" style="margin:8px 0" data-tour="search"></form>{% endif %}
 <a href="{{ url_for('dashboard') }}" data-tour="dashboard">🏠 Dashboard</a>
-<a href="{{ url_for('notifications') }}" data-tour="bell">🔔 Notifications{% if unread %} <span class="pill">{{ unread }}</span>{% endif %}</a>
-{% for g, items in NAV.items() %}<h4{% if loop.first %} data-tour="modules"{% endif %}>{{ g }}</h4>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}{% endfor %}
+<a href="{{ url_for('notifications') }}">🔔 Notifications{% if unread %} <span class="pill">{{ unread }}</span>{% endif %}</a>
+{% set ns = namespace(overflow=[]) %}
+{% for g, items in NAV.items() %}<h4{% if loop.first %} data-tour="modules"{% endif %}>{{ g }}</h4>{% for label, href in items[:4] %}<a href="{{ href }}">{{ label }}</a>{% endfor %}
+{% if items|length > 4 %}{% set ns.overflow = ns.overflow + [(g, items[4:])] %}{% endif %}{% endfor %}
+{% if ns.overflow %}<button type="button" class="more-tools-btn" onclick="document.getElementById('moreToolsModal').showModal();document.getElementById('mt-search').focus()">⋯ More tools</button>{% endif %}
 <div class="side-foot">
 {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">💳 Plan: <span class="pill">{{ plan['name'] }}</span></a>{% endif %}
 {% if role in TEAM_MANAGERS %}<a href="{{ url_for('team_hub') }}">👑 Team hub{{ ' 🔒' if 'group' not in plan['features'] }}</a><a href="{{ url_for('ws.team') }}">👥 Team &amp; roles</a><a href="{{ url_for('ws.activity') }}">🕘 Activity</a>{% endif %}
 {% if role in ('owner','admin','lead','manager') %}<a href="{{ url_for('report') }}">📑 Client report</a><a href="{{ url_for('ws.integrations') }}">🔌 Integrations</a><a href="{{ url_for('ws.export_zip') }}">⬇ Export data</a>{% elif role not in ('creator', 'client') %}<a href="{{ url_for('report') }}">📑 Report</a>{% endif %}
 {% if is_admin %}<a href="{{ url_for('admin.index') }}">🛠 Admin</a>{% elif admin_needs_2fa %}<a href="{{ url_for('ws.twofa') }}">🔐 Turn on 2FA to unlock Admin</a>{% endif %}
-<a href="{{ url_for('help_centre') }}" data-tour="help">❓ Help &amp; guides</a>
-<a href="/feedback?from={{ request.path }}" data-tour="feedback">💬 Send feedback</a>
-<a href="{{ url_for('ws.account') }}">⚙ {{ user['name'] or user['email'] }}</a>
-<form method="post" action="{{ url_for('auth.logout') }}" style="padding:3px 8px"><button class="btn ghost sm">Log out</button></form></div></aside>
+</div></aside>
+{% if ns.overflow %}<dialog id="moreToolsModal" class="overlay-modal more-tools-modal"><div class="overlay-head"><b style="margin-right:auto;padding-left:4px">⋯ More tools</b><button type="button" class="btn ghost sm" onclick="document.getElementById('moreToolsModal').close()">✕ Close</button></div>
+<div class="overlay-body"><input id="mt-search" type="text" placeholder="Filter…" oninput="filterMoreTools(this.value)" style="margin-bottom:10px">
+<div id="mt-list">{% for g, items in ns.overflow %}<div class="mt-group"><h4>{{ g }}</h4>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</div>{% endfor %}</div>
+<p class="muted mt-empty" id="mt-empty" style="display:none">No tools match that.</p></div></dialog>{% endif %}
 <main>
 {% if support %}<div class="banner bad">🛠 <b>Support view</b> of {{ ws['name'] }}: read-only. <form method="post" action="{{ url_for('admin.exit_support') }}" style="display:inline"><button class="btn ghost sm">Exit support view</button></form></div>{% endif %}
 {% if lapsed %}<div class="banner">Your {{ 'trial' if ws['plan'] == 'trial' else 'subscription' }} has ended, so you're on the <b>Free</b> plan now. Your data is safe; some features are locked and limits apply. {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">Choose a plan →</a>{% endif %}</div>
@@ -41,24 +62,122 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% for m in get_flashed_messages() %}<div class="flash">{{ m }}</div>{% endfor %}
 {% block body %}{% endblock %}
 {% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
-</main>
+</main>{% if user and ws and not bare %}</div>{% endif %}
 <script>
 window.CSRF=document.querySelector('meta[name=csrf-token]').content;
 document.querySelectorAll('form').forEach(function(f){if((f.method||'').toLowerCase()==='post'&&!f.querySelector('[name=csrf_token]')){var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);}});
 (function(){var p=location.pathname,best=null;document.querySelectorAll("aside>a[href],aside .side-foot a[href]").forEach(function(a){var h=a.getAttribute("href").split("?")[0];if(h===p||(h!=="/app"&&h.length>1&&p.indexOf(h)===0)){if(!best||h.length>best.getAttribute("href").length)best=a;}});if(best)best.classList.add("on");})();
+// ---------- keep the sidebar scrolled to where you were, across page navigations (full page loads don't preserve scroll on their own) ----------
+(function(){
+ var aside=document.querySelector("aside");if(!aside)return;
+ try{var saved=sessionStorage.getItem("asideScroll");if(saved!==null)aside.scrollTop=parseInt(saved,10)||0;}catch(e){}
+ var save=function(){try{sessionStorage.setItem("asideScroll",String(aside.scrollTop));}catch(e){}};
+ aside.addEventListener("scroll",save,{passive:true});
+ aside.addEventListener("click",function(e){if(e.target.closest("a"))save();});
+ window.addEventListener("pagehide",save);
+})();
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}
 function switchWs(id){var f=document.createElement('form');f.method='post';f.action='/switch/'+id;var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);document.body.appendChild(f);f.submit();}
 async function api(url,body){var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':window.CSRF},body:JSON.stringify(body||{})});var d={};try{d=await r.json()}catch(e){}return {ok:r.ok,status:r.status,data:d};}
 
+// ---------- top-bar dropdowns (help / notifications / profile) ----------
+function toggleDD(btn){
+ var menu=btn.nextElementSibling,open=menu.classList.contains('show');
+ document.querySelectorAll('.dd-menu.show').forEach(function(m){m.classList.remove('show')});
+ if(!open)menu.classList.add('show');
+}
+document.addEventListener('click',function(e){if(!e.target.closest('.dd'))document.querySelectorAll('.dd-menu.show').forEach(function(m){m.classList.remove('show')});});
+var _notifsLoaded=false;
+async function loadNotifs(){
+ if(_notifsLoaded)return; _notifsLoaded=true;
+ try{
+  var r=await fetch('/notifications/recent');var d=await r.json();var box=document.getElementById('notifDD');
+  if(!d.items||!d.items.length){box.innerHTML='<div class="muted" style="padding:10px">No notifications yet.</div>';return;}
+  box.innerHTML=d.items.map(function(n){return '<a href="'+n.link+'" style="white-space:normal'+(n.is_read?'':';font-weight:600')+'">'+n.message+'<br><span class="muted" style="font-weight:400;font-size:11px">'+n.created_at+'</span></a>';}).join('')+'<a href="/notifications" style="text-align:center;border-top:1px solid var(--line)">See all →</a>';
+ }catch(e){_notifsLoaded=false;}
+}
+// ---------- lightweight formatting helpers for long text fields (bold / italic / bullet list) ----------
+function wrapSel(id,mark){
+ var el=document.getElementById(id);if(!el)return;
+ var s=el.selectionStart,e=el.selectionEnd,v=el.value;
+ el.value=v.slice(0,s)+mark+v.slice(s,e)+mark+v.slice(e);
+ el.focus();el.selectionStart=s+mark.length;el.selectionEnd=e+mark.length;
+}
+function bullets(id){
+ var el=document.getElementById(id);if(!el)return;
+ var s=el.selectionStart,e=el.selectionEnd,v=el.value;
+ var sel=v.slice(s,e)||'List item';
+ var lines=sel.split('\n').map(function(l){return l.trim()?'- '+l.replace(/^- /,''):l;}).join('\n');
+ el.value=v.slice(0,s)+lines+v.slice(e);
+ el.focus();
+}
+// ---------- "More tools" popup: the long tail of less-used sidebar links, filterable, so the sidebar itself stays short ----------
+function filterMoreTools(term){
+ term=(term||'').trim().toLowerCase();
+ var any=false;
+ document.querySelectorAll('#mt-list .mt-group').forEach(function(grp){
+  var groupHasMatch=false;
+  grp.querySelectorAll('a').forEach(function(a){
+   var hit=!term||a.textContent.toLowerCase().indexOf(term)>=0;
+   a.style.display=hit?'':'none';
+   if(hit)groupHasMatch=true;
+  });
+  grp.style.display=groupHasMatch?'':'none';
+  if(groupHasMatch)any=true;
+ });
+ document.getElementById('mt-empty').style.display=any?'none':'block';
+}
+// ---------- quick-add overlay: loads a form fragment via fetch and shows it in a pop-up dialog with a close (✕), instead of navigating away ----------
+function _overlaySep(href){ return href.indexOf('?') === -1 ? '?' : '&'; }
+function openOverlay(href, backTo){
+ var d=document.getElementById('overlayModal'),body=document.getElementById('overlayBody');
+ body.innerHTML='<p class="muted" style="padding:20px">Loading…</p>';
+ d.showModal();
+ fetch(href+_overlaySep(href)+'modal=1', {headers:{'X-Requested-With':'fetch'}}).then(function(r){return r.text();}).then(function(html){
+  body.innerHTML=html;
+  _bindOverlayForm(body);
+ }).catch(function(){ body.innerHTML='<p class="muted" style="padding:20px">Could not load the form. <a href="'+href+'">Open it in a new page instead</a>.</p>'; });
+ return false;
+}
+function _bindOverlayForm(body){
+ var form=body.querySelector('form');
+ if(!form) return;
+ form.addEventListener('submit', function(e){
+  e.preventDefault();
+  var fd=new FormData(form);
+  if(!fd.get('csrf_token')) fd.set('csrf_token', window.CSRF);
+  fetch(form.action, {method:'POST', body:fd, redirect:'manual', headers:{'X-CSRFToken':window.CSRF}}).then(function(r){
+   if(r.type==='opaqueredirect' || r.status===0 || (r.status>=300 && r.status<400)){
+    document.getElementById('overlayModal').close();
+    location.reload();
+   } else {
+    return r.text().then(function(html){ body.innerHTML=html; _bindOverlayForm(body); });
+   }
+  }).catch(function(){ body.innerHTML='<p class="muted" style="padding:20px">Something went wrong saving this. Please try again.</p>'; });
+ });
+}
+if(window.history && 'scrollRestoration' in history){try{history.scrollRestoration='manual';}catch(e){}}
+window.addEventListener('load',function(){window.scrollTo(0,0);document.body.classList.remove('nav-open');});
+
 // ---------- first-time tour: a few spotlighted tips pointing at where things live ----------
 var TOUR_STEPS=[
- {sel:"[data-tour=dashboard]",title:"You are here: the Dashboard",text:"Your home screen: what\'s due, what\'s publishing soon, and quick links into every module."},
+ {sel:"[data-tour=dashboard]",title:"🏠 Dashboard",text:"Your home screen, one click away from anywhere: what\'s due, what\'s publishing soon, and quick links into every module."},
  {sel:"[data-tour=modules]",title:"Everything is grouped here",text:"Plans, content, campaigns and more are grouped by topic in this menu. Scroll down to see them all."},
  {sel:"[data-tour=search]",title:"Can\'t find something?",text:"Search looks across every module at once: tasks, content, contacts, everything."},
  {sel:"[data-tour=bell]",title:"Notifications",text:"You\'ll hear here when someone assigns you work, mentions you, or needs your approval."},
  {sel:"[data-tour=help]",title:"Help \u0026 guides",text:"Full guides and a quick \u2018where is everything\u2019 reference live here, any time you need them."},
  {sel:"[data-tour=feedback]",title:"Something confusing, or an idea?",text:"Send feedback goes straight to the team, with the page you were on attached."}
 ];
+function dismissTour(){
+ var had=document.querySelectorAll('.tour-pop,.tour-mask').length>0;
+ document.querySelectorAll('.tour-pop,.tour-mask').forEach(function(e){e.remove()});
+ if(had)api('/account/onboarded',{});
+}
+// any dialog opening (quick-add overlay, More tools, a board's How-to-use, etc.) should clear the tour first, so the two never sit on screen together
+if(window.HTMLDialogElement){
+ var _showModal=HTMLDialogElement.prototype.showModal;
+ HTMLDialogElement.prototype.showModal=function(){dismissTour();return _showModal.call(this);};
+}
 function tourStep(i){
  document.querySelectorAll('.tour-pop,.tour-mask').forEach(function(e){e.remove()});
  if(i>=TOUR_STEPS.length){api('/account/onboarded',{});return;}
@@ -77,10 +196,10 @@ function tourStep(i){
   pop.innerHTML='<b style="color:var(--pri-d)">'+st.title+'</b><p style="margin:6px 0 10px;color:var(--mut)">'+st.text+'</p><div style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:11px">'+(i+1)+' / '+TOUR_STEPS.length+'</span><span><button id="tourSkip" class="btn ghost sm" style="margin-right:6px">Skip</button><button id="tourNext" class="btn sm">'+(i+1<TOUR_STEPS.length?'Next':'Done')+'</button></span></div>';
   document.body.appendChild(pop);
   document.getElementById('tourNext').onclick=function(){tourStep(i+1);};
-  document.getElementById('tourSkip').onclick=function(){document.querySelectorAll('.tour-pop,.tour-mask').forEach(function(e){e.remove()});api('/account/onboarded',{});};
+  document.getElementById('tourSkip').onclick=dismissTour;
  },250);
 }
-function startTour(){tourStep(0);}
+function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0);}
 {% if user and ws and not bare and not user['onboarded'] and role not in ('client',) %}window.addEventListener('load',function(){setTimeout(startTour,600);});{% endif %}
 </script>{% if C.GA_MEASUREMENT_ID and not (user and ws and not bare) %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ C.GA_MEASUREMENT_ID }}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config","{{ C.GA_MEASUREMENT_ID }}",{anonymize_ip:true});</script>{% endif %}
 {% block scripts %}{% endblock %}</body></html>

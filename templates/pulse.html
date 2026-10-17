@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block title %}Market Pulse{% endblock %}{% block body %}
 <div class="head"><h1>📡 Market Pulse</h1><div>{% if can_refresh %}<form method="post" action="{{ url_for('pulse_refresh') }}" style="display:inline"><button class="btn" {{ 'disabled' if wait }}>⟳ Refresh now</button></form>{% endif %}
-{% if can_refresh and data and ai %}<button class="btn ghost" id="brief-btn" onclick="brief()">✨ AI brief ({{ cost }} credits)</button>{% endif %} <a class="btn ghost" href="{{ url_for('m_list', key='watchlist') }}">Watchlist</a></div></div>
+{% if can_refresh and data and ai %}<button class="btn ghost" id="brief-btn" onclick="brief()">✨ AI brief ({{ cost }} credits)</button>{% endif %}</div></div>
 <p class="muted">Live headlines, trends and videos for your industry, competitors and keywords, from India and around the world. {% if data %}Updated <b>{{ 'just now' if age < 2 else (age|int ~ ' min ago' if age < 120 else ((age / 60)|int ~ ' h ago')) }}</b>.{% endif %}
 Sources on: news ({{ {'google_rss': 'Google News', 'gnews': 'GNews', 'newsdata': 'NewsData'}.get(provider, provider) }}){% if data and 'Hacker News' in data['sources'] %}, Hacker News{% endif %}{% if yt %}, YouTube{% endif %}, trending searches.</p>
 {% if wait and can_refresh %}<div class="banner">Refreshed recently. You can refresh again in about {{ wait }} minute(s).</div>{% endif %}
@@ -19,8 +19,17 @@ Sources on: news ({{ {'google_rss': 'Google News', 'gnews': 'GNews', 'newsdata':
 {% else %}<p class="muted">Nothing found for this in the last week.{% if grp['errors'] %} ({{ grp['errors']|join('; ') }}){% endif %}</p>{% endfor %}</div>{% endfor %}
 {% if data['errors'] %}<div class="card" style="border-color:var(--warn)"><b>Notes on sources</b><p class="muted">Some sources could not be reached this time. Everything else above is live. {{ data['errors'][:6]|join(' · ') }}</p></div>{% endif %}
 {% endif %}
-<div class="two"><div class="card"><b>What we track for you</b> <span class="muted">({{ watch|length }} of {{ limit }} allowed on your plan)</span>{% for w in watch %}<div class="news">{{ w['term'] }} <span class="tag">{{ w['type'] }} · {{ w['region'] }}</span></div>{% else %}<p class="muted">Nothing yet. Add keywords, brands or competitors.</p>{% endfor %}
-<p class="muted">Competitors you add under <b>Competitors</b> are tracked automatically.</p><a class="btn ghost sm" href="{{ url_for('m_new', key='watchlist') }}">+ Add to watchlist</a></div>
+<div class="two"><div class="card"><b>What we track for you</b> <span class="muted">({{ watch|length }} of {{ limit }} allowed on your plan)</span>
+{% for w in watch_rows %}<div class="news" style="display:flex;justify-content:space-between;align-items:center;gap:8px">{{ w['term'] }} <span class="tag">{{ w['type'] }} · {{ w['region'] }}</span>
+{% if can_refresh %}<form method="post" action="{{ url_for('pulse_watch_remove', wid=w['id']) }}" style="display:inline"><button class="btn ghost sm" title="Stop tracking">✕</button></form>{% endif %}</div>{% endfor %}
+{% for w in watch if w['type'] == 'Competitor' and w['term'] not in watch_rows|map(attribute='term')|list %}<div class="news">{{ w['term'] }} <span class="tag">{{ w['type'] }} · {{ w['region'] }} · auto, from Competitors</span></div>{% endfor %}
+{% if not watch %}<p class="muted">Nothing yet. Add a keyword, brand or competitor below.</p>{% endif %}
+{% if can_refresh %}<form method="post" action="{{ url_for('pulse_watch_add') }}" class="filters" style="max-width:none;margin-top:8px;flex-wrap:wrap;align-items:center">
+<input name="term" placeholder="Keyword, brand or subreddit…" required style="max-width:200px;flex:1 1 160px">
+<select name="type" style="flex:0 0 auto"><option>Keyword</option><option>Competitor</option><option>Brand</option><option>Subreddit</option></select>
+<select name="region" style="flex:0 0 auto"><option>India</option><option>Global</option><option>Both</option></select>
+<button class="btn sm" style="white-space:nowrap;flex:0 0 auto">+ Add source</button></form>
+<p class="muted" style="margin-top:6px">Competitors you add under <b>Competitors</b> are tracked automatically.</p>{% endif %}</div>
 {% if can_refresh %}<div class="card"><b>📅 Add public holidays to Key Dates</b><p class="muted">Plan around real dates. Pulled live from a public holiday service.</p>
 <form method="post" action="{{ url_for('pulse_holidays') }}" class="filters" style="max-width:none"><select name="country">{% for c, n in countries %}<option value="{{ c }}">{{ n }}</option>{% endfor %}</select><select name="year"><option>{{ year }}</option><option>{{ year + 1 }}</option></select><button class="btn ghost">Add holidays</button></form></div>{% endif %}</div>
 <p class="tag">Headlines belong to their publishers: click through to read the original. Trend words are computed from headlines and are a signal, not a forecast.</p>

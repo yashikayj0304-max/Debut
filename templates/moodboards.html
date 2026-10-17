@@ -1,7 +1,18 @@
 {% extends "base.html" %}{% block body %}
-<div class="head"><h1>🖼️ Mood Boards</h1></div><p class="muted">Collect images, colours, notes and links into visual boards for each campaign or launch.</p>
+<div class="head"><h1>🖼️ Mood Boards</h1><form method="post" action="{{ url_for('board_sample') }}"><button class="btn ghost" title="See a worked example with sample notes, colours and links already placed">✨ Load a sample board</button></form></div><p class="muted">Collect images, colours, notes and links into visual boards for each campaign or launch.</p>
+
+<div class="card" style="margin-bottom:16px"><b>🧭 How it works</b>
+<p class="muted" style="margin-top:6px">A mood board is a free-form, drag-anywhere canvas — like a Miro board, scoped to your workspace. Every card saves itself the moment you move, resize or edit it; there's nothing to "save" separately.</p>
+<ol style="margin:10px 0 0;padding-left:20px;line-height:1.85;font-size:13.5px">
+<li><b>Create a board</b> below, then add images, notes, colour swatches and links from the toolbar on it.</li>
+<li><b>Drag, resize, double-click to edit</b> — every card is fully editable in place, including swapping a picture with a new one.</li>
+<li><b>Zoom in/out</b> on a board to work on a big, busy canvas, just like Miro.</li>
+</ol>
+<p class="muted" style="margin-top:10px">New to mood boards? Click <b>"✨ Load a sample board"</b> above for a ready-made example — four card types already placed, so you can see the format before building your own. Every board also has its own <b>"❓ How to use"</b> button with the full walkthrough.</p>
+</div>
+
 <form method="post" action="{{ url_for('board_new') }}" class="card two"><label>Board name<input name="name" required placeholder="e.g. Diwali 2026 — chocolate gifting"></label><label>Description<input name="description"></label><div><button class="btn">Create board</button></div></form>
 <div class="grid">{% for b in boards %}<a class="tile" href="{{ url_for('board_view', bid=b['id']) }}">
 {% if covers[b['id']] %}<img src="{{ media(covers[b['id']]['content']) }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px">{% endif %}
-<b style="font-size:16px">{{ b['name'] }}</b><span class="muted">{{ b['n'] }} items · {{ b['description'] }}</span></a>{% else %}<p class="muted">No boards yet.</p>{% endfor %}</div>
+<b style="font-size:16px">{{ b['name'] }}</b><span class="muted">{{ b['n'] }} items · {{ b['description'] }}</span></a>{% else %}<p class="muted">No boards yet — create one above, or load the sample to see how it works first.</p>{% endfor %}</div>
 {% endblock %}

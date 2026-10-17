@@ -1,5 +1,21 @@
 {% extends "base.html" %}{% block body %}<div class="head"><h1>🔎 Search</h1></div>
-<form class="filters" method="get"><input name="q" value="{{ term }}" placeholder="Search everything…" autofocus><button class="btn">Search</button></form>
+<form class="filters" method="get"><input name="q" id="q" value="{{ term }}" placeholder="Search everything…" autofocus><button class="btn">Search</button></form>
+{% if role != 'client' and has_key %}<div class="card" id="ask-card"><b>🤖 Ask Debut</b> <span class="muted">— ask a question in plain English; it answers using your own GTM plan, personas and brand kit</span>
+<div style="display:flex;gap:8px;margin-top:8px"><input id="ask-q" placeholder="e.g. Why is my engagement rate low? What should I do before launch?" value="{{ term if term and '?' in term else '' }}" style="flex:1"><button class="btn" id="ask-go" onclick="askDebut()">Ask</button></div>
+<div id="ask-out" class="out" style="margin-top:10px;display:none;white-space:pre-wrap"></div>
+<p class="muted" id="ask-st" style="margin-top:6px"></p></div>{% endif %}
 {% for key, m, rows, tf in results %}<div class="card"><b>{{ m.icon }} {{ m.title }}</b>{% for r in rows %}<div style="padding:4px 0"><a href="{{ url_for('m_edit', key=key, rid=r['id']) }}">{{ r[tf] or '(untitled)' }}</a></div>{% endfor %}</div>
 {% else %}{% if term %}<p class="muted">No results for “{{ term }}”.</p>{% endif %}{% endfor %}
 {% endblock %}
+{% block scripts %}<script>
+async function askDebut(){
+ var qv=document.getElementById('ask-q').value.trim();if(!qv)return;
+ var go=document.getElementById('ask-go'),st=document.getElementById('ask-st'),out=document.getElementById('ask-out');
+ go.disabled=true;st.textContent='Thinking… (can take up to a minute)';out.style.display='none';
+ var r=await api('/api/ask',{q:qv});var d=r.data||{};go.disabled=false;
+ if(d.error){st.textContent='Error: '+d.error;return}
+ st.textContent='';out.style.display='block';out.textContent=d.text;
+}
+document.getElementById('ask-q') && document.getElementById('ask-q').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();askDebut();}});
+{% if term and '?' in term %}if(document.getElementById('ask-q')){askDebut();}{% endif %}
+</script>{% endblock %}

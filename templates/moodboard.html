@@ -1,9 +1,34 @@
 {% extends "base.html" %}{% block body %}
 <div class="head"><h1>🖼️ {{ b['name'] }}</h1><div>
+<button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').showModal()">❓ How to use</button>
 <form method="post" action="{{ url_for('board_arrange', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">🧹 Tidy up</button></form>
 <a class="btn ghost" href="{{ url_for('moodboards') }}">All boards</a>
 <form method="post" action="{{ url_for('board_delete', bid=b['id']) }}" style="display:inline" onsubmit="return confirm('Delete this whole board?')"><button class="btn danger">Delete board</button></form></div></div>
-<p class="muted">{{ b['description'] }} Drag any card to move it, drag the corner to resize, click to bring to front. Changes save as you go.</p>
+<p class="muted">{{ b['description'] }} Drag any card to move it, drag the corner to resize, click to bring to front, <b>double-click a card to edit its text</b> (images get a 🔄 Replace button). Changes save as you go — just like a Miro board for your workspace.</p>
+
+<dialog id="helpModal" class="overlay-modal" style="max-width:520px">
+<div class="overlay-head"><b style="margin-right:auto;padding-left:4px">❓ How mood boards work</b><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').close()">✕ Close</button></div>
+<div class="overlay-body">
+<ul style="margin:0;padding-left:20px;line-height:1.9;font-size:13.5px">
+<li><b>Add anything</b> — use the buttons above the canvas to drop in an image (upload or paste a URL), a sticky note, a colour swatch, or a link.</li>
+<li><b>Move it</b> — press and drag any card anywhere on the canvas. It saves instantly, no save button needed.</li>
+<li><b>Resize it</b> — drag the little triangle in a card's bottom-right corner.</li>
+<li><b>Bring to front</b> — just click or drag a card; it automatically layers above the others.</li>
+<li><b>Edit it</b> — double-click a card to change its text, colour or link in place. Double-click an image card to swap the picture itself.</li>
+<li><b>Zoom &amp; pan</b> — use the <b>− / 100% / +</b> controls (or Ctrl/Cmd + scroll) to zoom the canvas, and scroll or drag the background to pan around a big board.</li>
+<li><b>Tidy up</b> — the "🧹 Tidy up" button re-stacks every card into a neat grid if things get messy.</li>
+<li><b>Not sure where to start?</b> — go back to <a href="{{ url_for('moodboards') }}">All boards</a> and click "✨ Load a sample board" to see a worked example you can edit or delete.</li>
+</ul>
+</div>
+</dialog>
+
+<div class="mb-zoombar">
+<button type="button" class="btn ghost sm" onclick="zoomBy(-0.1)" title="Zoom out">−</button>
+<span id="zoomLabel" class="muted">100%</span>
+<button type="button" class="btn ghost sm" onclick="zoomBy(0.1)" title="Zoom in">+</button>
+<button type="button" class="btn ghost sm" onclick="zoomReset()" title="Reset zoom">Reset</button>
+<span class="muted mb-zoom-tip" style="margin-left:10px">Tip: Ctrl/Cmd + scroll to zoom</span>
+</div>
 
 <div class="mb-toolbar">
 <form method="post" action="{{ url_for('board_add', bid=b['id']) }}" enctype="multipart/form-data"><input type="hidden" name="kind" value="upload"><input type="file" name="file" multiple accept="image/*" id="mb-file" style="display:none" onchange="this.form.submit()">
@@ -16,15 +41,17 @@
 <div id="mb-note" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="note"><textarea name="content" rows="2" placeholder="Type a note or copy idea…" required autofocus></textarea><button class="btn sm">Add note</button></form></div>
 <div id="mb-color" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="color"><input type="color" name="content" value="#7c5cd6" style="width:56px"><input name="caption" placeholder="Name (e.g. Primary)"><button class="btn sm">Add colour</button></form></div>
 <div id="mb-link" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="link"><input type="url" name="content" placeholder="https://…" required autofocus><input name="caption" placeholder="Caption (optional)"><button class="btn sm">Add link</button></form></div>
-<div id="mb-image" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="image"><input name="content" placeholder="https://…/photo.jpg" required autofocus><input name="caption" placeholder="Caption (optional)"><button class="btn sm">Add image</button></form></div>
+<div id="mb-image" class="mb-pop" style="display:none"><form method="post" action="{{ url_for('board_add', bid=b['id']) }}"><input type="hidden" name="kind" value="image"><input type="url" name="content" placeholder="https://…/photo.jpg" required autofocus><input name="caption" placeholder="Caption (optional)"><button class="btn sm">Add image</button></form></div>
 
 {% if not items %}<div class="card" style="margin-top:14px"><b>This board is empty</b><p class="muted">Use the buttons above to add your first image, note, colour or link. Everything you add can be dragged anywhere on the canvas below.</p></div>{% endif %}
 
-<div class="mcanvas-wrap"><div class="mcanvas" id="canvas" data-topz="{{ (items|map(attribute='z')|max) if items else 1 }}">
-{% for i in items %}<div class="citem" data-id="{{ i['id'] }}" style="left:{{ i['x'] }}px;top:{{ i['y'] }}px;width:{{ i['w'] }}px;height:{{ i['h'] }}px;z-index:{{ i['z'] }}">
+<div class="mcanvas-wrap" id="canvasWrap"><div class="mcanvas" id="canvas" data-topz="{{ (items|map(attribute='z')|max) if items else 1 }}" style="transform-origin:0 0">
+{% for i in items %}<div class="citem" data-id="{{ i['id'] }}" data-kind="{{ i['kind'] }}" style="left:{{ i['x'] }}px;top:{{ i['y'] }}px;width:{{ i['w'] }}px;height:{{ i['h'] }}px;z-index:{{ i['z'] }}">
 <form method="post" action="{{ url_for('board_item_delete', iid=i['id']) }}" class="citem-del"><button class="btn danger sm" type="submit">✕</button></form>
-<div class="citem-body">
+<div class="citem-body" data-content="{{ i['content'] }}" data-caption="{{ i['caption'] }}">
 {% if i['kind'] == 'image' %}<img src="{{ media(i['content']) }}" alt="" loading="lazy" draggable="false">{% if i['caption'] %}<div class="citem-cap">{{ i['caption'] }}</div>{% endif %}
+<button type="button" class="citem-replace" title="Replace this image" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();document.getElementById('repl-{{ i['id'] }}').click()">🔄</button>
+<input type="file" id="repl-{{ i['id'] }}" accept="image/*" style="display:none" onchange="replaceImage({{ i['id'] }}, this)">
 {% elif i['kind'] == 'color' %}<div class="color" style="background:{{ i['content'] }};height:100%" onclick="navigator.clipboard.writeText('{{ i['content'] }}')" title="Click to copy">{{ i['content'] }}<br>{{ i['caption'] }}</div>
 {% elif i['kind'] == 'note' %}<div class="citem-note">{{ i['content'] }}</div>
 {% else %}<div class="citem-note">🔗 <a href="{{ i['content'] }}" target="_blank" rel="noopener noreferrer">{{ i['caption'] or i['content']|truncate(40) }}</a></div>{% endif %}
@@ -33,6 +60,51 @@
 {% endblock %}
 {% block scripts %}<script>
 function toggle(id){var el=document.getElementById(id);['mb-note','mb-color','mb-link','mb-image'].forEach(function(x){if(x!==id)document.getElementById(x).style.display='none';});el.style.display=el.style.display==='none'?'block':'none';}
+
+// ---------- show the how-to-use guide automatically the first time someone opens a board (not every time — just once per browser; the ❓ button always reopens it) ----------
+(function(){
+ try{
+  if(!localStorage.getItem('mbGuideSeen')){
+   localStorage.setItem('mbGuideSeen','1');
+   setTimeout(function(){
+    var m=document.getElementById('helpModal');
+    if(m&&!document.querySelector('dialog[open]'))m.showModal();
+   },400);
+  }
+ }catch(e){}
+})();
+
+// ---------- zoom (Miro-style: buttons, Ctrl/Cmd+scroll, pointer math scaled accordingly) ----------
+var BOARD_ID={{ b['id'] }};
+var zoom=1;
+(function(){try{var s=sessionStorage.getItem('mbZoom-'+BOARD_ID);if(s)zoom=Math.max(0.4,Math.min(2,parseFloat(s)||1));}catch(e){}})();
+function applyZoom(){
+ var c=document.getElementById('canvas');if(!c)return;
+ c.style.transform='scale('+zoom+')';
+ document.getElementById('zoomLabel').textContent=Math.round(zoom*100)+'%';
+ try{sessionStorage.setItem('mbZoom-'+BOARD_ID,String(zoom));}catch(e){}
+}
+function zoomBy(d){zoom=Math.max(0.4,Math.min(2,Math.round((zoom+d)*100)/100));applyZoom();}
+function zoomReset(){zoom=1;applyZoom();}
+applyZoom();
+var canvasWrap=document.getElementById('canvasWrap');
+if(canvasWrap)canvasWrap.addEventListener('wheel',function(e){
+ if(!e.ctrlKey&&!e.metaKey)return;
+ e.preventDefault();zoomBy(e.deltaY<0?0.1:-0.1);
+},{passive:false});
+
+// ---------- replace an image card's picture in place ----------
+async function replaceImage(iid,input){
+ var f=input.files&&input.files[0];if(!f)return;
+ var fd=new FormData();fd.append('file',f);
+ try{
+  var r=await fetch('/moodboards/item/'+iid+'/replace-image',{method:'POST',headers:{'X-CSRFToken':window.CSRF},body:fd});
+  var d={};try{d=await r.json()}catch(e){}
+  if(!r.ok||d.error){alert(d.error||'Could not replace that image.');return;}
+  location.reload();
+ }catch(e){alert('Could not replace that image.');}
+}
+
 (function(){
 var canvas=document.getElementById('canvas');if(!canvas)return;
 var topz=parseInt(canvas.dataset.topz||'1',10);
@@ -42,20 +114,45 @@ function bringFront(el){topz+=1;el.style.zIndex=topz;}
 canvas.querySelectorAll('.citem').forEach(function(item){
  var body=item.querySelector('.citem-body'), handle=item.querySelector('.citem-resize');
  body.addEventListener('pointerdown',function(e){
-  if(e.target.closest('a')) return;
+  if(e.target.closest('a')||e.target.closest('.citem-replace')) return;
   e.preventDefault();bringFront(item);
   var sx=e.clientX,sy=e.clientY,ox=item.offsetLeft,oy=item.offsetTop;
-  function move(ev){var nx=Math.max(0,Math.round((ox+ev.clientX-sx)/10)*10),ny=Math.max(0,Math.round((oy+ev.clientY-sy)/10)*10);place(item,nx,ny);}
+  function move(ev){var nx=Math.max(0,Math.round((ox+(ev.clientX-sx)/zoom)/10)*10),ny=Math.max(0,Math.round((oy+(ev.clientY-sy)/zoom)/10)*10);place(item,nx,ny);}
   function up(){document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);save(item);}
   document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);
  });
  handle.addEventListener('pointerdown',function(e){
   e.preventDefault();e.stopPropagation();bringFront(item);
   var sx=e.clientX,sy=e.clientY,ow=item.offsetWidth,oh=item.offsetHeight;
-  function move(ev){var nw=Math.max(80,Math.round((ow+ev.clientX-sx)/10)*10),nh=Math.max(60,Math.round((oh+ev.clientY-sy)/10)*10);place(item,item.offsetLeft,item.offsetTop,nw,nh);}
+  function move(ev){var nw=Math.max(80,Math.round((ow+(ev.clientX-sx)/zoom)/10)*10),nh=Math.max(60,Math.round((oh+(ev.clientY-sy)/zoom)/10)*10);place(item,item.offsetLeft,item.offsetTop,nw,nh);}
   function up(){document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);save(item);}
   document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);
  });
+ body.addEventListener('dblclick',function(e){if(e.target.closest('.citem-replace'))return;e.preventDefault();e.stopPropagation();startEdit(item,body);});
 });
+
+function escapeHtml(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function startEdit(item,body){
+ if(body.querySelector('.citem-editform'))return; // already editing
+ if(typeof dismissTour==='function')dismissTour();
+ var kind=item.dataset.kind,content=body.dataset.content||'',caption=body.dataset.caption||'';
+ var html='';
+ if(kind==='note'){html='<textarea class="e-content" rows="4">'+escapeHtml(content)+'</textarea>';}
+ else if(kind==='color'){html='<input class="e-content" type="color" value="'+escapeHtml(content||'#7c5cd6')+'" style="width:56px"><input class="e-caption" placeholder="Name" value="'+escapeHtml(caption)+'">';}
+ else if(kind==='link'){html='<input class="e-content" type="url" placeholder="https://…" value="'+escapeHtml(content)+'"><input class="e-caption" placeholder="Caption" value="'+escapeHtml(caption)+'">';}
+ else{var urlVal=content&&content.indexOf('data:')!==0?content:'';html='<input class="e-content" type="url" placeholder="Paste a new image URL…" value="'+escapeHtml(urlVal)+'"><p class="muted" style="margin:4px 0;font-size:11px">Leave blank to keep the current picture — or close this and tap 🔄 on the card to upload a file instead.</p><input class="e-caption" placeholder="Caption" value="'+escapeHtml(caption)+'">';}
+ var wrap=document.createElement('div');wrap.className='citem-editform';
+ wrap.innerHTML=html+'<div style="margin-top:6px;display:flex;gap:6px"><button type="button" class="btn sm e-save">Save</button><button type="button" class="btn ghost sm e-cancel">Cancel</button></div><p class="e-err muted" style="color:var(--bad);display:none"></p>';
+ wrap.addEventListener('pointerdown',function(e){e.stopPropagation();});
+ body.appendChild(wrap);
+ var ec=wrap.querySelector('.e-content');if(ec)ec.focus();
+ wrap.querySelector('.e-cancel').addEventListener('click',function(){wrap.remove();});
+ wrap.querySelector('.e-save').addEventListener('click',async function(){
+  var payload={content:(wrap.querySelector('.e-content')||{}).value,caption:(wrap.querySelector('.e-caption')||{}).value||''};
+  var r=await api('/moodboards/item/'+item.dataset.id+'/edit',payload);
+  if(!r.ok||(r.data&&r.data.error)){wrap.querySelector('.e-err').textContent=(r.data&&r.data.error)||'Could not save.';wrap.querySelector('.e-err').style.display='block';return;}
+  location.reload();
+ });
+}
 })();
 </script>{% endblock %}

@@ -1,6 +1,19 @@
 {% extends "base.html" %}{% block body %}
-<div class="head"><h1>💡 Idea Bank</h1><span class="muted">{{ ind['icon'] }} {{ ind['label'] }}</span></div>
+<div class="head"><h1>💡 Idea Bank</h1><div><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').showModal()">❓ How to use</button><span class="muted" style="margin-left:10px">{{ ind['icon'] }} {{ ind['label'] }}</span></div></div>
 <p class="muted">{{ ind['blurb'] }} {% if role in ('owner','admin') %}Not your industry? <a href="{{ url_for('ws.account') }}">Change it in Account</a> to get a tailored kit.{% endif %}</p>
+
+<dialog id="helpModal" class="overlay-modal" style="max-width:520px">
+<div class="overlay-head"><b style="margin-right:auto;padding-left:4px">❓ How the Idea Bank works</b><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').close()">✕ Close</button></div>
+<div class="overlay-body">
+<ul style="margin:0;padding-left:20px;line-height:1.9;font-size:13.5px">
+<li><b>Content ideas</b> — ready-made post ideas for your industry, grouped by content pillar. Click <b>+ Add</b> to drop one straight into your content list, pre-filled and ready to schedule.</li>
+<li><b>Campaign &amp; promotion ideas</b> — full campaign concepts with objective, channel and KPI target already filled in. Click <b>+ Create campaign</b> to start one from scratch.</li>
+<li><b>KPI scorecard</b> — the metrics worth tracking for your industry, with how to measure each one. Click <b>+ Log</b> to start tracking it (paid plans).</li>
+<li><b>Persona templates</b> — common buyer personas for your industry, with their pain points already written. Click <b>+ Add persona</b> to save one to your Personas list.</li>
+<li><b>Wrong industry showing?</b> — change it any time in <a href="{{ url_for('ws.account') }}">Account</a> to get a tailored set of ideas.</li>
+</ul>
+</div>
+</dialog>
 <div class="card"><b>Content ideas</b><p class="muted">One click adds an idea to your content list, ready to schedule.</p>
 {% for pillar, group in ind['ideas']|groupby(0) %}<h4 style="margin:14px 0 4px;color:var(--pri-d)">{{ pillar }}</h4>{% for i in group %}<div class="news" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span>{{ i[1] }} <span class="badge">{{ i[2] }}</span> <span class="badge">{{ i[3] }}</span></span>
 <a class="btn ghost sm" href="{{ url_for('m_new', key='content_items', title=i[1], channel=i[2], format=i[3], notes='Idea pillar: ' ~ i[0], next=url_for('ideas')) }}" onclick="return openOverlay(this.href,'/ideas')">+ Add</a></div>{% endfor %}{% endfor %}</div>
@@ -11,3 +24,17 @@
 {% endif %}{% if ind['personas'] and role != 'creator' %}<div class="card"><b>Persona templates</b>{% for p in ind['personas'] %}<div class="news"><b>{{ p['name'] }}</b> <span class="tag">{{ p['role'] }}</span><div class="muted">{{ p['pain_points'] }}</div>
 {% if p['name'] in have_personas %}<span class="tag">✓ already in your Personas</span>{% else %}<a class="btn ghost sm" href="{{ url_for('m_new', key='personas', next=url_for('ideas'), **p) }}" onclick="return openOverlay(this.href,'/ideas')">+ Add persona</a>{% endif %}</div>{% endfor %}</div>{% endif %}
 {% endblock %}
+{% block scripts %}<script>
+// ---------- show the how-to-use guide automatically the first time someone opens Idea Bank (not every time — just once per browser; the ❓ button always reopens it) ----------
+(function(){
+ try{
+  if(!localStorage.getItem('ideaGuideSeen')){
+   localStorage.setItem('ideaGuideSeen','1');
+   setTimeout(function(){
+    var m=document.getElementById('helpModal');
+    if(m&&!document.querySelector('dialog[open]'))m.showModal();
+   },400);
+  }
+ }catch(e){}
+})();
+</script>{% endblock %}

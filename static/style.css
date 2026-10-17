@@ -39,7 +39,7 @@ h2,h3{letter-spacing:-.01em}
 .muted,.tag{color:var(--mut)}.tag{font-size:12px}
 
 /* ---------- buttons & forms ---------- */
-.btn{display:inline-block;background:linear-gradient(135deg,var(--pri) 0%,#9273e6 100%);color:#fff;border:0;border-radius:10px;padding:8px 16px;cursor:pointer;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 3px 10px rgba(124,92,214,.28);transition:transform .12s,box-shadow .15s,filter .15s}
+.btn{display:inline-block;background:linear-gradient(135deg,var(--pri) 0%,#9273e6 100%);color:#fff;border:1px solid transparent;border-radius:10px;padding:9px 16px;cursor:pointer;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 3px 10px rgba(124,92,214,.28);transition:transform .12s,box-shadow .15s,filter .15s}
 .btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(124,92,214,.36);filter:brightness(1.04)}
 .btn.ghost{background:#fff;color:var(--pri-d);border:1px solid var(--pri3);box-shadow:none}
 .btn.ghost:hover{background:var(--pri2);box-shadow:none}

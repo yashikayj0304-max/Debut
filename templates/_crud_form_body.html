@@ -1,4 +1,4 @@
-<div class="head"><h1>{{ m.icon }} {{ 'Edit' if row else 'New' }} — {{ m.title }}</h1>{% if key == 'content_items' and not row and not modal|default(false) %}<a class="btn ghost sm" href="{{ url_for('ideas') }}">💡 Need an idea?</a>{% endif %}</div>
+<div class="head"><h1>{{ m.icon }} {{ 'Edit' if row else 'New' }} — {{ m.title }}</h1>{% if key == 'content_items' and not row and not modal|default(false) %}<a class="btn ghost sm" href="{{ url_for('ideas_picker') }}" onclick="return openOverlay(this.href,'')">💡 Need an idea?</a>{% endif %}</div>
 <form method="post" action="{{ url_for('m_save', key=key) }}" class="form card">
 {% if row %}<input type="hidden" name="id" value="{{ row['id'] }}">{% endif %}<input type="hidden" name="next" value="{{ nxt }}">{% if modal|default(false) %}<input type="hidden" name="modal" value="1">{% endif %}
 {% for n, label, typ, opts in m.fields %}{% if n not in hidden %}{% set val = row[n] if row else defaults.get(n, '') %}{% set req = n in required %}

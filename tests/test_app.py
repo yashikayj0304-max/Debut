@@ -2564,6 +2564,37 @@ def test_kanban_drag_markup_and_sort_by_due_date(app):
     assert dbq(app, "SELECT status FROM launch_checklist WHERE id=?", (rid,), one=True)["status"] == "Done"
 
 
+def test_kanban_card_can_be_dragged_to_a_manual_order_within_one_column(app):
+    # launch_checklist's board groups by "status" (To do / In progress / Done); every seeded item starts
+    # as "To do", so pick 3 of those to reorder within that one column
+    o = signup(app, "o@x.com")
+    rows = dbq(app, "SELECT id, status FROM launch_checklist WHERE status='To do' ORDER BY id LIMIT 3")
+    assert len(rows) == 3
+    a, b, c = [r["id"] for r in rows]
+    # give these 3 a known starting order (a, b, c) and park every other "To do" sibling well below them,
+    # so this test's own drags are the only thing that can move a/b/c relative to each other
+    for i, rid in enumerate((a, b, c)):
+        dbx(app, "UPDATE launch_checklist SET sort_order=? WHERE id=?", (i * 10, rid))
+    dbx(app, f"UPDATE launch_checklist SET sort_order=sort_order+1000 WHERE status='To do' AND id NOT IN ({a},{b},{c})")
+
+    # drag c to the front (drop it before a, same column) - should reorder without touching status
+    r = o.post(f"/m/launch_checklist/{c}/reorder", data=dict(status="To do", before_id=str(a)))
+    assert r.status_code == 302
+    order = [r["id"] for r in dbq(app, f"SELECT id FROM launch_checklist WHERE id IN ({a},{b},{c}) ORDER BY sort_order ASC")]
+    assert order == [c, a, b]
+
+    # dropping on the empty column background (no before_id) sends a card to the end
+    r = o.post(f"/m/launch_checklist/{a}/reorder", data=dict(status="To do", before_id=""))
+    assert r.status_code == 302
+    order = [r["id"] for r in dbq(app, f"SELECT id FROM launch_checklist WHERE id IN ({a},{b},{c}) ORDER BY sort_order ASC")]
+    assert order == [c, b, a]
+
+    # dragging into a DIFFERENT column changes status too, same as the dropdown/status endpoint does
+    r = o.post(f"/m/launch_checklist/{b}/reorder", data=dict(status="Done", before_id=""))
+    assert r.status_code == 302
+    assert dbq(app, "SELECT status FROM launch_checklist WHERE id=?", (b,), one=True)["status"] == "Done"
+
+
 # =====================================================================  Mood Boards: one-click sample board for first-time users
 def test_sample_moodboard(app):
     o = signup(app, "o@x.com")
@@ -2636,17 +2667,19 @@ def test_moodboard_image_replace_in_place_and_guide_present(app):
     assert b"mbGuideSeen" in board_html and b"showModal" in board_html
 
 
-# =====================================================================  Sidebar stays short: groups with more than 4 links keep the rest in the "More tools" popup, not the sidebar itself
-def test_sidebar_overflow_moved_to_more_tools_popup(app):
+# =====================================================================  Sidebar shows every module directly: no "More tools" popup hiding standalone
+# modules behind an extra click. A module is independent data (not dependent on another panel), so it gets
+# its own always-visible link; a popup is reserved for genuinely dependent/contextual things (see the
+# "Need an idea?" overlay test below), not for a module's own primary navigation.
+def test_sidebar_shows_every_module_directly_no_more_tools_popup(app):
     o = signup(app, "o@x.com")
     html = o.get("/app").data.decode()
     aside = html.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    more = html.split('id="mt-list"', 1)[1].split("</dialog>", 1)[0] if 'id="mt-list"' in html else ""
-    assert "More tools" in aside  # the popup trigger lives in the sidebar
-    # a module that's further down a long group (e.g. Rate Card, Content Ops' 5th item) is NOT duplicated inline...
-    assert "Rate Card" not in aside and "Rate Card" in more
-    assert "Launch Checklist" not in aside and "Launch Checklist" in more
-    # ...while each group's first few items (and short groups overall) still show directly in the sidebar
+    assert "More tools" not in aside and "moreToolsModal" not in html  # the popup is gone entirely
+    # a module that used to be pushed into the popup (5th+ item in its group) is now directly in the sidebar
+    assert "Rate Card" in aside
+    assert "Launch Checklist" in aside
+    # ...same as the groups' first few items, which were always shown directly
     assert "GTM Plans" in aside and "Calendar" in aside and "Promotions" in aside and "Events" in aside
 
 
@@ -2668,6 +2701,22 @@ def test_quick_add_overlay_fragment_and_modal_submit(app):
     # a non-modal save still renders the normal full page on validation failure
     full = o.get("/m/content_items/new").data
     assert b"<html" in full.lower() and b'name="modal"' not in full
+    # "Need an idea?" on the full New Content Item page no longer does a hard navigation to the whole Idea
+    # Bank page - it opens a small overlay (fetch + openOverlay), with the same close/cross the other
+    # quick-add overlays use, instead of losing the content-item form the person was filling in
+    assert b"openOverlay(this.href,'')" in full and b'href="/ideas/picker"' in full  # opens as a small overlay now, not a plain link to the full Idea Bank page
+
+
+# =====================================================================  Idea Bank "Need an idea?" overlay: a few ideas only, not the whole page
+def test_ideas_picker_overlay_is_a_small_fragment_not_the_full_idea_bank(app):
+    o = signup(app, "o@x.com")
+    frag = o.get("/ideas/picker").data
+    assert b"<html" not in frag.lower()           # a bare fragment, like the other overlay content
+    assert b"Need an idea?" in frag                 # has its own small heading
+    assert b"+ Use this" in frag and b"openOverlay(" in frag  # picking one opens the content-item form in the SAME overlay, not a new page
+    assert b"Campaign" not in frag and b"Persona" not in frag  # just content ideas - not the campaigns/personas/KPI sections from the full page
+    # picking an idea pre-fills a new content item, same as the full Idea Bank's "+ Add" does
+    assert b"/m/content_items/new?" in frag and b"Idea+pillar" in frag.replace(b"%3A", b":")
 
 
 # =====================================================================  First-time tour: wording must hold up on any page (the spotlighted sidebar
@@ -2752,7 +2801,31 @@ def test_excel_mock_template_download(app):
     ws = wb.active
     assert ws.cell(row=1, column=1).value == "Plan name"          # header row uses field labels
     assert ws.cell(row=2, column=1).value.startswith("Example")   # a filled-in mock example row
-    assert b"filled-in mock example (Excel)" in o.get("/m/gtm_plans").data
+
+
+def test_excel_mock_template_handles_slash_in_module_title(app):
+    # "Personas / ICP" has a slash in its title, which Excel forbids in a sheet name (\ / * [ ] : ?) — this
+    # used to crash the download with a ValueError from openpyxl; confirm it's sanitized instead.
+    o = signup(app, "o2@x.com")
+    r = o.get("/m/personas/template.xlsx")
+    assert r.status_code == 200
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(r.data))
+    assert wb.active.title == "Personas - ICP"
+
+
+def test_excel_mock_template_works_for_every_module(app):
+    # every module's Excel template should download without error, whatever punctuation is in its title
+    from openpyxl import load_workbook
+    from modules import MODULES
+    o = signup(app, "o3@x.com")
+    for key in MODULES:
+        r = o.get(f"/m/{key}/template.xlsx")
+        assert r.status_code == 200, key
+        wb = load_workbook(io.BytesIO(r.data))
+        assert wb.active.title  # non-empty, valid sheet title
+    assert b"Filled-in mock example (Excel)" in o.get("/m/gtm_plans").data
+    assert b"Blank template (CSV)" in o.get("/m/gtm_plans").data
 
 
 # =====================================================================  Verifying an email now lands on a clear confirmation page, not a silent bounce

@@ -35,20 +35,13 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
 <a href="{{ url_for('dashboard') }}" data-tour="dashboard">🏠 Dashboard</a>
 <a href="{{ url_for('notifications') }}">🔔 Notifications{% if unread %} <span class="pill">{{ unread }}</span>{% endif %}</a>
-{% set ns = namespace(overflow=[]) %}
-{% for g, items in NAV.items() %}<h4{% if loop.first %} data-tour="modules"{% endif %}>{{ g }}</h4>{% for label, href in items[:4] %}<a href="{{ href }}">{{ label }}</a>{% endfor %}
-{% if items|length > 4 %}{% set ns.overflow = ns.overflow + [(g, items[4:])] %}{% endif %}{% endfor %}
-{% if ns.overflow %}<button type="button" class="more-tools-btn" onclick="document.getElementById('moreToolsModal').showModal();document.getElementById('mt-search').focus()">⋯ More tools</button>{% endif %}
+{% for g, items in NAV.items() %}<h4{% if loop.first %} data-tour="modules"{% endif %}>{{ g }}</h4>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}{% endfor %}
 <div class="side-foot">
 {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">💳 Plan: <span class="pill">{{ plan['name'] }}</span></a>{% endif %}
 {% if role in TEAM_MANAGERS %}<a href="{{ url_for('team_hub') }}">👑 Team hub{{ ' 🔒' if 'group' not in plan['features'] }}</a><a href="{{ url_for('ws.team') }}">👥 Team &amp; roles</a><a href="{{ url_for('ws.activity') }}">🕘 Activity</a>{% endif %}
 {% if role in ('owner','admin','lead','manager') %}<a href="{{ url_for('report') }}">📑 Client report</a><a href="{{ url_for('ws.integrations') }}">🔌 Integrations</a><a href="{{ url_for('ws.export_zip') }}">⬇ Export data</a>{% elif role not in ('creator', 'client') %}<a href="{{ url_for('report') }}">📑 Report</a>{% endif %}
 {% if is_admin %}<a href="{{ url_for('admin.index') }}">🛠 Admin</a>{% elif admin_needs_2fa %}<a href="{{ url_for('ws.twofa') }}">🔐 Turn on 2FA to unlock Admin</a>{% endif %}
 </div></aside>
-{% if ns.overflow %}<dialog id="moreToolsModal" class="overlay-modal more-tools-modal"><div class="overlay-head"><b style="margin-right:auto;padding-left:4px">⋯ More tools</b><button type="button" class="btn ghost sm" onclick="document.getElementById('moreToolsModal').close()">✕ Close</button></div>
-<div class="overlay-body"><input id="mt-search" type="text" placeholder="Filter…" oninput="filterMoreTools(this.value)" style="margin-bottom:10px">
-<div id="mt-list">{% for g, items in ns.overflow %}<div class="mt-group"><h4>{{ g }}</h4>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</div>{% endfor %}</div>
-<p class="muted mt-empty" id="mt-empty" style="display:none">No tools match that.</p></div></dialog>{% endif %}
 <main>
 {% if support %}<div class="banner bad">🛠 <b>Support view</b> of {{ ws['name'] }}: read-only. <form method="post" action="{{ url_for('admin.exit_support') }}" style="display:inline"><button class="btn ghost sm">Exit support view</button></form></div>{% endif %}
 {% if lapsed %}<div class="banner">Your {{ 'trial' if ws['plan'] == 'trial' else 'subscription' }} has ended, so you're on the <b>Free</b> plan now. Your data is safe; some features are locked and limits apply. {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">Choose a plan →</a>{% endif %}</div>
@@ -111,28 +104,12 @@ function bullets(id){
  el.value=v.slice(0,s)+lines+v.slice(e);
  el.focus();
 }
-// ---------- "More tools" popup: the long tail of less-used sidebar links, filterable, so the sidebar itself stays short ----------
-function filterMoreTools(term){
- term=(term||'').trim().toLowerCase();
- var any=false;
- document.querySelectorAll('#mt-list .mt-group').forEach(function(grp){
-  var groupHasMatch=false;
-  grp.querySelectorAll('a').forEach(function(a){
-   var hit=!term||a.textContent.toLowerCase().indexOf(term)>=0;
-   a.style.display=hit?'':'none';
-   if(hit)groupHasMatch=true;
-  });
-  grp.style.display=groupHasMatch?'':'none';
-  if(groupHasMatch)any=true;
- });
- document.getElementById('mt-empty').style.display=any?'none':'block';
-}
 // ---------- quick-add overlay: loads a form fragment via fetch and shows it in a pop-up dialog with a close (✕), instead of navigating away ----------
 function _overlaySep(href){ return href.indexOf('?') === -1 ? '?' : '&'; }
 function openOverlay(href, backTo){
  var d=document.getElementById('overlayModal'),body=document.getElementById('overlayBody');
  body.innerHTML='<p class="muted" style="padding:20px">Loading…</p>';
- d.showModal();
+ if(!d.open)d.showModal();  // calling showModal() while already open (e.g. swapping the overlay's own content for another overlay-loaded link) throws, so only open it once
  fetch(href+_overlaySep(href)+'modal=1', {headers:{'X-Requested-With':'fetch'}}).then(function(r){return r.text();}).then(function(html){
   body.innerHTML=html;
   _bindOverlayForm(body);

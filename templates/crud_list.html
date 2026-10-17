@@ -3,13 +3,16 @@
 <a class="btn" href="{{ url_for('m_new', key=key) }}">+ New</a>
 {% if m.kanban %}<a class="btn ghost" href="{{ url_for('kanban', key=key) }}">Board view</a>{% endif %}
 {% if key == 'content_items' %}<a class="btn ghost" href="{{ url_for('calendar_view') }}">Calendar</a>{% endif %}
+<a class="btn ghost" href="{{ url_for('m_template', key=key) }}">⬇ Blank template (CSV)</a>
+<a class="btn ghost" href="{{ url_for('m_template_xlsx', key=key) }}">⬇ Filled-in mock example (Excel)</a>
 <a class="btn ghost" href="{{ url_for('m_export', key=key) }}">Export CSV</a>
 <a class="btn ghost" href="#importcsv" onclick="var d=document.getElementById('importcsv');d.open=true;d.scrollIntoView({block:'center'})">Import CSV</a></div></div>
-<details id="importcsv" style="margin:6px 0"><summary class="muted" style="cursor:pointer">Import from CSV</summary><form method="post" action="{{ url_for('m_import', key=key) }}" enctype="multipart/form-data" class="card" style="margin-top:8px"><p class="muted">Use the same column names as “Export CSV” (or the field labels), one row per record. Up to 2,000 rows. <a href="{{ url_for('m_template', key=key) }}">Download a blank template (CSV)</a> or <a href="{{ url_for('m_template_xlsx', key=key) }}">a filled-in mock example (Excel)</a> to see the exact format before you upload — if you build your sheet in Excel, just save it as CSV before importing.</p><input type="file" name="file" accept=".csv" required> <button class="btn sm">Import</button></form></details>
+<details id="importcsv" style="margin:6px 0"><summary class="muted" style="cursor:pointer">Import from CSV</summary><form method="post" action="{{ url_for('m_import', key=key) }}" enctype="multipart/form-data" class="card" style="margin-top:8px"><p class="muted">Use the same column names as “Export CSV” (or the field labels), one row per record. Up to 2,000 rows. Use the blank template above to see the exact format before you upload — if you build your sheet in Excel, just save it as CSV before importing.</p><input type="file" name="file" accept=".csv" required> <button class="btn sm">Import</button></form></details>
 <p class="muted">{{ m.desc }}</p>
 <form class="filters" method="get">
+<input name="q" placeholder="Search…" value="{{ q }}">
 {% if ffield %}<select name="f" onchange="this.form.submit()"><option value="">All {{ ffield[1] }}</option>{% for o in ffield[3] %}<option {% if o == f %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>{% endif %}
-<input name="q" placeholder="Search…" value="{{ q }}"> <button class="btn ghost">Filter</button></form>
+<button class="btn ghost">Filter</button></form>
 <table><tr>{% for n, l, t in cols %}<th>{{ l }}</th>{% endfor %}<th></th></tr>
 {% for r in rows %}<tr>{% for n, l, t in cols %}<td>{% set v = r[n] or '' %}
 {% if t == 'url' and v %}<a href="{{ v }}" target="_blank" rel="noopener">{{ v|truncate(38) }}</a>

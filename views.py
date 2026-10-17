@@ -1,5 +1,5 @@
 """Product views. Every query is scoped by workspace_id; see tests/test_app.py for tenant-isolation checks."""
-import os, re, io, csv, json, base64, calendar as pycal, datetime as dt
+import os, re, io, csv, json, base64, hashlib, calendar as pycal, datetime as dt
 from collections import OrderedDict, Counter
 from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
@@ -1460,13 +1460,26 @@ def manifest():
                     mimetype="application/manifest+json")
 
 
-SW_JS = """const V='gtm-v1';
+def _sw_cache_version():
+    """A cache name that changes whenever static/style.css changes, so every deploy that touches the stylesheet
+    automatically invalidates the installed service worker's old cached copy (see SW_JS below) — without this,
+    a browser that already has the old service worker installed would keep serving a stale style.css forever,
+    since the worker's own script (and so its cache name) would otherwise never change between deploys."""
+    try:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "style.css")
+        with open(p, "rb") as f:
+            return "gtm-" + hashlib.md5(f.read()).hexdigest()[:10]
+    except OSError:
+        return "gtm-v1"
+
+
+SW_JS = """const V='%s';
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(['/static/style.css','/offline'])));self.skipWaiting();});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))));self.clients.claim();});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(u.origin!==location.origin)return;
 if(u.pathname.startsWith('/static/')){e.respondWith(caches.match(r).then(m=>m||fetch(r).then(x=>{const cp=x.clone();caches.open(V).then(c=>c.put(r,cp));return x;})));return;}
 if(r.mode==='navigate'){e.respondWith(fetch(r).catch(()=>caches.match('/offline')));}});
-"""
+""" % _sw_cache_version()
 
 
 @route("/sw.js")

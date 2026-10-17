@@ -390,18 +390,22 @@ def account_theme():
         abort(403)
     color = S.clean_text(request.form.get("color"), 10)
     if not S.HEX_RE.match(color):
-        flash("Enter a colour as a 6-digit hex code, e.g. #1E88E5.")
+        flash("Enter a primary colour as a 6-digit hex code, e.g. #1E88E5.")
         return redirect(url_for("ws.account"))
-    ex("UPDATE workspaces SET brand_color=? WHERE id=?", (color, g.ws["id"]))
-    S.audit("brand_color_set", color)
-    flash("Brand colour applied across your workspace.")
+    secondary = S.clean_text(request.form.get("secondary"), 10)
+    if secondary and not S.HEX_RE.match(secondary):
+        flash("Enter a secondary colour as a 6-digit hex code, e.g. #1E88E5, or leave it blank to pick one automatically.")
+        return redirect(url_for("ws.account"))
+    ex("UPDATE workspaces SET brand_color=?, secondary_color=? WHERE id=?", (color, secondary, g.ws["id"]))
+    S.audit("brand_color_set", f"{color} / {secondary or 'auto'}")
+    flash("Brand colours applied across your workspace.")
     return redirect(url_for("ws.account"))
 
 
 @bp.route("/account/theme/reset", methods=["POST"])
 @S.roles("owner", "admin")
 def account_theme_reset():
-    ex("UPDATE workspaces SET brand_color='' WHERE id=?", (g.ws["id"],))
+    ex("UPDATE workspaces SET brand_color='', secondary_color='' WHERE id=?", (g.ws["id"],))
     S.audit("brand_color_reset")
     flash("Back to the default Debut theme.")
     return redirect(url_for("ws.account"))

@@ -66,7 +66,7 @@ def _pk():
 
 
 EXTRA_COLUMNS = {
-    "workspaces": [("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
+    "workspaces": [("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
     "memberships": [("client_name", "TEXT DEFAULT ''")],
     "invites": [("client_name", "TEXT DEFAULT ''")],
     "comments": [("client_visible", "INTEGER DEFAULT 0")],

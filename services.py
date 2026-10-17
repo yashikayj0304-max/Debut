@@ -503,16 +503,21 @@ def _mix(hexcolor, target, amt):
     return "#%02x%02x%02x" % (mix(r, tr), mix(g, tg), mix(b, tb))
 
 
-def hex_shades(hexcolor):
-    """A small palette derived from one brand colour: a darker shade for text/hover, and two light tints for backgrounds."""
+def hex_shades(hexcolor, secondary=None):
+    """A small palette derived from a primary brand colour (a darker shade for text/hover, two light tints for
+    backgrounds) plus a secondary accent colour — either the one given, or, if none was set, a light tint of the
+    primary, so the theme still looks coherent out of the box."""
     if not hexcolor or not HEX_RE.match(hexcolor):
         return None
+    accent = _mix(hexcolor, (255, 255, 255), 0.35)
+    sec = secondary if secondary and HEX_RE.match(secondary) else accent
     return dict(pri=hexcolor, pri_d=_mix(hexcolor, (0, 0, 0), 0.22), pri2=_mix(hexcolor, (255, 255, 255), 0.92),
-                pri3=_mix(hexcolor, (255, 255, 255), 0.82), accent=_mix(hexcolor, (255, 255, 255), 0.35))
+                pri3=_mix(hexcolor, (255, 255, 255), 0.82), accent=accent, sec=sec, sec_d=_mix(sec, (0, 0, 0), 0.22))
 
 
 def brand_shades(ws):
-    """None for personal-brand workspaces (they always keep the lavender theme) or when no colour is set."""
+    """None for personal-brand workspaces (they always keep the lavender theme) or when no primary colour is set.
+    A secondary colour only ever refines a workspace that already set a primary one."""
     if not ws or ws["industry"] == "personal_brand" or not ws["brand_color"]:
         return None
-    return hex_shades(ws["brand_color"])
+    return hex_shades(ws["brand_color"], ws["secondary_color"])

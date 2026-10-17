@@ -72,6 +72,10 @@ EXTRA_COLUMNS = {
     "comments": [("client_visible", "INTEGER DEFAULT 0")],
     "users": [("totp_secret", "TEXT DEFAULT ''"), ("totp_on", "INTEGER DEFAULT 0"), ("totp_last", "INTEGER DEFAULT 0"), ("recovery", "TEXT DEFAULT ''"), ("digest", "INTEGER DEFAULT 1"), ("onboarded", "INTEGER DEFAULT 0"), ("pin_hash", "TEXT DEFAULT ''")],
     "board_items": [("x", "INTEGER DEFAULT -1"), ("y", "INTEGER DEFAULT -1"), ("w", "INTEGER DEFAULT 240"), ("h", "INTEGER DEFAULT 170"), ("z", "INTEGER DEFAULT 1")],
+    # a manual within-column order for every kanban-enabled module, so cards can be dragged into a custom
+    # order inside one column (not just dragged between columns) - see kanban() / m_reorder() in views.py
+    **{k: [("sort_order", "INTEGER DEFAULT 0")] for k in
+       ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "pitches", "accounts")},
 }
 
 

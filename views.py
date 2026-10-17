@@ -368,6 +368,16 @@ def m_template(key):
     return Response(buf.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={key}-template.csv"})
 
 
+_XLSX_SHEET_BAD_CHARS = re.compile(r"[\\/*\[\]:?]")
+
+
+def _xlsx_sheet_title(raw, fallback):
+    """Excel sheet names can't contain \\ / * [ ] : or ? and can't be blank or over 31 chars — strip/replace
+    anything invalid (e.g. module titles like "Personas / ICP") so the workbook always saves successfully."""
+    cleaned = _XLSX_SHEET_BAD_CHARS.sub("-", (raw or fallback)).strip()
+    return (cleaned or fallback)[:31]
+
+
 def _mock_value(label, typ, opts):
     """A plausible example value for one field, used to fill in the downloadable Excel mock."""
     if typ == "select" and opts:
@@ -390,7 +400,7 @@ def m_template_xlsx(key):
     m = mod(key)
     wb = Workbook()
     ws = wb.active
-    ws.title = (m["title"] or key)[:31]
+    ws.title = _xlsx_sheet_title(m["title"], key)
     names = [x[0] for x in m["fields"]]
     labels = [x[1] for x in m["fields"]]
     ws.append(labels)
@@ -451,7 +461,9 @@ def kanban(key):
     opts = next(x for x in m["fields"] if x[0] == field)[3]
     has_due = any(n == "due_date" for n, *_ in m["fields"])
     sort_due = has_due and request.args.get("sort") == "due"
-    order = "due_date ASC, id DESC" if sort_due else "id DESC"
+    # default order is each card's manual drag position within its column (sort_order), falling back to
+    # newest-first for cards nobody has ever dragged (they all share sort_order=0)
+    order = "due_date ASC, id DESC" if sort_due else "sort_order ASC, id DESC"
     rows = q(f"SELECT * FROM {key} WHERE workspace_id=? ORDER BY {order} LIMIT 500", (W(),))
     return render_template("kanban.html", key=key, m=m, field=field, opts=opts, rows=rows, title_f=m["fields"][0][0],
                            sub_f=m["cols"][1] if len(m["cols"]) > 1 else m["fields"][0][0], has_due=has_due, sort_due=sort_due)
@@ -471,6 +483,35 @@ def m_status(key, rid):
     ex(f"UPDATE {key} SET {qi(field)}=? WHERE id=? AND workspace_id=?", (v, rid, W()))
     if field == "status":
         changed_hooks(key, rid, m, {"status": v}, row)
+    return redirect(safe_next(url_for("kanban", key=key)))
+
+
+@route("/m/<key>/<int:rid>/reorder", methods=["POST"])
+def m_reorder(key, rid):
+    """Drag a kanban card to a new spot - possibly a new column (same as m_status) and/or a new position
+    within that column. before_id is the card it was dropped in front of, or blank to drop at the end."""
+    m = mod(key)
+    field = m.get("kanban") or abort(400)
+    opts = next(x for x in m["fields"] if x[0] == field)[3]
+    status = request.form.get("status", "")
+    if status not in opts:
+        abort(400)
+    row = row_or_404(key, rid)
+    new_val = gate_status(key, status, row["status"]) if field == "status" else status
+    if new_val != row[field]:
+        ex(f"UPDATE {key} SET {qi(field)}=? WHERE id=? AND workspace_id=?", (new_val, rid, W()))
+        if field == "status":
+            changed_hooks(key, rid, m, {"status": new_val}, row)
+    before_id = request.form.get("before_id", "").strip()
+    siblings = [r["id"] for r in q(f"SELECT id FROM {key} WHERE workspace_id=? AND {qi(field)}=? ORDER BY sort_order ASC, id DESC", (W(), new_val))]
+    if rid in siblings:
+        siblings.remove(rid)
+    if before_id.isdigit() and int(before_id) in siblings:
+        siblings.insert(siblings.index(int(before_id)), rid)
+    else:
+        siblings.append(rid)
+    for i, sid in enumerate(siblings):
+        ex(f"UPDATE {key} SET sort_order=? WHERE id=? AND workspace_id=?", (i * 10, sid, W()))
     return redirect(safe_next(url_for("kanban", key=key)))
 
 
@@ -1239,6 +1280,15 @@ def ideas():
     ind = IND.get(g.ws["industry"])
     have = {r["name"] for r in q("SELECT name FROM personas WHERE workspace_id=?", (W(),))}
     return render_template("ideas.html", ind=ind, can_kpi="analytics" in g.plan["features"], have_personas=have)
+
+
+@route("/ideas/picker")
+def ideas_picker():
+    """A handful of content ideas only - just the part of Idea Bank someone drafting a content item actually
+    needs - shown as a small overlay (pop-up, with a close/cross) instead of leaving the page for the full
+    Idea Bank. There's no separate 'idea bank for this' destination: it's the same ideas, in a smaller box."""
+    ind = IND.get(g.ws["industry"])
+    return render_template("ideas_picker.html", ind=ind)
 
 
 # ----------------------------------------------------------------- comments, notifications

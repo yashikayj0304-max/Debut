@@ -902,7 +902,7 @@ def test_installable_app_pwa(app):
     home = c.get("/").data.decode()
     assert 'rel="manifest"' in home and "apple-touch-icon" in home and "serviceWorker" in home
     o = signup(app, "o@x.com")
-    assert "mobbar" in o.get("/app").data.decode() and "nav-open" in o.get("/app").data.decode()
+    assert "topbar" in o.get("/app").data.decode() and "nav-open" in o.get("/app").data.decode()
 
 
 def test_v3_fuzz_no_500(app, mails):
@@ -1545,9 +1545,27 @@ def test_brand_theming_business_vs_personal_brand(app, mails):
     biz.post("/account/theme", data=dict(color="javascript:alert(1)"))
     assert "javascript" not in biz.get("/app").data.decode().lower().split("<script")[0] or True
     assert dbq(app, "SELECT brand_color FROM workspaces WHERE name='Acme Co'", one=True)["brand_color"].lower() == "#1e88e5"
-    # reset goes back to default lavender (no override block rendered)
+    # secondary colour: optional, can be set alongside primary
+    r = biz.post("/account/theme", data=dict(color="#1E88E5", secondary="#E53935"))
+    assert r.status_code == 302
+    home = biz.get("/app").data.decode()
+    assert "--sec:#e53935" in home.lower()
+    row = dbq(app, "SELECT brand_color, secondary_color FROM workspaces WHERE name='Acme Co'", one=True)
+    assert row["brand_color"].lower() == "#1e88e5" and row["secondary_color"].lower() == "#e53935"
+    # leaving secondary blank clears it back to auto-derived (not an error)
+    biz.post("/account/theme", data=dict(color="#1E88E5", secondary=""))
+    row = dbq(app, "SELECT brand_color, secondary_color FROM workspaces WHERE name='Acme Co'", one=True)
+    assert row["secondary_color"] == ""
+    home = biz.get("/app").data.decode()
+    assert "--sec:#e53935" not in home.lower()  # auto tint now, not the old custom one
+    # invalid secondary hex is rejected, both colours unchanged
+    biz.post("/account/theme", data=dict(color="#1E88E5", secondary="not-a-color"))
+    row = dbq(app, "SELECT brand_color, secondary_color FROM workspaces WHERE name='Acme Co'", one=True)
+    assert row["brand_color"].lower() == "#1e88e5" and row["secondary_color"] == ""
+    # reset goes back to default lavender (no override block rendered), clearing both colours
     biz.post("/account/theme/reset")
-    assert dbq(app, "SELECT brand_color FROM workspaces", one=True)["brand_color"] == ""
+    row = dbq(app, "SELECT brand_color, secondary_color FROM workspaces", one=True)
+    assert row["brand_color"] == "" and row["secondary_color"] == ""
     assert "--pri:#1e88e5" not in biz.get("/app").data.decode().lower()
     # a viewer/creator cannot change the theme; a lead cannot either (owner/admin only)
     lead = _join(app, biz, mails, "lead@x.com", "lead", "L")
@@ -1562,6 +1580,26 @@ def test_brand_shades_math_is_sane():
     def total(h): return sum(int(h[i:i+2], 16) for i in (1, 3, 5))
     assert total(sh["pri_d"]) < total(sh["pri"]) < total(sh["pri3"]) < total(sh["pri2"])  # pri3 mixes 82% toward white, pri2 mixes 92%: pri2 is the lighter tint
     assert S.hex_shades("") is None and S.hex_shades("#zzzzzz") is None and S.hex_shades("red") is None
+    # no secondary given: auto-derived as a light tint of the primary (same formula as 'accent')
+    assert sh["sec"] == sh["accent"]
+    assert sh["sec_d"] != sh["sec"]
+    # an explicit, valid secondary is used as-is (sec_d is a darkened version of it, not of the primary)
+    sh2 = S.hex_shades("#1E88E5", "#E53935")
+    assert sh2["sec"] == "#E53935"
+    assert sh2["sec_d"] == S._mix("#E53935", (0, 0, 0), 0.22)
+    # an invalid/blank secondary falls back to auto, same as not passing one at all
+    assert S.hex_shades("#1E88E5", "") == sh
+    assert S.hex_shades("#1E88E5", "not-a-color") == sh
+
+
+def test_brand_shades_none_for_personal_brand_and_no_colour(app, mails):
+    pb = _as(app, "pb2@x.com", "Priya B2", "personal_brand")
+    assert S.brand_shades(dbq(app, "SELECT * FROM workspaces WHERE name='Priya B2'", one=True)) is None
+    biz = _as(app, "biz2@x.com", "Acme Two", "d2c")
+    assert S.brand_shades(dbq(app, "SELECT * FROM workspaces WHERE name='Acme Two'", one=True)) is None  # no brand_color set yet
+    biz.post("/account/theme", data=dict(color="#1E88E5", secondary="#E53935"))
+    sh = S.brand_shades(dbq(app, "SELECT * FROM workspaces WHERE name='Acme Two'", one=True))
+    assert sh["pri"] == "#1E88E5" and sh["sec"] == "#E53935"
 
 
 def test_moodboard_freeform_canvas(app):
@@ -2083,7 +2121,7 @@ def test_verify_token_invalid_and_expired(app):
     # password-reset token must not double as a verify token just because both are itsdangerous-signed)
     reset_token = A.ser("reset").dumps(uid)
     r = o.get(f"/verify/{reset_token}", follow_redirects=True)
-    assert b"invalid or expired" in r.data
+    assert b"expired or already used" in r.data
     assert dbq(app, "SELECT email_verified FROM users WHERE email='vf@x.com'", one=True)["email_verified"] == 0
     # the real token for the real purpose does work
     real_token = A.ser("verify").dumps(uid)
@@ -2365,3 +2403,362 @@ def test_schema_upgrade_adds_missing_columns_without_losing_data(tmp_path):
         client = app2.test_client()
         r = client.get("/login")
         assert r.status_code == 200
+
+
+# =====================================================================  recent fixes: password policy, verification/reset links in prod, resend-link redirect, PIN sign-in
+def test_password_policy_requires_uppercase_and_special_char(app):
+    c = app.test_client()
+    weak_no_upper = c.post("/signup", data=dict(name="N", email="nu@x.com", password="lowercase1!", agree="1"))
+    assert weak_no_upper.status_code == 400 and b"UPPERCASE" in weak_no_upper.data
+    weak_no_special = c.post("/signup", data=dict(name="N", email="ns@x.com", password="NoSpecial1", agree="1"))
+    assert weak_no_special.status_code == 400 and b"special character" in weak_no_special.data
+    ok = c.post("/signup", data=dict(name="N", email="ok@x.com", password="Good1Pass!", agree="1"))
+    assert ok.status_code == 302
+
+
+def test_verify_and_reset_links_surface_even_in_production_without_smtp(app):
+    """Before this fix: dev_link() only ever showed the fallback link when C.PROD was False, so a
+    production deploy with no SMTP configured yet left users with NO way at all to verify their
+    email or reset a forgotten password. The link must show whenever the email genuinely wasn't
+    sent, in any mode."""
+    import config as C
+    old = C.PROD
+    try:
+        C.PROD = True
+        c = signup(app, "prodcheck@x.com")
+        r = c.post("/account/verify", follow_redirects=True)
+        assert r.status_code == 200 and b"here it is" in r.data
+        f = app.test_client().post("/forgot", data=dict(email="prodcheck@x.com"), follow_redirects=True)
+        assert f.status_code == 200 and b"here it is" in f.data
+    finally:
+        C.PROD = old
+
+
+def test_resend_verification_redirects_back_not_to_account_page(app):
+    c = signup(app, "resend@x.com")
+    r = c.post("/account/verify", headers={"Referer": "/app"}, follow_redirects=False)
+    assert r.status_code == 302 and r.headers["Location"].endswith("/app")
+
+
+def test_pin_signin_set_use_and_remove(app):
+    c = signup(app, "pin@x.com")
+    # wrong current password is rejected, PIN not set
+    c.post("/account/pin", data=dict(current="wrong", pin="1234"))
+    assert dbq(app, "SELECT pin_hash FROM users WHERE email='pin@x.com'", one=True)["pin_hash"] == ""
+    # correct password sets a PIN
+    c.post("/account/pin", data=dict(current="Sup3rSecret!", pin="4321"))
+    assert dbq(app, "SELECT pin_hash FROM users WHERE email='pin@x.com'", one=True)["pin_hash"] != ""
+    c.post("/logout")
+    # login now stops at the PIN step instead of going straight in
+    fresh = app.test_client()
+    r = fresh.post("/login", data=dict(email="pin@x.com", password="Sup3rSecret!"))
+    assert r.status_code == 302 and "/login/pin" in r.headers["Location"]
+    assert fresh.get("/app").status_code == 302  # not logged in yet
+    bad_pin = fresh.post("/login/pin", data=dict(code="0000"))
+    assert bad_pin.status_code == 401
+    good_pin = fresh.post("/login/pin", data=dict(code="4321"))
+    assert good_pin.status_code == 302
+    assert fresh.get("/app").status_code == 200
+    # turning it off removes the extra step
+    fresh.post("/account/pin", data=dict(remove="1"))
+    fresh.post("/logout")
+    fresh2 = app.test_client()
+    r2 = fresh2.post("/login", data=dict(email="pin@x.com", password="Sup3rSecret!"))
+    assert r2.status_code == 302 and "/login/pin" not in r2.headers["Location"]
+
+
+# =====================================================================  new top bar: company logo upload, help/profile dropdowns, notifications pop-up feed
+def test_topbar_logo_upload_and_notifications_feed(app):
+    o = signup(app, "o@x.com")
+    r = o.get("/app").data.decode()
+    assert 'class="tb-brand"' in r and 'class="dd-menu"' in r and "loadNotifs" in r
+    # logo upload: only a real image is accepted, and it then shows up in the top bar
+    bad = o.post("/account/logo", data=dict(file=(io.BytesIO(b"not-an-image"), "x.png")), content_type="multipart/form-data")
+    assert bad.status_code == 302
+    wid = wid_of(app, "o@x.com")
+    assert dbq(app, "SELECT logo_url FROM workspaces WHERE id=?", (wid,), one=True)["logo_url"] == ""
+    ok = o.post("/account/logo", data=dict(file=(io.BytesIO(PNG), "logo.png")), content_type="multipart/form-data")
+    assert ok.status_code == 302
+    logo = dbq(app, "SELECT logo_url FROM workspaces WHERE id=?", (wid,), one=True)["logo_url"]
+    assert logo and o.get("/app").data.decode().count("<img") >= 1
+    assert o.post("/account/logo/remove").status_code == 302
+    assert dbq(app, "SELECT logo_url FROM workspaces WHERE id=?", (wid,), one=True)["logo_url"] == ""
+    # only an owner/admin can change the logo
+    creator = signup(app, "cr@x.com")
+    S = __import__("services")
+    dbx(app, "UPDATE memberships SET role='creator' WHERE user_id=(SELECT id FROM users WHERE email='cr@x.com')")
+    # notifications pop-up feed: empty then populated
+    assert o.get("/notifications/recent").get_json()["items"] == []
+    dbx(app, "INSERT INTO notifications (workspace_id, user_id, message, link) VALUES (?, (SELECT id FROM users WHERE email='o@x.com'), 'Test note', '/app')", (wid,))
+    items = o.get("/notifications/recent").get_json()["items"]
+    assert len(items) == 1 and items[0]["message"] == "Test note" and items[0]["is_read"] is False
+
+
+# =====================================================================  GTM Plans: mandatory fields, CSV template download
+def test_gtm_plan_required_fields_and_csv_template(app):
+    o = signup(app, "o@x.com")
+    # missing required fields (name, product, budget) is rejected, with values kept so nothing is retyped
+    r = o.post("/m/gtm_plans/save", data=dict(name="", product="", stage="Planning", budget=""))
+    assert r.status_code == 400 and b"Plan name" in r.data and b"Planning" in r.data  # stage kept even though it was valid
+    assert dbq(app, "SELECT COUNT(*) c FROM gtm_plans", one=True)["c"] == 0
+    ok = o.post("/m/gtm_plans/save", data=dict(name="Diwali Launch", product="Gift box", budget="50000"))
+    assert ok.status_code == 302 and dbq(app, "SELECT COUNT(*) c FROM gtm_plans", one=True)["c"] == 1
+    # editing down to blank is rejected too, and the edit form re-shows with the id intact (still editable, not lost)
+    rid = dbq(app, "SELECT id FROM gtm_plans", one=True)["id"]
+    bad_edit = o.post("/m/gtm_plans/save", data=dict(id=rid, name="", product="Gift box", budget="50000"))
+    assert bad_edit.status_code == 400 and f'value="{rid}"'.encode() in bad_edit.data
+    # CSV template download: header-only, matching the real export's column names
+    tpl = o.get("/m/gtm_plans/template")
+    assert tpl.status_code == 200 and b"name,product,stage" in tpl.data
+    assert b"Import CSV" in o.get("/m/gtm_plans").data
+
+
+# =====================================================================  Required fields rolled out across modules, not just GTM Plans
+def test_required_fields_rolled_out_sitewide(app):
+    o = signup(app, "o@x.com")
+    # each of these modules now rejects a blank identity field instead of silently saving an unnamed record
+    for key, blank_data in [
+        ("campaigns", dict(name="")),
+        ("influencers", dict(name="")),
+        ("tasks", dict(title="")),
+        ("leads", dict(name="")),
+        ("content_items", dict(title="")),
+    ]:
+        r = o.post(f"/m/{key}/save", data=blank_data)
+        assert r.status_code == 400, key
+        assert dbq(app, f"SELECT COUNT(*) c FROM {key}", one=True)["c"] == 0, key
+    # a filled-in identity field saves fine
+    assert o.post("/m/campaigns/save", data=dict(name="Diwali push")).status_code == 302
+    assert dbq(app, "SELECT COUNT(*) c FROM campaigns", one=True)["c"] == 1
+
+
+# =====================================================================  Market Pulse: watchlist folded into the page itself, no separate tab
+def test_pulse_watch_inline_add_remove_and_no_separate_nav_tab(app):
+    o = signup(app, "o@x.com")
+    dbx(app, "DELETE FROM watchlist")
+    nav = o.get("/app").data.decode()
+    assert "Market Pulse" in nav and "Watchlist" not in nav   # no separate nav item any more
+    page = o.get("/pulse").data.decode()
+    assert 'action="/pulse/watch/add"' in page
+    r = o.post("/pulse/watch/add", data=dict(term="Diwali offers", type="Keyword", region="India"))
+    assert r.status_code == 302
+    row = dbq(app, "SELECT * FROM watchlist WHERE term='Diwali offers'", one=True)
+    assert row is not None
+    page2 = o.get("/pulse").data.decode()
+    assert "Diwali offers" in page2 and f"/pulse/watch/{row['id']}/remove" in page2
+    assert o.post(f"/pulse/watch/{row['id']}/remove").status_code == 302
+    assert dbq(app, "SELECT COUNT(*) c FROM watchlist WHERE term='Diwali offers'", one=True)["c"] == 0
+
+
+# =====================================================================  Launch Checklist board: drag-and-drop UI markup + sort-by-due-date
+def test_kanban_drag_markup_and_sort_by_due_date(app):
+    o = signup(app, "o@x.com")
+    page = o.get("/kanban/launch_checklist").data.decode()
+    assert 'draggable="true"' in page and "dropCard(event" in page and "Sort by due date" in page
+    rid = dbq(app, "SELECT id FROM launch_checklist ORDER BY id LIMIT 1", one=True)["id"]
+    dbx(app, "UPDATE launch_checklist SET due_date='2020-01-01' WHERE id=?", (rid,))
+    sorted_page = o.get("/kanban/launch_checklist?sort=due").data.decode()
+    assert "✓ Sorted by due date" in sorted_page
+    # the move itself reuses the existing status-change endpoint, so dragging a card works the same way the dropdown already does
+    assert o.post(f"/m/launch_checklist/{rid}/status", data=dict(value="Done")).status_code == 302
+    assert dbq(app, "SELECT status FROM launch_checklist WHERE id=?", (rid,), one=True)["status"] == "Done"
+
+
+# =====================================================================  Mood Boards: one-click sample board for first-time users
+def test_sample_moodboard(app):
+    o = signup(app, "o@x.com")
+    assert b"Load a sample board" in o.get("/moodboards").data
+    r = o.post("/moodboards/sample")
+    assert r.status_code == 302
+    bid = dbq(app, "SELECT id FROM boards WHERE name LIKE 'Sample board%'", one=True)["id"]
+    items = dbq(app, "SELECT * FROM board_items WHERE board_id=?", (bid,))
+    assert len(items) == 8 and all(i["x"] >= 0 for i in items)  # already placed on the canvas, nothing left at the unplaced sentinel
+    assert {i["kind"] for i in items} == {"image", "color", "note", "link"}  # a worked example of every card type
+    assert b"Sample board" in o.get(f"/moodboards/{bid}").data
+
+
+# =====================================================================  Mood board cards are editable in place, not just draggable/deletable
+def test_moodboard_item_edit_in_place(app):
+    o = signup(app, "o@x.com")
+    o.post("/moodboards/sample")
+    bid = dbq(app, "SELECT id FROM boards WHERE name LIKE 'Sample board%'", one=True)["id"]
+    note = dbq(app, "SELECT * FROM board_items WHERE board_id=? AND kind='note' LIMIT 1", (bid,), one=True)
+    color = dbq(app, "SELECT * FROM board_items WHERE board_id=? AND kind='color' LIMIT 1", (bid,), one=True)
+    link = dbq(app, "SELECT * FROM board_items WHERE board_id=? AND kind='link' LIMIT 1", (bid,), one=True)
+    assert b"double-click a card to edit" in o.get(f"/moodboards/{bid}").data
+    r = o.post(f"/moodboards/item/{note['id']}/edit", json=dict(content="Edited mood note", caption="New caption"))
+    assert r.status_code == 200
+    assert dbq(app, "SELECT content, caption FROM board_items WHERE id=?", (note["id"],), one=True) == {"content": "Edited mood note", "caption": "New caption"}
+    # empty note is rejected
+    assert o.post(f"/moodboards/item/{note['id']}/edit", json=dict(content="", caption="")).status_code == 400
+    # invalid colour is rejected, valid one saves
+    assert o.post(f"/moodboards/item/{color['id']}/edit", json=dict(content="notacolor", caption="")).status_code == 400
+    assert o.post(f"/moodboards/item/{color['id']}/edit", json=dict(content="#112233", caption="Accent")).status_code == 200
+    assert dbq(app, "SELECT content FROM board_items WHERE id=?", (color["id"],), one=True)["content"] == "#112233"
+    # link content is cleaned/validated the same way as adding one
+    assert o.post(f"/moodboards/item/{link['id']}/edit", json=dict(content="https://example.com/x", caption="Ref")).status_code == 200
+    assert dbq(app, "SELECT content FROM board_items WHERE id=?", (link["id"],), one=True)["content"] == "https://example.com/x"
+
+
+# =====================================================================  Mood board: images can be swapped in place (no delete + re-add needed), and the board has a full usage guide
+def test_moodboard_image_replace_in_place_and_guide_present(app):
+    o = signup(app, "o@x.com")
+    o.post("/moodboards/new", data=dict(name="Board"))
+    bid = dbq(app, "SELECT id FROM boards LIMIT 1", one=True)["id"]
+    o.post(f"/moodboards/{bid}/add", data=dict(kind="upload", file=(io.BytesIO(PNG), "first.png")), content_type="multipart/form-data")
+    it = dbq(app, "SELECT * FROM board_items WHERE board_id=? AND kind='image' LIMIT 1", (bid,), one=True)
+    old_content, old_x, old_y = it["content"], it["x"], it["y"]
+    # swap in a new picture: position/size/z stay put, old file is replaced
+    r = o.post(f"/moodboards/item/{it['id']}/replace-image", data=dict(file=(io.BytesIO(PNG), "second.png")), content_type="multipart/form-data")
+    assert r.status_code == 200
+    updated = dbq(app, "SELECT * FROM board_items WHERE id=?", (it["id"],), one=True)
+    assert updated["content"] != old_content and updated["x"] == old_x and updated["y"] == old_y
+    # a non-image file is rejected
+    assert o.post(f"/moodboards/item/{it['id']}/replace-image", data=dict(file=(io.BytesIO(b"not an image"), "x.txt")), content_type="multipart/form-data").status_code == 400
+    # an image's picture can ALSO be swapped by pasting a URL through the normal edit endpoint (not just file upload) — fully editable either way
+    content_before = dbq(app, "SELECT content FROM board_items WHERE id=?", (it["id"],), one=True)["content"]
+    r2 = o.post(f"/moodboards/item/{it['id']}/edit", json=dict(content="https://example.com/new-pic.jpg", caption="Swapped via URL"))
+    assert r2.status_code == 200
+    after_url_swap = dbq(app, "SELECT content, caption FROM board_items WHERE id=?", (it["id"],), one=True)
+    assert after_url_swap["content"] == "https://example.com/new-pic.jpg" != content_before
+    assert after_url_swap["caption"] == "Swapped via URL"
+    # leaving content blank only changes the caption, keeping the current picture
+    r3 = o.post(f"/moodboards/item/{it['id']}/edit", json=dict(content="", caption="Caption only change"))
+    assert r3.status_code == 200
+    after_caption_only = dbq(app, "SELECT content, caption FROM board_items WHERE id=?", (it["id"],), one=True)
+    assert after_caption_only["content"] == "https://example.com/new-pic.jpg" and after_caption_only["caption"] == "Caption only change"
+    board_html = o.get(f"/moodboards/{bid}").data
+    assert b"How to use" in board_html and b"Zoom" in board_html or b"zoomBy" in board_html  # guide button + zoom controls present
+    # the moodboards list page carries an always-visible how-it-works guide, not just a first-run popup
+    assert b"How it works" in o.get("/moodboards").data
+    # the board page itself also auto-opens the guide the first time a browser visits (per the "should be on when
+    # you click into the panel" ask) — once per browser via localStorage, not every visit; the ❓ button always reopens it
+    assert b"mbGuideSeen" in board_html and b"showModal" in board_html
+
+
+# =====================================================================  Sidebar stays short: groups with more than 4 links keep the rest in the "More tools" popup, not the sidebar itself
+def test_sidebar_overflow_moved_to_more_tools_popup(app):
+    o = signup(app, "o@x.com")
+    html = o.get("/app").data.decode()
+    aside = html.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    more = html.split('id="mt-list"', 1)[1].split("</dialog>", 1)[0] if 'id="mt-list"' in html else ""
+    assert "More tools" in aside  # the popup trigger lives in the sidebar
+    # a module that's further down a long group (e.g. Rate Card, Content Ops' 5th item) is NOT duplicated inline...
+    assert "Rate Card" not in aside and "Rate Card" in more
+    assert "Launch Checklist" not in aside and "Launch Checklist" in more
+    # ...while each group's first few items (and short groups overall) still show directly in the sidebar
+    assert "GTM Plans" in aside and "Calendar" in aside and "Promotions" in aside and "Events" in aside
+
+
+# =====================================================================  Idea Bank quick-add: fetch-based overlay fragment (replaces the broken same-origin iframe)
+def test_quick_add_overlay_fragment_and_modal_submit(app):
+    o = signup(app, "o@x.com")
+    ideas_html = o.get("/ideas").data
+    assert b"openOverlay(" in ideas_html and b"<iframe" not in o.get("/").data  # overlay no longer uses an iframe anywhere
+    # the page itself still has no iframe-based overlay markup
+    assert b'id="overlayFrame"' not in ideas_html
+    # a modal=1 request returns a bare form fragment, not a full page
+    frag = o.get("/m/content_items/new?modal=1&title=Test+idea&channel=Instagram&format=Story&next=/ideas").data
+    assert b"<html" not in frag.lower() and b"<form" in frag and b'name="modal" value="1"' in frag
+    assert b"Need an idea?" not in frag  # the modal variant hides the link back to the page it was opened from
+    # submitting that fragment's form (as the injected JS does) saves the record and still redirects, just like the full page would
+    r = o.post("/m/content_items/save", data=dict(title="Test idea", channel="Instagram", format="Story", status="Idea", next="/ideas", modal="1"))
+    assert r.status_code == 302
+    assert dbq(app, "SELECT * FROM content_items WHERE title='Test idea'", one=True)
+    # a non-modal save still renders the normal full page on validation failure
+    full = o.get("/m/content_items/new").data
+    assert b"<html" in full.lower() and b'name="modal"' not in full
+
+
+# =====================================================================  First-time tour: wording must hold up on any page (the spotlighted sidebar
+# link is present everywhere, not just on /dashboard), and the tour must never sit on screen alongside another dialog
+def test_tour_wording_is_page_agnostic_and_yields_to_dialogs(app):
+    o = signup(app, "o@x.com")
+    html = o.get("/ideas").data
+    assert b"You are here: the Dashboard" not in html  # would be false on any page except /dashboard itself
+    assert "Dashboard".encode() in html
+    # opening ANY dialog (quick-add overlay, More tools, a board's How-to-use, ...) must dismiss the tour first
+    assert b"HTMLDialogElement.prototype.showModal=function(){dismissTour();" in html
+    # the tour's own delayed auto-start must not fire on top of a dialog that's already open
+    assert b"function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0);}" in html
+
+
+# =====================================================================  Downloadable guide offered at login/signup, and clarity on how invited team members sign in
+def test_guide_link_at_login_and_team_signin_clarity(app):
+    anon = app.test_client()
+    assert b"Download a quick visual tour" in anon.get("/login").data
+    assert b"guides/Debut-Visual-Tour.pdf" in anon.get("/login").data
+    assert b"Download a quick visual tour" in anon.get("/signup").data
+    o = signup(app, "o@x.com")
+    team_html = o.get("/team").data
+    assert b"one-time join link" in team_html and b"sign in themselves" in team_html
+
+
+def test_company_name_shown_centered_on_invited_signin(app, mails):
+    o = signup(app, "o@x.com", ws="Acme Foods Marketing")
+    signup(app, "existing@x.com", ws="Someone else's workspace")  # pre-existing account, unrelated workspace
+    new_link = _invite(app, o, mails, "new@x.com", "viewer")
+    existing_link = _invite(app, o, mails, "existing@x.com", "viewer")
+    anon1, anon2 = app.test_client(), app.test_client()
+    assert anon1.get(new_link).status_code == 302  # redirects to /signup?invite=... for a brand-new email
+    signup_html = anon1.get(new_link, follow_redirects=True).data
+    assert b'class="invite-brand"' in signup_html and b"Acme Foods Marketing" in signup_html
+    # an invite sent to an email that already has an account routes to /login instead, with the same branding
+    login_html = anon2.get(existing_link, follow_redirects=True).data
+    assert b'class="invite-brand"' in login_html and b"Acme Foods Marketing" in login_html
+    # a plain, token-less visit shows neither (nothing to brand it with)
+    plain = app.test_client().get("/login").data
+    assert b'class="invite-brand"' not in plain
+
+
+def test_workspace_rename_validation_and_formatting_hints(app):
+    o = signup(app, "o@x.com", ws="Acme")
+    assert b'maxlength="80"' in o.get("/account").data
+    r = o.post("/workspace/rename", data=dict(name=""))
+    assert r.status_code == 302
+    assert dbq(app, "SELECT name FROM workspaces LIMIT 1", one=True)["name"] == "Acme"  # empty name rejected, old name kept
+    o.post("/workspace/rename", data=dict(name="Renamed Co"))
+    assert dbq(app, "SELECT name FROM workspaces LIMIT 1", one=True)["name"] == "Renamed Co"
+
+
+# =====================================================================  Ask Debut: AI-answered search, grounded in the workspace's own data
+def test_ask_debut_ai_answer(app, monkeypatch):
+    monkeypatch.setattr(C, "ANTHROPIC_API_KEY", "k")
+
+    class R:
+        status_code = 200
+        def json(self): return {"content": [{"type": "text", "text": "Your engagement looks low because you are not posting consistently."}]}
+    monkeypatch.setattr(views.requests, "post", lambda *a, **k: R())
+    o = signup(app, "o@x.com")
+    dbx(app, "UPDATE users SET email_verified=1")
+    assert b"Ask Debut" in o.get("/search?q=hello").data  # the AI box shows up on the search page once AI is configured
+    r = o.post("/api/ask", json=dict(q="Why is my engagement low?"))
+    assert r.status_code == 200
+    d = r.get_json()
+    assert "not posting consistently" in d["text"] and d["used"] == 1
+    # an empty question is rejected without spending a credit
+    assert o.post("/api/ask", json=dict(q="")).status_code == 400
+
+
+# =====================================================================  Excel (.xlsx) mock template download, alongside the existing CSV template
+def test_excel_mock_template_download(app):
+    o = signup(app, "o@x.com")
+    r = o.get("/m/gtm_plans/template.xlsx")
+    assert r.status_code == 200
+    assert r.headers["Content-Type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert "gtm_plans-mock-template.xlsx" in r.headers["Content-Disposition"]
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(r.data))
+    ws = wb.active
+    assert ws.cell(row=1, column=1).value == "Plan name"          # header row uses field labels
+    assert ws.cell(row=2, column=1).value.startswith("Example")   # a filled-in mock example row
+    assert b"filled-in mock example (Excel)" in o.get("/m/gtm_plans").data
+
+
+# =====================================================================  Verifying an email now lands on a clear confirmation page, not a silent bounce
+def test_verify_email_shows_confirmation_page(app, mails):
+    o = signup(app, "o@x.com")
+    link = re.search(r"(/verify/[\w\-\.]+)", mails[-1][2]).group(1)
+    r = o.get(link)
+    assert r.status_code == 200 and b"Email verified" in r.data and b"Continue to Dashboard" in r.data
+    assert dbq(app, "SELECT email_verified FROM users WHERE email='o@x.com'", one=True)["email_verified"] == 1

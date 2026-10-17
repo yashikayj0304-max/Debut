@@ -1,13 +1,17 @@
 {% extends "base.html" %}{% set bare = True %}{% block title %}Sign up — {{ C.APP_NAME }}{% endblock %}{% block body %}
-<div class="authbox card"><h1>{{ 'Join your team' if inv else 'Create your free account' }}</h1>
+<div class="authbox card">{% if inv_ws %}<div class="invite-brand">{% if inv_ws['logo_url'] %}<img src="{{ media(inv_ws['logo_url']) }}" alt="">{% else %}<img src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="">{% endif %}<b>{{ inv_ws['name'] }}</b></div>{% endif %}<h1>{{ 'Join your team' if inv else 'Create your free account' }}</h1>
 <p class="muted">{{ 'You were invited as ' ~ inv['role'] ~ '.' if inv else 'Free forever. Plus ' ~ C.TRIAL_DAYS ~ ' days of every feature. No credit card.' }}</p>
 <form method="post"><input type="hidden" name="invite" value="{{ token }}">
 <label>Your name<input name="name" value="{{ form.get('name','') }}" required autofocus></label>
 <label>Work email<input type="email" name="email" value="{{ inv['email'] if inv else form.get('email','') }}" {{ 'readonly' if inv }} required></label>
-{% if not inv %}<label>Workspace / company name<input name="workspace" value="{{ form.get('workspace','') }}" placeholder="e.g. Acme Foods Marketing"></label>
+{% if not inv %}<label>Workspace / company name<input name="workspace" value="{{ form.get('workspace','') }}" placeholder="e.g. Acme Foods Marketing" maxlength="80"></label>
+<p class="muted" style="margin-top:-8px">Up to 80 characters. This is what your team will see at the top of the app and (once you invite teammates) on their sign-in screen too.</p>
 <label>Your industry<select name="industry">{% for k, l in industries %}<option value="{{ k }}" {% if form.get('industry') == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
 <label style="font-weight:400"><input type="checkbox" name="kit" value="1" style="width:auto" checked> Load my industry starter kit (personas, launch checklist, key dates and news feeds tailored to my industry)</label>{% endif %}
-<label>Password (8+ characters)<input type="password" name="password" minlength="8" required></label>
-<label style="font-weight:400"><input type="checkbox" name="agree" style="width:auto" required> I agree to the <a href="{{ url_for('terms') }}" target="_blank">Terms</a> and <a href="{{ url_for('privacy') }}" target="_blank">Privacy Policy</a></label>
-<button class="btn">{{ 'Join workspace' if inv else 'Create account' }}</button></form><p class="muted">Already have an account? <a href="{{ url_for('auth.login', invite=token) }}">Log in</a></p></div>
+<label>Password<input type="password" name="password" minlength="8" required></label>
+<p class="muted" style="margin-top:-8px">At least 8 characters, with one UPPERCASE letter and one special character (e.g. ! @ # $ %).</p>
+<label style="font-weight:400"><input type="checkbox" name="agree" style="width:auto" required> I agree to the <a href="{{ url_for('terms') }}" target="_blank">Terms</a> and <a href="{{ url_for('privacy') }}" target="_blank">Privacy Policy</a>, and I consent to my personal data being collected and processed as described there, in line with India's DPDP Act, 2023</label>
+<button class="btn">{{ 'Join workspace' if inv else 'Create account' }}</button></form><p class="muted">Already have an account? <a href="{{ url_for('auth.login', invite=token) }}">Log in</a></p>
+{% if inv %}<p class="muted" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">You've been invited as <b>{{ inv['role'] }}</b>. Set a password above to join — after that, sign in any time at <a href="{{ url_for('auth.login') }}">{{ C.APP_URL }}/login</a> with this email and password (no new invite needed).</p>
+{% else %}<p class="muted" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">New here? <a href="{{ url_for('static', filename='guides/Debut-Visual-Tour.pdf') }}" target="_blank">📘 Download a quick visual tour (PDF)</a> to see what you're setting up.</p>{% endif %}</div>
 {% endblock %}

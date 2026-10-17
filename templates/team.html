@@ -7,7 +7,8 @@
 <td>{% if m['editable'] %}<form method="post" action="{{ url_for('ws.remove_member') }}" onsubmit="return confirm('Remove this member?')"><input type="hidden" name="mid" value="{{ m['mid'] }}"><button class="btn danger sm">Remove</button></form>{% endif %}</td></tr>{% endfor %}</table>
 <div class="card" style="margin-top:16px"><b>Invite someone</b>{% if roles %}<form method="post" action="{{ url_for('ws.invite') }}" class="two" style="margin-top:8px"><label>Email<input type="email" name="email" required></label>
 <label>Role<select name="role" id="role-sel" onchange="document.getElementById('cn').style.display=this.value==='client'?'block':'none'">{% for r in roles %}<option {% if r == 'manager' %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
-<label id="cn" style="display:none">Client name (exactly as used in the “Client” field of their content)<input name="client_name" placeholder="e.g. Grand Orchid Hotels"></label><div><button class="btn">Send invite</button></div></form>{% endif %}</div>
+<label id="cn" style="display:none">Client name (exactly as used in the “Client” field of their content)<input name="client_name" placeholder="e.g. Grand Orchid Hotels"></label><div><button class="btn">Send invite</button></div></form>{% endif %}
+<p class="muted" style="margin-top:10px">How it works: we email them a one-time join link. They open it, set their own name and password, and from then on they sign in themselves at <code>{{ C.APP_URL }}/login</code> with that email — there's no separate team account or shared login. If email isn't set up yet, the join link is shown on screen right after you send the invite so you can copy and share it yourself.</p></div>
 <div class="card"><b>What each role can do</b>
 <table style="box-shadow:none"><tr><th>Role</th><th>Access</th></tr>
 <tr><td><span class="pill">owner</span></td><td>Everything, including billing, plan changes, industry and deleting the workspace.</td></tr>

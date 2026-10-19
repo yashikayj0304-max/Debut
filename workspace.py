@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import config as C
 import services as S
 import industries as IND
+import brand_scan
 from db import q, ex, ins
 from modules import MODULES
 from auth import EMAIL_RE, check_password, send_verify, dev_link
@@ -189,6 +190,79 @@ def account_logo():
         S.delete_file(old)
     S.audit("logo_set")
     flash("Logo updated.")
+    return redirect(url_for("ws.account"))
+
+
+# ----------------------------------------------------------------- connected accounts (not yet wired to real platforms - see integrations.html)
+INTEGRATIONS = [
+    dict(key="instagram", icon="📷", name="Instagram", needs="a Meta developer app + Instagram Graph API access for your account"),
+    dict(key="facebook_ads", icon="📘", name="Facebook / Meta Ads", needs="a Meta developer app with Marketing API access and an ad account ID"),
+    dict(key="google_ads", icon="🔍", name="Google Ads", needs="a Google Cloud project, a Google Ads developer token and an ad account (customer) ID"),
+    dict(key="linkedin_ads", icon="💼", name="LinkedIn Ads", needs="a LinkedIn developer app approved for the Marketing API"),
+]
+
+
+@bp.route("/account/connected-accounts")
+def connected_accounts():
+    """Where real social/ads accounts will connect so Marketing Health can show actual reach, spend and
+    engagement instead of only what's logged by hand in Debut. Each platform needs its OWN developer app and
+    API access set up directly with that platform (Meta, Google, LinkedIn) before Debut can pull live numbers
+    from it - that's a one-time setup only the business owner can do, not something built into this screen
+    yet. Listed honestly as 'Not connected' rather than faking a connection, so nothing here misleads anyone."""
+    return render_template("connected_accounts.html", integrations=INTEGRATIONS)
+
+
+@bp.route("/account/brand-deck", methods=["POST"])
+@S.roles("owner", "admin")
+def account_brand_deck():
+    """Upload an existing brand deck (.pptx or .pdf) and scan it automatically (no AI service, no cost) for
+    the colours, font and logo it already uses - then apply them to the workspace theme and logo, and save
+    everything found to the Brand Kit so nothing detected is lost even if it wasn't used as the primary pick."""
+    f = request.files.get("file")
+    name = (f.filename or "") if f else ""
+    # kept safely under Flask's global MAX_CONTENT_LENGTH (25 MB, see config.py) so an oversized deck gets
+    # this friendly message instead of a generic server error
+    data = f.read(20 * 1024 * 1024 + 1) if f else b""
+    if not f or not data or len(data) > 20 * 1024 * 1024 or not name.lower().endswith((".pptx", ".pdf")):
+        flash("Upload your brand deck as a PowerPoint (.pptx) or PDF file, up to 20 MB.")
+        return redirect(url_for("ws.account"))
+    try:
+        result = brand_scan.scan_deck(data, name)
+    except ValueError:
+        flash("Couldn't read that file — make sure it's a valid, unprotected .pptx or .pdf and try again.")
+        return redirect(url_for("ws.account"))
+    applied, saved_extra = [], 0
+    if result["colors"] and g.ws["industry"] != "personal_brand":
+        primary = "#" + result["colors"][0]
+        secondary = ("#" + result["colors"][1]) if len(result["colors"]) > 1 else ""
+        ex("UPDATE workspaces SET brand_color=?, secondary_color=? WHERE id=?", (primary, secondary, g.ws["id"]))
+        applied.append("brand colours")
+    if result["logo_bytes"]:
+        old = g.ws["logo_url"]
+        ex("UPDATE workspaces SET logo_url=? WHERE id=?", (S.store_file(g.ws["id"], result["logo_ext"], result["logo_bytes"]), g.ws["id"]))
+        if old:
+            S.delete_file(old)
+        applied.append("logo")
+    for font in result["fonts"][:3]:
+        if not q("SELECT id FROM brand_kit WHERE workspace_id=? AND kind='Font' AND value=?", (g.ws["id"], font), one=True):
+            ins("brand_kit", dict(workspace_id=g.ws["id"], name="Font (from brand deck)", kind="Font", value=font, notes=f"Auto-detected from {name}"))
+            saved_extra += 1
+    for i, c in enumerate(result["colors"][:4]):
+        hexv = "#" + c
+        if not q("SELECT id FROM brand_kit WHERE workspace_id=? AND kind='Colour' AND value=?", (g.ws["id"], hexv), one=True):
+            label = ["Primary colour (from brand deck)", "Secondary colour (from brand deck)"][i] if i < 2 else f"Accent colour {i - 1} (from brand deck)"
+            ins("brand_kit", dict(workspace_id=g.ws["id"], name=label, kind="Colour", value=hexv, notes=f"Auto-detected from {name}"))
+            saved_extra += 1
+    S.audit("brand_deck_scanned", name)
+    if applied or saved_extra:
+        bits = []
+        if applied:
+            bits.append(" and ".join(applied) + " applied to your workspace")
+        if saved_extra:
+            bits.append(f"{saved_extra} item(s) saved to your Brand Kit for reference")
+        flash("Brand deck scanned — " + ", ".join(bits) + ".")
+    else:
+        flash("Scanned the deck but couldn't confidently detect colours, fonts or a logo — try a deck with a clear cover slide and a logo repeated across slides.")
     return redirect(url_for("ws.account"))
 
 

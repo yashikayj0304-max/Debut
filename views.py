@@ -144,6 +144,19 @@ def dashboard():
     promos = q("SELECT * FROM promotions WHERE workspace_id=? AND (status='Live' OR start_date BETWEEN ? AND ?) ORDER BY start_date", (w, t, (today + dt.timedelta(days=14)).isoformat()))
     events = q("SELECT * FROM events WHERE workspace_id=? AND date BETWEEN ? AND ? AND status!='Cancelled' ORDER BY date", (w, t, (today + dt.timedelta(days=30)).isoformat()))
     followups = q("SELECT * FROM influencers WHERE workspace_id=? AND next_followup!='' AND next_followup<=? AND status NOT IN ('Booked','Delivered','Rejected') ORDER BY next_followup", (w, t))
+    # "Today": one short, auto-built list for a founder running marketing solo - what's overdue from
+    # before (the rollover from yesterday and earlier) plus what's actually due today, so there's one
+    # place to look each morning instead of checking every module by hand.
+    content_catchup = q("SELECT * FROM content_items WHERE workspace_id=? AND publish_date!='' AND publish_date<=? AND status NOT IN ('Published','On hold') ORDER BY publish_date", (w, t))
+    due_today_tasks = [r for r in due_soon if r["due_date"] == t]
+    today_items = (
+        [dict(icon="⏰", text=f"Overdue: {r['title']}", href=url_for("m_edit", key="tasks", rid=r["id"])) for r in overdue] +
+        [dict(icon="📝", text=f"{'Publish today' if r['publish_date'] == t else 'Overdue to publish'}: {r['title']}", href=url_for("m_edit", key="content_items", rid=r["id"])) for r in content_catchup] +
+        [dict(icon="🗂️", text=f"Due today: {r['title']}", href=url_for("m_edit", key="tasks", rid=r["id"])) for r in due_today_tasks] +
+        [dict(icon="🤳", text=f"Follow up: {r['name']}", href=url_for("outreach", iid=r["id"])) for r in followups]
+    )
+    today_more = max(0, len(today_items) - 8)
+    today_items = today_items[:8]
     tiles = []
     for k in ("content_items", "campaigns", "promotions", "events", "content_orders", "creators", "tasks", "leads", "reference_links", "influencers"):
         if locked(k) or (g.role == "creator" and k not in CREATOR_MODULES):
@@ -171,16 +184,25 @@ def dashboard():
              ("Verify your email", bool(g.user["email_verified"]), url_for("ws.account"))]
     return render_template("dashboard.html", upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
+                           today_items=today_items, today_more=today_more,
                            steps=steps, steps_done=all(s[1] for s in steps),
                            ind=IND.get(g.ws["industry"]), pulse=S.latest_pulse(w),
                            usage=dict(records=S.record_count(w), boards=cnt("boards"), credits=S.credits_used(w)) if g.plan_key == "free" else None)
 
 
 # ----------------------------------------------------------------- generic CRUD
+GAP_BANNER_KEYS = {"brand_kit": {"brand_kit"}, "campaigns": {"campaigns"}, "content_items": {"content_items", "content_overdue"},
+                    "tasks": {"tasks"}, "leads": {"leads"}}
+
+
 @route("/m/<key>")
 def m_list(key):
     m = mod(key)
     hidden = HIDDEN_FOR_CREATOR.get(key, set()) if g.role == "creator" else set()
+    gap_banner = None
+    if key in GAP_BANNER_KEYS:
+        cnt = sum(gp["count"] for gp in _marketing_gaps() if gp["key"] in GAP_BANNER_KEYS[key])
+        gap_banner = cnt or None
     qs, f = request.args.get("q", "").strip(), request.args.get("f", "")
     sql, args, where = f"SELECT * FROM {key} WHERE workspace_id=?", [W()], []
     if qs:
@@ -199,7 +221,7 @@ def m_list(key):
     rows = q(sql + f" ORDER BY {order} LIMIT {per + 1} OFFSET {(page - 1) * per}", args)
     types = {x[0]: (x[1], x[2]) for x in m["fields"]}
     cols = [(c, types[c][0], types[c][1]) for c in m["cols"] if c not in hidden]
-    return render_template("crud_list.html", key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield)
+    return render_template("crud_list.html", key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner)
 
 
 def _hidden(key):
@@ -921,6 +943,62 @@ def analytics():
     camps = [dict(n=c["name"], b=num(c["budget"]), s=num(c["spent"])) for c in q("SELECT * FROM campaigns WHERE workspace_id=?", (w,))]
     funnel = [dict(s=r["stage"], c=r["c"]) for r in q("SELECT stage, COUNT(*) c FROM leads WHERE workspace_id=? GROUP BY stage", (w,))]
     return render_template("analytics.html", series=dict(list(series.items())[:12]), camps=camps, funnel=funnel)
+
+
+# ----------------------------------------------------------------- Marketing Health (KPIs + a single gap checklist, for a one-person marketing team)
+def _brand_checks():
+    kinds = {r["kind"] for r in q("SELECT kind FROM brand_kit WHERE workspace_id=?", (W(),))}
+    return [("Primary colour", bool(g.ws["brand_color"]) or "Colour" in kinds),
+            ("Logo", bool(g.ws["logo_url"])),
+            ("Font", "Font" in kinds),
+            ("Voice & tone", "Voice & tone" in kinds)]
+
+
+def _marketing_gaps():
+    w, t = W(), S.today().isoformat()
+    missing_brand = len([c for c in _brand_checks() if not c[1]])
+    return [
+        dict(key="brand_kit", label="Brand Kit categories not filled in yet (colour, logo, font, voice & tone)",
+             count=missing_brand, href=url_for("m_list", key="brand_kit")),
+        dict(key="campaigns", label="Live or planned campaigns with no KPI target set",
+             count=q("SELECT COUNT(*) c FROM campaigns WHERE workspace_id=? AND status IN ('Planning','Live') AND (kpi_target IS NULL OR kpi_target='')", (w,), one=True)["c"],
+             href=url_for("m_list", key="campaigns")),
+        dict(key="content_items", label="Content items with no publish date (won't show on the calendar)",
+             count=q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND (publish_date IS NULL OR publish_date='') AND status NOT IN ('Published','On hold')", (w,), one=True)["c"],
+             href=url_for("m_list", key="content_items")),
+        dict(key="content_overdue", label="Content items past their publish date but not marked Published",
+             count=q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND publish_date!='' AND publish_date<? AND status NOT IN ('Published','On hold')", (w, t), one=True)["c"],
+             href=url_for("calendar_view")),
+        dict(key="tasks", label="Overdue tasks",
+             count=q("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status!='Done' AND due_date!='' AND due_date<?", (w, t), one=True)["c"],
+             href=url_for("m_list", key="tasks")),
+        dict(key="leads", label="Leads in progress with no next step planned",
+             count=q("SELECT COUNT(*) c FROM leads WHERE workspace_id=? AND stage NOT IN ('Won','Lost') AND (next_step IS NULL OR next_step='')", (w,), one=True)["c"],
+             href=url_for("m_list", key="leads")),
+    ]
+
+
+@route("/marketing-health")
+def marketing_health():
+    w, t = W(), S.today().isoformat()
+    brand_checks = _brand_checks()
+    brand_score = round(100 * sum(1 for _, ok in brand_checks if ok) / len(brand_checks))
+    due = q("SELECT status FROM content_items WHERE workspace_id=? AND publish_date!='' AND publish_date<=?", (w, t))
+    n_due, n_published = len(due), len([r for r in due if r["status"] == "Published"])
+    posting_pct = round(100 * n_published / n_due) if n_due else None
+    camps = q("SELECT * FROM campaigns WHERE workspace_id=?", (w,))
+    budgeted = [c for c in camps if c["status"] in ("Live", "Completed") and num(c["budget"]) > 0]
+    util_pct = round(100 * sum(num(c["spent"]) for c in budgeted) / sum(num(c["budget"]) for c in budgeted)) if budgeted else None
+    over_budget = len([c for c in budgeted if num(c["spent"]) > num(c["budget"])])
+    leads = q("SELECT stage, value FROM leads WHERE workspace_id=?", (w,))
+    won = [r for r in leads if r["stage"] == "Won"]
+    conv_pct = round(100 * len(won) / len(leads)) if leads else None
+    gaps = _marketing_gaps()
+    return render_template("marketing_health.html", brand_checks=brand_checks, brand_score=brand_score,
+                           n_due=n_due, n_published=n_published, posting_pct=posting_pct,
+                           n_campaigns=len(camps), util_pct=util_pct, over_budget=over_budget,
+                           n_leads=len(leads), n_won=len(won), conv_pct=conv_pct, won_value=sum(num(r["value"]) for r in won),
+                           gaps=gaps, smtp_on=bool(C.SMTP_HOST))
 
 
 @route("/utm")

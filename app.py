@@ -31,7 +31,7 @@ CREATOR_OK = {"dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_s
               "auth.logout", "auth.switch_ws", "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify",
               "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
 FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order_assign": "content_ops", "discover": "influencers", "outreach": "influencers",
-              "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "ai_studio": "ai", "api_ai": "ai"}
+              "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "marketing_health": "analytics", "ai_studio": "ai", "api_ai": "ai"}
 
 
 def create_app(config=None, init=True, database_url=None):
@@ -150,9 +150,9 @@ def create_app(config=None, init=True, database_url=None):
             groups = OrderedDict([("Strategy", []), ("Content", []), ("Campaigns", []), ("Promotions & Events", []), ("Content Ops", []), ("Growth", []), ("Intelligence", [])])
             special = {"Content": [("Calendar", "calendar_view", "📅"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
                        "Campaigns": [("Discover Influencers", "discover", "🔭"), ("UTM Builder", "utm", "🏷️")],
-                       "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈")],
+                       "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈"), ("Marketing Health", "marketing_health", "🩺")],
                        "Intelligence": [("Market Pulse", "pulse_page", "📡"), ("Latest Updates", "updates", "⚡"), ("AI Studio", "ai_studio", "🤖")]}
-            feat_of = {"content_ops": "content_ops", "discover": "influencers", "analytics": "analytics", "ai_studio": "ai"}
+            feat_of = {"content_ops": "content_ops", "discover": "influencers", "analytics": "analytics", "ai_studio": "ai", "marketing_health": "analytics"}
             creator = g.role == "creator"
             lock = lambda f: " 🔒" if (f and f not in g.plan["features"]) else ""
             for grp, items in special.items():

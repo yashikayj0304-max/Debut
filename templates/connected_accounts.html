@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>🔌 Connected Accounts</h1></div>
+<p class="muted">Marketing Health currently shows what you've logged inside Debut (campaigns, content, leads). Connecting your real social and ads accounts here would let it also show actual reach, engagement and spend &mdash; but that's not switched on yet, so nothing below is faking a connection.</p>
+<div class="card"><b>Why these aren't connected yet</b><p class="muted">Each platform below requires its own developer app and API access, set up directly with that platform (Meta, Google, LinkedIn) by the business &mdash; it isn't something a generic app like Debut can switch on for every business automatically. Once you (or whoever manages your socials/ads) sets that up, the actual OAuth "Connect" button can be wired in here without changing anything else about how Marketing Health or Analytics work.</p></div>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin:14px 0">
+{% for it in integrations %}<div class="card"><b>{{ it.icon }} {{ it.name }}</b>
+<p><span class="badge" style="background:#eee;color:#666">Not connected</span></p>
+<p class="muted" style="font-size:13px">Needs {{ it.needs }}.</p></div>{% endfor %}
+</div>
+<p><a href="{{ url_for('ws.account') }}">← Back to Account</a> · <a href="{{ url_for('marketing_health') }}">Open Marketing Health →</a></p>
+{% endblock %}

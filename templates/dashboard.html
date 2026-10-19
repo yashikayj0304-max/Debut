@@ -1,5 +1,9 @@
 {% extends "base.html" %}{% block body %}
 <div class="head"><h1>Marketing Command Centre</h1><span class="muted">{{ ws['name'] }}</span></div>
+{% if role != 'creator' %}<div class="card" style="border:1px solid var(--pri3)"><b>📋 Today</b> <span class="muted">— carried over from before, plus what's due today</span>
+{% if today_items %}{% for it in today_items %}<div style="padding:4px 0"><a href="{{ it.href }}">{{ it.icon }} {{ it.text }}</a></div>{% endfor %}
+{% if today_more %}<p class="muted" style="margin-top:6px"><a href="{{ url_for('marketing_health') }}">+{{ today_more }} more → see Marketing Health</a></p>{% endif %}
+{% else %}<p class="muted">✅ You're all caught up — nothing urgent today.</p>{% endif %}</div>{% endif %}
 {% if ind and ws['industry'] != 'general' %}<div class="card"><b>{{ ind['icon'] }} {{ ind['label'] }} playbook</b> <span class="muted">— KPIs to watch:</span>
 <div style="margin:8px 0">{% for k in ind['kpis'][:6] %}<span class="badge" style="margin:2px">{{ k[0] }}</span>{% endfor %}</div><a class="btn sm" href="{{ url_for('ideas') }}">Open Idea Bank</a></div>
 {% elif ind and role in ('owner','admin') %}<div class="card"><b>🧭 Choose your industry</b> <span class="muted">to get a tailored checklist, key dates, KPI scorecard, personas and content ideas.</span> <a class="btn sm" href="{{ url_for('ws.account') }}">Choose industry</a></div>{% endif %}

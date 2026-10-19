@@ -138,7 +138,7 @@ window.addEventListener('load',function(){window.scrollTo(0,0);document.body.cla
 
 // ---------- first-time tour: a few spotlighted tips pointing at where things live ----------
 var TOUR_STEPS=[
- {sel:"[data-tour=dashboard]",title:"🏠 Dashboard",text:"Your home screen, one click away from anywhere: what\'s due, what\'s publishing soon, and quick links into every module."},
+ {sel:"[data-tour=dashboard]",title:"🏠 Dashboard",text:"Your home screen. The \'Today\' list at the top auto-builds itself each day from what\'s overdue plus what\'s due today, so you always know what to do next — plus what\'s publishing soon and quick links into every module."},
  {sel:"[data-tour=modules]",title:"Everything is grouped here",text:"Plans, content, campaigns and more are grouped by topic in this menu. Scroll down to see them all."},
  {sel:"[data-tour=search]",title:"Can\'t find something?",text:"Search looks across every module at once: tasks, content, contacts, everything."},
  {sel:"[data-tour=bell]",title:"Notifications",text:"You\'ll hear here when someone assigns you work, mentions you, or needs your approval."},
@@ -150,7 +150,7 @@ function dismissTour(){
  document.querySelectorAll('.tour-pop,.tour-mask').forEach(function(e){e.remove()});
  if(had)api('/account/onboarded',{});
 }
-// any dialog opening (quick-add overlay, More tools, a board's How-to-use, etc.) should clear the tour first, so the two never sit on screen together
+// any dialog opening (quick-add overlay, a board's How-to-use, etc.) should clear the tour first, so the two never sit on screen together
 if(window.HTMLDialogElement){
  var _showModal=HTMLDialogElement.prototype.showModal;
  HTMLDialogElement.prototype.showModal=function(){dismissTour();return _showModal.call(this);};

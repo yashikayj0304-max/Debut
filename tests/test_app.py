@@ -1086,6 +1086,21 @@ def test_help_centre_and_guides(app, mails):
     assert "Visual tour" in o.get("/help").data.decode()
 
 
+def test_help_centre_mentions_this_session_s_new_features(app, mails):
+    o = signup(app, "o@x.com")
+    page = o.get("/help").data.decode()
+    # the lookup table must point to every feature added this session
+    for needle in ("Today", "Marketing Health", "Brand deck scan", "Connected accounts"):
+        assert needle in page
+    # the FAQ must explain the daily workflow and the removed "More tools" popup
+    assert "What should I actually do each day?" in page
+    assert "Where did the" in page and "More tools" in page and "popup go?" in page
+    # the tour must be replayable and must not still reference the removed popup
+    assert "onclick=\"startTour()\"" in page
+    base = o.get("/app").data.decode()
+    assert "More tools" not in base
+
+
 def test_ownership_transfer(app, mails):
     o = signup(app, "o@x.com", name="Olivia Owner")
     ad = _join(app, o, mails, "ad@x.com", "admin", "Ada Admin")
@@ -2828,6 +2843,351 @@ def test_excel_mock_template_works_for_every_module(app):
     assert b"Blank template (CSV)" in o.get("/m/gtm_plans").data
 
 
+# =====================================================================  Brand deck upload: automatic (no-AI) colour/font/logo extraction, applied to the workspace + saved to Brand Kit
+def _make_test_pptx():
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.enum.shapes import MSO_SHAPE
+    from pptx.dml.color import RGBColor
+    from PIL import Image
+    prs = Presentation()
+    logo_buf = io.BytesIO()
+    Image.new("RGB", (100, 100), (30, 136, 229)).save(logo_buf, format="PNG")
+    logo_bytes = logo_buf.getvalue()
+    for _ in range(2):  # same logo on 2 slides -> detected as the repeated logo, not a one-off picture
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(4), Inches(1))
+        run = box.text_frame.paragraphs[0].add_run()
+        run.text = "Acme Co"
+        run.font.name = "Montserrat"
+        run.font.size = Pt(36)
+        rect = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(2), Inches(2))
+        rect.fill.solid()
+        rect.fill.fore_color.rgb = RGBColor(0x1E, 0x88, 0xE5)
+        slide.shapes.add_picture(io.BytesIO(logo_bytes), Inches(5), Inches(5), Inches(1), Inches(1))
+    buf = io.BytesIO()
+    prs.save(buf)
+    return buf.getvalue()
+
+
+def test_brand_scan_extracts_colour_font_and_repeated_logo_from_pptx():
+    import brand_scan
+    result = brand_scan.scan_deck(_make_test_pptx(), "deck.pptx")
+    assert "1E88E5" in result["colors"]
+    assert "Montserrat" in result["fonts"]
+    assert result["logo_bytes"] is not None
+
+
+def test_brand_scan_rejects_unsupported_file_type():
+    import brand_scan
+    with pytest.raises(ValueError):
+        brand_scan.scan_deck(b"hello", "notes.txt")
+
+
+def test_brand_scan_raises_cleanly_on_corrupt_file():
+    import brand_scan
+    with pytest.raises(ValueError):
+        brand_scan.scan_deck(b"not a real pptx", "broken.pptx")
+
+
+def test_account_brand_deck_upload_applies_colour_logo_and_saves_brand_kit(app):
+    o = signup(app, "deck@x.com")
+    r = o.post("/account/brand-deck", data=dict(file=(io.BytesIO(_make_test_pptx()), "brand.pptx")),
+               content_type="multipart/form-data", follow_redirects=True)
+    assert r.status_code == 200 and b"Brand deck scanned" in r.data
+    wid = wid_of(app, "deck@x.com")
+    ws = dbq(app, "SELECT brand_color, secondary_color, logo_url FROM workspaces WHERE id=?", (wid,), one=True)
+    assert ws["brand_color"].upper() == "#1E88E5"
+    assert ws["logo_url"]
+    kit = dbq(app, "SELECT kind, value FROM brand_kit WHERE workspace_id=?", (wid,))
+    assert any(k["kind"] == "Colour" and k["value"].upper() == "#1E88E5" for k in kit)
+    assert any(k["kind"] == "Font" and k["value"] == "Montserrat" for k in kit)
+
+
+def _make_test_pdf():
+    import fitz
+    doc = fitz.open()
+    logo_buf = io.BytesIO()
+    from PIL import Image
+    Image.new("RGB", (100, 100), (30, 136, 229)).save(logo_buf, format="PNG")
+    logo_bytes = logo_buf.getvalue()
+    for _ in range(2):  # same logo on 2 pages -> detected as the repeated logo
+        page = doc.new_page(width=612, height=792)
+        page.draw_rect(fitz.Rect(50, 50, 250, 250), color=(30 / 255, 136 / 255, 229 / 255), fill=(30 / 255, 136 / 255, 229 / 255))
+        page.insert_text((50, 300), "Acme Co", fontsize=36, fontname="helv")
+        page.insert_image(fitz.Rect(400, 400, 500, 500), stream=logo_bytes)
+    return doc.tobytes()
+
+
+def test_account_brand_deck_upload_handles_real_pdf_too(app):
+    # the pptx path is covered above by test_account_brand_deck_upload_applies_colour_logo_and_saves_brand_kit;
+    # the pdf path (via PyMuPDF) was previously only reachable in brand_scan.py and never exercised end-to-end
+    o = signup(app, "pdfdeck@x.com")
+    r = o.post("/account/brand-deck", data=dict(file=(io.BytesIO(_make_test_pdf()), "brand.pdf")),
+               content_type="multipart/form-data", follow_redirects=True)
+    assert r.status_code == 200 and b"Brand deck scanned" in r.data
+    wid = wid_of(app, "pdfdeck@x.com")
+    ws = dbq(app, "SELECT brand_color, logo_url FROM workspaces WHERE id=?", (wid,), one=True)
+    assert ws["brand_color"].upper() == "#1E88E5"
+    assert ws["logo_url"]
+
+
+def test_account_brand_deck_does_not_force_theme_colour_for_personal_brand_industry(app):
+    # brand theming (workspace brand_color/secondary_color) is a business-workspace concept - account_theme()
+    # itself 403s for industry="personal_brand" - so the deck scan must not silently set those columns either,
+    # even though it should still save the detected colour/font to Brand Kit as reference material
+    c = app.test_client()
+    r = c.post("/signup", data=dict(name="Solo", email="solo@x.com", workspace="Solo Creator", password="Sup3rSecret!", agree="1", industry="personal_brand"))
+    assert r.status_code == 302
+    r = c.post("/account/brand-deck", data=dict(file=(io.BytesIO(_make_test_pptx()), "brand.pptx")),
+               content_type="multipart/form-data", follow_redirects=True)
+    assert r.status_code == 200 and b"Brand deck scanned" in r.data
+    wid = wid_of(app, "solo@x.com")
+    ws = dbq(app, "SELECT brand_color, logo_url FROM workspaces WHERE id=?", (wid,), one=True)
+    assert not ws["brand_color"]          # not force-applied as workspace theme for a personal brand
+    assert ws["logo_url"]                 # logo is still applied - it isn't a "theme colour" concept
+    kit = dbq(app, "SELECT kind, value FROM brand_kit WHERE workspace_id=?", (wid,))
+    assert any(k["kind"] == "Colour" and k["value"].upper() == "#1E88E5" for k in kit)  # still saved for reference
+
+
+def test_account_brand_deck_handles_a_totally_blank_deck_with_honest_message(app):
+    from pptx import Presentation
+    o = signup(app, "blankdeck@x.com")
+    prs = Presentation()
+    prs.slides.add_slide(prs.slide_layouts[6])  # one slide, nothing on it
+    buf = io.BytesIO()
+    prs.save(buf)
+    r = o.post("/account/brand-deck", data=dict(file=(io.BytesIO(buf.getvalue()), "blank.pptx")),
+               content_type="multipart/form-data", follow_redirects=True)
+    assert r.status_code == 200
+    assert b"couldn" in r.data.lower() and b"confidently detect" in r.data.lower()
+    wid = wid_of(app, "blankdeck@x.com")
+    ws = dbq(app, "SELECT brand_color, logo_url FROM workspaces WHERE id=?", (wid,), one=True)
+    assert not ws["brand_color"] and not ws["logo_url"]  # nothing was force-applied from an empty scan
+
+
+def test_creator_role_cannot_reach_new_account_pages_even_via_direct_url(app, mails):
+    o = signup(app, "o6@x.com")
+    cr = _join(app, o, mails, "cr6@x.com", "creator", "Cy")
+    for path in ("/marketing-health", "/account/connected-accounts"):
+        r = cr.get(path)
+        assert r.status_code == 403, f"{path} should 403 for creator, got {r.status_code}"
+    # /account/brand-deck is POST-only (GET correctly 405s before the role check runs) - the real
+    # attack surface is a POST, which must still be blocked
+    r = cr.post("/account/brand-deck", data={})
+    assert r.status_code == 403, f"creator POST to brand-deck should 403, got {r.status_code}"
+    # the account page itself is reachable (profile/password are personal settings), but the Brand
+    # deck scan card's visibility must match the pre-existing "Company logo" card's gating
+    # (both owner/admin-only workspace-wide settings) - not accidentally left exposed to creators
+    acct_html = cr.get("/account").data.decode()
+    assert ("Brand deck scan" in acct_html) == ("Company logo" in acct_html)
+    assert "Brand deck scan" not in acct_html
+
+
+def test_viewer_role_can_read_new_pages_but_not_write(app, mails):
+    o = signup(app, "ov1@x.com")
+    vw = _join(app, o, mails, "vw1@x.com", "viewer", "Vee")
+    # viewer restriction is on writes, not module access - viewer should be able to READ the new pages
+    for path in ("/marketing-health", "/account/connected-accounts", "/account"):
+        r = vw.get(path)
+        assert r.status_code == 200, f"viewer should be able to view {path}, got {r.status_code}"
+    # but the brand-deck scan form itself stays owner/admin-only, same as before
+    assert "Brand deck scan" not in vw.get("/account").data.decode()
+    r = vw.post("/account/brand-deck", data={})
+    assert r.status_code == 403
+
+
+def test_account_brand_deck_rejects_non_pptx_pdf(app):
+    o = signup(app, "baddeck@x.com")
+    r = o.post("/account/brand-deck", data=dict(file=(io.BytesIO(b"hello"), "notes.txt")),
+               content_type="multipart/form-data", follow_redirects=True)
+    assert b"Upload your brand deck as a PowerPoint" in r.data
+
+
+def test_account_brand_deck_oversized_file_rejected_cleanly_not_500(app):
+    # the view's own 20 MB check must kick in well before Flask's global MAX_CONTENT_LENGTH (25 MB, see
+    # config.py) would reject the whole request with a generic 413 - this keeps the friendly flash message
+    o = signup(app, "bigdeck@x.com")
+    big = b"P" * (21 * 1024 * 1024)
+    r = o.post("/account/brand-deck", data=dict(file=(io.BytesIO(big), "huge.pptx")),
+               content_type="multipart/form-data", follow_redirects=True)
+    assert r.status_code == 200 and b"up to 20 MB" in r.data
+
+
+def test_account_brand_deck_handles_corrupt_file_without_crashing(app):
+    o = signup(app, "corruptdeck@x.com")
+    r = o.post("/account/brand-deck", data=dict(file=(io.BytesIO(b"not a real pptx"), "broken.pptx")),
+               content_type="multipart/form-data", follow_redirects=True)
+    assert r.status_code == 200 and b"Couldn" in r.data
+
+
+def test_account_page_shows_brand_deck_upload_card_for_owner(app):
+    o = signup(app, "deckcard@x.com")
+    html = o.get("/account").data.decode()
+    assert "Brand deck scan" in html and 'action="/account/brand-deck"' in html
+
+
+# =====================================================================  Marketing Health: KPIs + a single gap checklist, built from in-app data only
+def test_marketing_health_shows_kpis_and_gap_checklist_for_a_fresh_workspace(app):
+    o = signup(app, "health@x.com")
+    html = o.get("/marketing-health").data.decode()
+    assert "Marketing Health" in html
+    assert "Brand consistency" in html and "Posting consistency" in html and "Campaign spend efficiency" in html and "Lead" in html
+    assert "What's left to fix" in html
+    assert "Brand Kit categories not filled in yet" in html  # nothing filled in yet on a fresh workspace
+
+
+def test_marketing_health_brand_score_rises_as_brand_kit_and_logo_fill_in(app):
+    o = signup(app, "health2@x.com")
+    before = o.get("/marketing-health").data.decode()
+    assert "0%" in before or "25%" in before  # brand score starts low
+    o.post("/m/brand_kit/save", data=dict(name="Primary", kind="Colour", value="#1E88E5", next="/marketing-health"))
+    o.post("/m/brand_kit/save", data=dict(name="Body font", kind="Font", value="Montserrat", next="/marketing-health"))
+    o.post("/m/brand_kit/save", data=dict(name="Tone", kind="Voice & tone", value="Friendly, direct", next="/marketing-health"))
+    after = o.get("/marketing-health").data.decode()
+    assert "75%" in after or "100%" in after  # 3 of 4 categories now filled (logo still missing without a real image upload)
+
+
+def test_marketing_health_gaps_resolve_as_data_is_filled_in(app):
+    o = signup(app, "health3@x.com")
+    o.post("/m/campaigns/save", data=dict(name="Launch", status="Live", next="/marketing-health"))  # no KPI target -> a gap
+    assert "Live or planned campaigns with no KPI target set" in o.get("/marketing-health").data.decode()
+    cid = dbq(app, "SELECT id FROM campaigns WHERE name='Launch'", one=True)["id"]
+    o.post("/m/campaigns/save", data=dict(id=cid, name="Launch", status="Live", kpi_target="1000 signups", next="/marketing-health"))
+    html = o.get("/marketing-health").data.decode()
+    # the campaign gap line should now show a checkmark (count 0), not a warning with that campaign counted
+    gap_block = html.split("What's left to fix")[1]
+    assert "✅" in gap_block and "no KPI target set" in gap_block
+
+
+def test_marketing_health_is_feature_gated_like_analytics(app, monkeypatch):
+    import config as C
+    o = signup(app, "healthgate@x.com")
+    monkeypatch.setitem(C.PLANS["trial"], "features", C.PLANS["trial"]["features"] - {"analytics"})
+    r = o.get("/marketing-health")
+    assert r.status_code == 403 and b"upgrade" in r.data.lower()
+
+
+BANNER_TEXT = "see Marketing Health for the full checklist"
+
+
+def test_gap_banner_appears_on_relevant_list_pages_and_clears_once_resolved(app):
+    o = signup(app, "banner@x.com")
+    html = o.get("/m/brand_kit").data.decode()
+    assert BANNER_TEXT in html
+    # filling in all 4 brand categories (incl. a logo) should clear the banner on this page
+    o.post("/m/brand_kit/save", data=dict(name="Primary", kind="Colour", value="#1E88E5", next="/m/brand_kit"))
+    o.post("/m/brand_kit/save", data=dict(name="Font", kind="Font", value="Montserrat", next="/m/brand_kit"))
+    o.post("/m/brand_kit/save", data=dict(name="Tone", kind="Voice & tone", value="Friendly", next="/m/brand_kit"))
+    o.post("/account/logo", data=dict(file=(io.BytesIO(PNG), "logo.png")), content_type="multipart/form-data")
+    html2 = o.get("/m/brand_kit").data.decode()
+    assert BANNER_TEXT not in html2
+
+
+def test_gap_banner_on_content_items_sums_both_missing_date_and_overdue_gaps(app):
+    # content_items is the only GAP_BANNER_KEYS entry that maps to TWO underlying gap types
+    # (content_items = no publish date, content_overdue = past date but not Published) - make sure the
+    # banner's count is the sum of both, and that it only clears once both are actually resolved
+    o = signup(app, "contentbanner@x.com")
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    o.post("/m/content_items/save", data=dict(title="No date yet", status="Idea"))                       # gap #1: missing publish_date
+    o.post("/m/content_items/save", data=dict(title="Missed it", status="Idea", publish_date=yesterday))  # gap #2: overdue, not Published
+    html = o.get("/m/content_items").data.decode()
+    assert BANNER_TEXT in html and "2 gap" in html
+    # resolve only the first gap (give it a publish date) - banner must still show 1 remaining gap
+    cid1 = dbq(app, "SELECT id FROM content_items WHERE workspace_id=? AND title='No date yet'", (wid_of(app, "contentbanner@x.com"),), one=True)["id"]
+    o.post("/m/content_items/save", data=dict(id=cid1, title="No date yet", status="Idea", publish_date=S.today().isoformat() if hasattr(S, "today") else dt.date.today().isoformat()))
+    html2 = o.get("/m/content_items").data.decode()
+    assert BANNER_TEXT in html2 and "1 gap" in html2
+    # now resolve the second gap too (mark it Published) - banner must clear entirely
+    cid2 = dbq(app, "SELECT id FROM content_items WHERE workspace_id=? AND title='Missed it'", (wid_of(app, "contentbanner@x.com"),), one=True)["id"]
+    o.post("/m/content_items/save", data=dict(id=cid2, title="Missed it", status="Published", publish_date=yesterday))
+    html3 = o.get("/m/content_items").data.decode()
+    assert BANNER_TEXT not in html3
+
+
+def test_gap_banner_does_not_appear_on_unrelated_module_pages(app):
+    o = signup(app, "nobann@x.com")
+    html = o.get("/m/competitors").data.decode()
+    assert BANNER_TEXT not in html
+
+
+# =====================================================================  Connected Accounts: an honest "not yet wired up" placeholder, ready for real OAuth later
+def test_connected_accounts_page_lists_platforms_as_not_connected(app):
+    o = signup(app, "conn@x.com")
+    html = o.get("/account/connected-accounts").data.decode()
+    for platform in ("Instagram", "Facebook", "Google Ads", "LinkedIn Ads"):
+        assert platform in html
+    assert html.count("Not connected") == 4
+
+
+def test_account_page_links_to_connected_accounts_for_owner(app):
+    o = signup(app, "connlink@x.com")
+    assert 'href="/account/connected-accounts"' in o.get("/account").data.decode()
+
+
+# =====================================================================  Dashboard "Today" card: one auto-built list (overdue carried over + due today), so a solo founder has one place to look each morning
+def test_dashboard_today_card_shows_all_caught_up_when_nothing_is_due(app):
+    o = signup(app, "today1@x.com")
+    html = o.get("/app").data.decode()
+    assert "📋 Today" in html and "You're all caught up" in html
+
+
+def test_dashboard_today_card_surfaces_overdue_task_and_overdue_content(app):
+    o = signup(app, "today2@x.com")
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    o.post("/m/tasks/save", data=dict(title="Call supplier", status="To do", due_date=yesterday, next="/app"))
+    o.post("/m/content_items/save", data=dict(title="Diwali post", status="Scheduled", publish_date=yesterday, next="/app"))
+    html = o.get("/app").data.decode()
+    assert "Overdue: Call supplier" in html
+    assert "Overdue to publish: Diwali post" in html
+    assert "You're all caught up" not in html
+
+
+def test_dashboard_today_card_shows_due_today_separately_from_overdue(app):
+    o = signup(app, "today3@x.com")
+    t = dt.date.today().isoformat()
+    o.post("/m/tasks/save", data=dict(title="Send newsletter", status="To do", due_date=t, next="/app"))
+    o.post("/m/content_items/save", data=dict(title="Launch reel", status="Scheduled", publish_date=t, next="/app"))
+    html = o.get("/app").data.decode()
+    assert "Due today: Send newsletter" in html
+    assert "Publish today: Launch reel" in html
+
+
+def test_dashboard_today_card_caps_at_eight_and_links_to_marketing_health_for_more(app):
+    o = signup(app, "today4@x.com")
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    for i in range(12):
+        o.post("/m/tasks/save", data=dict(title=f"Task {i}", status="To do", due_date=yesterday, next="/app"))
+    html = o.get("/app").data.decode()
+    assert html.count("Overdue: Task") == 8
+    assert "more" in html and 'href="/marketing-health"' in html
+
+
+def test_today_item_link_actually_opens_the_right_record(app):
+    # the cap/more-link test above checks the list truncates correctly; this checks an individual
+    # Today item's href is a real, correct link to that exact record (not just a well-formed url_for)
+    o = signup(app, "todayclick@x.com")
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    o.post("/m/tasks/save", data=dict(title="Call the printer", due_date=yesterday, status="To do"))
+    dash = o.get("/app").data.decode()
+    assert "Call the printer" in dash
+    wid = wid_of(app, "todayclick@x.com")
+    tid = dbq(app, "SELECT id FROM tasks WHERE workspace_id=? AND title='Call the printer'", (wid,), one=True)["id"]
+    expected_href = f"/m/tasks/{tid}/edit"
+    assert expected_href in dash
+    r = o.get(expected_href)
+    assert r.status_code == 200 and b"Call the printer" in r.data
+
+
+def test_dashboard_today_card_hidden_for_creator_role(app):
+    o = signup(app, "today5@x.com")
+    assert "📋 Today" in o.get("/app").data.decode()  # owner sees it
+    creator = signup(app, "today5cr@x.com")
+    dbx(app, "UPDATE memberships SET role='creator' WHERE user_id=(SELECT id FROM users WHERE email='today5cr@x.com')")
+    assert "📋 Today" not in creator.get("/app").data.decode()  # a freelancer/creator doesn't
+
+
 # =====================================================================  Verifying an email now lands on a clear confirmation page, not a silent bounce
 def test_verify_email_shows_confirmation_page(app, mails):
     o = signup(app, "o@x.com")
@@ -2835,3 +3195,23 @@ def test_verify_email_shows_confirmation_page(app, mails):
     r = o.get(link)
     assert r.status_code == 200 and b"Email verified" in r.data and b"Continue to Dashboard" in r.data
     assert dbq(app, "SELECT email_verified FROM users WHERE email='o@x.com'", one=True)["email_verified"] == 1
+
+
+def test_dashboard_today_card_escapes_user_entered_titles(app):
+    o = signup(app, "xsstoday@x.com")
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    o.post("/m/tasks/save", data=dict(title="<script>alert(1)</script>", status="To do", due_date=yesterday, next="/app"))
+    html = o.get("/app").data.decode()
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_account_brand_deck_rescan_does_not_duplicate_brand_kit_entries(app):
+    o = signup(app, "rescan@x.com")
+    deck = _make_test_pptx()
+    o.post("/account/brand-deck", data=dict(file=(io.BytesIO(deck), "brand.pptx")), content_type="multipart/form-data")
+    wid = wid_of(app, "rescan@x.com")
+    first_count = dbq(app, "SELECT COUNT(*) c FROM brand_kit WHERE workspace_id=?", (wid,), one=True)["c"]
+    o.post("/account/brand-deck", data=dict(file=(io.BytesIO(deck), "brand.pptx")), content_type="multipart/form-data")
+    second_count = dbq(app, "SELECT COUNT(*) c FROM brand_kit WHERE workspace_id=?", (wid,), one=True)["c"]
+    assert first_count == second_count and first_count > 0

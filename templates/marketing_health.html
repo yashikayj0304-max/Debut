@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>🩺 Marketing Health</h1><span class="muted">One screen for how your marketing is doing, and exactly what's left to fix</span></div>
+<p class="muted">Built entirely from what's already logged in Debut &mdash; nothing here needs a separate connected account. <a href="{{ url_for('ws.connected_accounts') }}">Connect social/ads accounts</a> once you have them, to bring in real reach and spend numbers too.</p>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin:14px 0">
+
+<div class="card"><b>🎨 Brand consistency</b>
+<div style="font-size:30px;font-weight:700;margin:4px 0">{{ brand_score }}%</div>
+<div style="background:var(--pri2);border-radius:99px;height:10px;margin-bottom:8px"><div style="background:var(--pri);height:10px;border-radius:99px;width:{{ brand_score }}%"></div></div>
+{% for label, ok in brand_checks %}<div style="padding:2px 0;font-size:13px">{{ '✅' if ok else '⬜' }} {{ label }}</div>{% endfor %}
+<p style="margin-top:8px"><a href="{{ url_for('m_list', key='brand_kit') }}">Open Brand Kit →</a></p></div>
+
+<div class="card"><b>📅 Posting consistency</b>
+{% if posting_pct is not none %}<div style="font-size:30px;font-weight:700;margin:4px 0">{{ posting_pct }}%</div>
+<div style="background:var(--pri2);border-radius:99px;height:10px;margin-bottom:8px"><div style="background:{{ 'var(--pri)' if posting_pct >= 70 else 'var(--bad)' }};height:10px;border-radius:99px;width:{{ posting_pct }}%"></div></div>
+<p class="muted" style="font-size:13px">{{ n_published }} of {{ n_due }} items due so far are marked Published.</p>
+{% else %}<p class="muted">No content scheduled yet with a publish date in the past &mdash; nothing to measure.</p>{% endif %}
+<p style="margin-top:8px"><a href="{{ url_for('calendar_view') }}">Open calendar →</a></p></div>
+
+<div class="card"><b>📣 Campaign spend efficiency</b>
+{% if util_pct is not none %}<div style="font-size:30px;font-weight:700;margin:4px 0">{{ util_pct }}%</div>
+<p class="muted" style="font-size:13px">Spent vs budget across live/completed campaigns. {% if over_budget %}<span style="color:var(--bad)">{{ over_budget }} campaign(s) over budget.</span>{% else %}None over budget.{% endif %}</p>
+{% else %}<p class="muted">No live or completed campaign has a budget logged yet.</p>{% endif %}
+<p class="muted" style="font-size:13px">{{ n_campaigns }} campaign(s) total.</p>
+<p style="margin-top:8px"><a href="{{ url_for('m_list', key='campaigns') }}">Open Campaigns →</a></p></div>
+
+<div class="card"><b>🧲 Lead &amp; funnel health</b>
+{% if conv_pct is not none %}<div style="font-size:30px;font-weight:700;margin:4px 0">{{ conv_pct }}%</div>
+<p class="muted" style="font-size:13px">{{ n_won }} of {{ n_leads }} leads won{% if won_value %} &middot; ₹{{ '{:,.0f}'.format(won_value) }} in deal value{% endif %}.</p>
+{% else %}<p class="muted">No leads logged yet.</p>{% endif %}
+<p style="margin-top:8px"><a href="{{ url_for('m_list', key='leads') }}">Open Leads →</a></p></div>
+
+</div>
+
+<div class="card"><b>✅ What's left to fix</b><p class="muted">One checklist covering every gap found above &mdash; so running marketing solo doesn't mean missing something.</p>
+{% for gp in gaps %}<div style="padding:5px 0">{% if gp.count %}⚠ <a href="{{ gp.href }}">{{ gp.label }}</a> <span class="badge">{{ gp.count }}</span>{% else %}✅ <span class="muted">{{ gp.label }}</span>{% endif %}</div>{% endfor %}
+{% if not smtp_on %}<div style="padding:5px 0">⚠ <span class="muted">Email verification/notification links aren't being sent yet &mdash; email delivery (SMTP) isn't configured on the server. This needs a one-time setup outside the app, not a data entry.</span></div>{% endif %}
+</div>
+{% endblock %}

@@ -8,6 +8,7 @@
 <a class="btn ghost" href="{{ url_for('m_export', key=key) }}">Export CSV</a>
 <a class="btn ghost" href="#importcsv" onclick="var d=document.getElementById('importcsv');d.open=true;d.scrollIntoView({block:'center'})">Import CSV</a></div></div>
 <details id="importcsv" style="margin:6px 0"><summary class="muted" style="cursor:pointer">Import from CSV</summary><form method="post" action="{{ url_for('m_import', key=key) }}" enctype="multipart/form-data" class="card" style="margin-top:8px"><p class="muted">Use the same column names as “Export CSV” (or the field labels), one row per record. Up to 2,000 rows. Use the blank template above to see the exact format before you upload — if you build your sheet in Excel, just save it as CSV before importing.</p><input type="file" name="file" accept=".csv" required> <button class="btn sm">Import</button></form></details>
+{% if gap_banner %}<div class="banner"><a href="{{ url_for('marketing_health') }}">⚠ {{ gap_banner }} gap{{ 's' if gap_banner != 1 else '' }} here — see Marketing Health for the full checklist</a></div>{% endif %}
 <p class="muted">{{ m.desc }}</p>
 <form class="filters" method="get">
 <input name="q" placeholder="Search…" value="{{ q }}">

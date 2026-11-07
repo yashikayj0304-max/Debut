@@ -252,3 +252,37 @@ html[data-theme=dark]{--mut:#b4acd3}
 html[data-theme=dark] .cal td{background:color-mix(in srgb,var(--card) 92%,#000)}
 html[data-theme=dark] .cal td:nth-child(n+6){background:color-mix(in srgb,var(--pri) 8%,var(--card))}
 .cal td.out .d>span:first-child{opacity:.55}
+
+/* dark mode: welcome card is deep and glowing, not a pale block */
+html[data-theme=dark] .dhero{background:radial-gradient(520px 260px at 90% 0%,rgba(255,143,177,.28),transparent 65%),linear-gradient(120deg,color-mix(in srgb,var(--pri) 38%,#150f2e) 0%,color-mix(in srgb,var(--sec,var(--pri)) 30%,#1d1040) 100%);color:#f6f2ff;border-color:color-mix(in srgb,var(--pri) 60%,#2a2347);box-shadow:0 14px 40px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.04) inset}
+html[data-theme=dark] .dhero h2,html[data-theme=dark] .dhero p,html[data-theme=dark] .dhero p *{color:#f6f2ff!important}
+html[data-theme=dark] .dhero .prog{background:rgba(255,255,255,.16)}html[data-theme=dark] .dhero .prog b{background:linear-gradient(90deg,#ff8fb1,#ffd60a)}
+html[data-theme=dark] .dhero .dh-actions .btn,html[data-theme=dark] .dhero .dh-actions .btn.ghost{background:rgba(255,255,255,.1)!important;color:#f6f2ff!important;border-color:rgba(255,255,255,.28)!important;box-shadow:none!important}
+html[data-theme=dark] .dhero .deb{filter:drop-shadow(0 6px 14px rgba(0,0,0,.45))}
+
+/* progress bar must be visible on every brand colour: outlined track, high-contrast fill */
+.dhero .prog{height:14px;background:color-mix(in srgb,var(--on,#fff) 10%,transparent);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--on,#fff) 85%,transparent);padding:3px;box-sizing:border-box}
+.dhero .prog b{background:var(--on,#fff);border-radius:99px;min-width:8px}
+html[data-theme=dark] .dhero .prog{background:rgba(0,0,0,.38);box-shadow:inset 0 0 0 2px rgba(255,255,255,.7)}
+html[data-theme=dark] .dhero .prog b{background:#fff}
+
+/* ---- v13 UX pass: calmer toolbars, inline filters, slim banner, roomier sign-in ---- */
+.banner.slim{display:flex;align-items:center;gap:10px;padding:6px 12px;font-size:13px;border-radius:12px;margin-bottom:12px}
+.banner.slim form{margin:0}.banner.slim .btn{padding:3px 12px;font-size:12px;box-shadow:none!important}
+.banner.slim .bx{margin-left:auto;border:0;background:none;color:var(--mut);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:8px}.banner.slim .bx:hover{background:var(--pri2);color:var(--ink)}
+.head .acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.head .acts .btn.q{border:0!important;box-shadow:none!important;background:transparent!important;color:var(--mut)!important;font-weight:600;font-size:13px;padding:6px 8px;text-decoration:none}
+.head .acts .btn.q:hover{color:var(--pri)!important;background:var(--pri2)!important;transform:none}
+.head .acts .btn.q+.btn.q::before{content:"";display:none}
+form.filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;max-width:none;margin:12px 0}
+form.filters input[name=q]{flex:1 1 260px;max-width:420px}
+form.filters select{flex:0 0 auto}
+form.filters .btn{flex:none}
+.howto summary{cursor:pointer;list-style:none}.howto summary::-webkit-details-marker{display:none}
+.howto summary::after{content:"Show";float:right;color:var(--mut);font-size:12px;font-weight:600}.howto[open] summary::after{content:"Hide"}
+.authbox{max-width:460px;padding:34px 32px 30px}
+.authbox h1{font-size:28px}
+.authbox label{font-weight:600;font-size:13.5px;display:block}
+.authbox input:not([type=checkbox]),.authbox select{height:50px;font-size:16px;border-radius:14px;margin-top:6px}
+.authbox button.btn:not(.pweye){width:100%;height:50px;font-size:16px;justify-content:center}
+.authbox a{font-weight:600}

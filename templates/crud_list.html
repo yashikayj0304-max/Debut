@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block body %}{% set popup = true %}{% set pop = ' onclick="return openOverlay(this.href,\'\')"'|safe if popup else '' %}
+{% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}{% set popup = true %}{% set pop = ' onclick="return openOverlay(this.href,\'\')"'|safe if popup else '' %}
 <div class="head"><h1>{{ m.icon }} {{ m.title }}</h1><div>
 {% if role != 'viewer' %}<a class="btn" href="{{ url_for('m_new', key=key) }}"{{ pop }}>+ New</a>{% endif %}
 {% if m.kanban %}<a class="btn ghost" href="{{ url_for('kanban', key=key) }}">Board view</a>{% endif %}
@@ -9,10 +9,30 @@
 {% if role != 'viewer' %}<details id="importcsv" style="margin:6px 0"><summary class="muted" style="cursor:pointer">Import from CSV</summary><form method="post" action="{{ url_for('m_import', key=key) }}" enctype="multipart/form-data" class="card" style="margin-top:8px"><p class="muted">Use the same column names as “Export CSV” (or the field labels), one row per record. Up to 2,000 rows. Use the filled-in Excel example above to see the exact format before you upload — if you build your sheet in Excel, just save it as CSV before importing.</p><input type="file" name="file" accept=".csv" required> <button class="btn sm">Import</button></form></details>{% endif %}
 {% if gap_banner %}<div class="banner"><a href="{{ url_for('marketing_health') }}">⚠ {{ gap_banner }} gap{{ 's' if gap_banner != 1 else '' }} here — see Marketing Health for the full checklist</a></div>{% endif %}
 <p class="muted">{{ m.desc }}</p>
+{% if dist and dist|length > 0 %}{% set _tot = dist|sum(attribute=1) %}<div class="dist" aria-label="{{ ffield[1] }} breakdown"><div class="dist-bar">{% for v, c in dist %}<i class="dc{{ loop.index0 % 6 }}" style="flex:{{ c }}" title="{{ v }}: {{ c }}"></i>{% endfor %}</div>
+<div class="dist-leg"><span class="dist-tot"><b>{{ _tot }}</b> total</span>{% for v, c in dist %}<a href="?f={{ v|urlencode }}" class="dist-chip{{ ' on' if f == v else '' }}"><i class="dc{{ loop.index0 % 6 }}"></i>{{ v }} <b>{{ c }}</b></a>{% endfor %}</div></div>{% endif %}
 <form class="filters" method="get">
 <input name="q" placeholder="Search…" value="{{ q }}">
 {% if ffield %}<select name="f" onchange="this.form.submit()"><option value="">All {{ ffield[1] }}</option>{% for o in ffield[3] %}<option {% if o == f %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>{% endif %}
 <button class="btn ghost">Filter</button></form>
+{% if layout and view != 'table' and rows %}
+<div class="viewtog"><a class="btn sm {{ '' if view == 'table' else 'on' }}" href="?view=cards">▦ Cards</a><a class="btn ghost sm" href="?view=table">☰ Table</a></div>
+{% set _badge = (cols|selectattr(2, 'equalto', 'select')|list|first) %}
+{% if layout == 'checklist' %}<div class="todo">{% for r in rows %}{% set done = r['status'] == 'Done' %}
+<div class="trow{{ ' done' if done }}"><form method="post" action="{{ url_for('m_status', key=key, rid=r['id']) }}">{% if role != 'viewer' %}<input type="hidden" name="next" value="{{ request.full_path }}"><input type="hidden" name="value" value="{{ 'To do' if done else 'Done' }}"><button class="tick" title="{{ 'Mark as not done' if done else 'Mark as done' }}" aria-label="{{ 'Mark as not done' if done else 'Mark as done' }}">{{ '✓' if done }}</button>{% else %}<span class="tick">{{ '✓' if done }}</span>{% endif %}</form>
+<a class="tt" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{{ pop }}><b>{{ r['title']|truncate(70) }}</b>{% if r['assignee'] or r['due_date'] %}<small class="muted">{{ r['assignee'] }}{{ ' · ' if r['assignee'] and r['due_date'] }}{{ r['due_date'] }}</small>{% endif %}</a>
+{% if r['priority'] %}<span class="badge b-{{ r['priority']|lower }}">{{ r['priority'] }}</span>{% endif %}{% if r['status'] and not done %}<span class="badge b-{{ r['status']|lower|replace(' ', '-') }}">{{ r['status'] }}</span>{% endif %}
+{% if role != 'viewer' %}<form method="post" action="{{ url_for('m_delete', key=key, rid=r['id']) }}" onsubmit="return confirm('Delete this record?')"><button class="btn danger sm" aria-label="Delete">✕</button></form>{% endif %}</div>{% endfor %}</div>
+{% else %}
+<div class="cgrid {{ layout }}">{% for r in rows %}
+{% set _t = r[cols[0][0]] or 'Untitled' %}
+<div class="citemcard"><div class="cc-top">{% if layout == 'people' %}<span class="cc-av av{{ loop.index0 % 6 }}">{{ (_t|string)[:1]|upper }}</span>{% endif %}<div class="cc-h"><b class="cc-t">{{ _t|truncate(60) }}</b>{% if _badge and r[_badge[0]] %}<span class="badge b-{{ r[_badge[0]]|lower|replace(' ', '-')|replace('/', '') }}">{{ r[_badge[0]] }}</span>{% endif %}</div></div>
+<dl class="cc-meta">{% for n, l, t in cols[1:] %}{% if (not _badge or n != _badge[0]) and r[n] %}<div><dt>{{ l }}</dt><dd>{% if t == 'url' %}<a href="{{ r[n] }}" target="_blank" rel="noopener">{{ r[n]|string|truncate(28) }}</a>{% else %}{{ r[n]|string|truncate(44) }}{% endif %}</dd></div>{% endif %}{% endfor %}</dl>
+{% if bkeys %}{% set b = r[bkeys[0]]|float(0) %}{% set sp = r[bkeys[1]]|float(0) %}{% if b > 0 %}{% set pct = (sp / b * 100)|round|int %}{% set left = 100 - pct %}<div class="bbar {{ 'bad' if left < 10 else ('warn' if left < 25 else 'ok') }}" title="{{ pct }}% of budget used"><i style="width:{{ [pct, 100]|min }}%"></i></div><small class="muted">Budget used: {{ pct }}% used</small>{% endif %}{% endif %}
+<div class="cc-act"><a class="btn ghost sm" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{{ pop }}>{{ 'View' if role == 'viewer' else 'Edit' }}</a>{% if role != 'viewer' %}<form method="post" action="{{ url_for('m_delete', key=key, rid=r['id']) }}" style="display:inline" onsubmit="return confirm('Delete this record?')"><button class="btn danger sm">✕</button></form>{% endif %}</div></div>
+{% endfor %}</div>{% endif %}
+{% else %}
+{% if layout and rows %}<div class="viewtog"><a class="btn ghost sm" href="?view=cards">▦ Cards</a><a class="btn sm on" href="?view=table">☰ Table</a></div>{% endif %}
 <table class="stack"><tr>{% for n, l, t in cols %}<th>{{ l }}</th>{% endfor %}{% if bkeys %}<th>Budget used</th>{% endif %}<th></th></tr>
 {% for r in rows %}<tr>{% for n, l, t in cols %}{% set v = r[n] or '' %}<td data-label="{{ l }}"{% if not v|string|trim %} class="e"{% endif %}>
 {% if t == 'url' and v %}<a href="{{ v }}" target="_blank" rel="noopener">{{ v|truncate(38) }}</a>
@@ -21,6 +41,7 @@
 {% if bkeys %}{% set b = r[bkeys[0]]|float(0) %}{% set sp = r[bkeys[1]]|float(0) %}<td style="min-width:120px" data-label="Budget used">{% if b > 0 %}{% set pct = (sp / b * 100)|round|int %}{% set left = 100 - pct %}<div class="bbar {{ 'bad' if left < 10 else ('warn' if left < 25 else 'ok') }}" title="{{ pct }}% used, {{ left if left > 0 else 0 }}% remaining"><i style="width:{{ [pct, 100]|min }}%"></i></div><small class="{{ 'bbad' if left < 10 else 'muted' }}">{{ pct }}% used{% if left < 10 %} · {{ 'over budget' if left < 0 else 'under 10% left' }}{% endif %}</small>{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}
 <td style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{{ pop }}>{{ 'View' if role == 'viewer' else 'Edit' }}</a>
 {% if role != 'viewer' %}<form method="post" action="{{ url_for('m_delete', key=key, rid=r['id']) }}" style="display:inline" onsubmit="return confirm('Delete this record?')"><button class="btn danger sm">✕</button></form>{% endif %}</td></tr>
-{% else %}<tr><td colspan="{{ cols|length + 2 }}" class="empty-cell"><div class="empty-state"><span class="big">🌱</span><h3>Nothing here yet</h3><p>{% if role != 'viewer' %}Add your first one and it will show up right here.{% else %}Nothing has been added yet.{% endif %}</p>{% if role != 'viewer' %}<a class="btn" href="{{ url_for('m_new', key=key) }}"{{ pop }}>+ New</a>{% endif %}</div></td></tr>{% endfor %}</table>
+{% else %}<tr><td colspan="{{ cols|length + 2 }}" class="empty-cell">{% set _k = 'chart' if key in ('kpis','kpi_log','analytics','experiments') else ('people' if key in ('influencers','leads','personas','creators','clients','creator_network','pr_media') else ('link' if key in ('reference_links','content_library','utm_links') else ('calendar' if key in ('content_items','key_dates','events','promotions','tasks','launch_checklist') else 'list'))) %}{{ empty(_k, 'Nothing here yet', ('Press + New at the top to add your first one.' if role != 'viewer' else 'Nothing has been added yet.')) }}</td></tr>{% endfor %}</table>
+{% endif %}
 {% if page > 1 or more %}<p>{% if page > 1 %}<a class="btn ghost sm" href="?page={{ page - 1 }}&q={{ q }}&f={{ f }}">← Newer</a>{% endif %} {% if more %}<a class="btn ghost sm" href="?page={{ page + 1 }}&q={{ q }}&f={{ f }}">Older →</a>{% endif %}</p>{% endif %}
 {% endblock %}

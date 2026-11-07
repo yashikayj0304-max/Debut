@@ -3429,3 +3429,113 @@ def test_dark_mode_pinned_and_empty_state_present(app, mails):
     anon = app.test_client().get("/").data.decode()
     assert "Dark / light" in anon and "chips" in anon
     assert "🎉" in o.post("/m/tasks/save", data=dict(title="Ship it", status="Done"), follow_redirects=True).data.decode()
+
+
+def test_landing_feature_overviews_clickable(app):
+    html = app.test_client().get("/").data.decode()
+    assert html.count('class="chip"') == 5 and html.count('class="card fcard"') == 15
+    assert 'id="featDlg"' in html and "Mood boards" in html and "See overview" in html
+    assert html.index('id="featDlg"') > html.index("</section>")  # dialog sits in the body, not inside the title block
+
+
+def test_short_sidebar_empty_art_and_status_strip(app, mails):
+    o = signup(app, "shortnav@x.com")
+    html = o.get("/app").data.decode()
+    assert 'class="ess"' in html and "All tools" in html and 'id="allq"' in html
+    assert "/m/leads" in html and "/m/utm_links" not in html  # every real page is still in the page, just tucked behind All tools
+    empty = o.get("/m/leads").data.decode()
+    assert "<svg" in empty and "empty-state" in empty
+    for n, st in [("A", "New"), ("B", "New"), ("C", "Won")]:
+        o.post("/m/leads/save", data=dict(name=f"L{n}", stage=st))
+    strip = o.get("/m/leads").data.decode()
+    assert 'class="dist"' in strip and "New" in strip and "total" in strip
+    assert 'class="ti"' in o.get("/app").data.decode()
+
+
+def test_client_never_gets_essentials_links(app, mails):
+    o = signup(app, "clessn@x.com")
+    cl = _client(app, o, mails, "clessn2@x.com")
+    h = cl.get("/portal").data.decode()
+    assert "/m/campaigns" not in h and "/billing" not in h and 'class="ess"' not in h
+
+
+def test_recap_streak_and_mascot(app, mails):
+    o = signup(app, "recap@x.com")
+    for t in ("a", "b"):
+        o.post("/m/tasks/save", data=dict(title=t, status="Done"))
+    r = o.get("/recap").data.decode()
+    assert "Your recap" in r or "recap" in r.lower()
+    assert "Tasks finished" in r and "streak" in r and "shareRecap" in r and "deb-" in r
+    d = o.get("/app").data.decode()
+    assert "Your recap" in d and "-day streak" in d and 'class="deb deb-' in d
+    anon = app.test_client()
+    assert anon.get("/recap").status_code in (302, 401, 403)
+    assert 'class="deb deb-' in anon.get("/").data.decode()
+    import services as _S
+    assert "Your Recap" in o.get("/app").data.decode()
+
+
+def test_kudos_and_reactions(app, mails):
+    o = signup(app, "kudosowner@x.com")
+    m = _join(app, o, mails, "kudosmate@x.com", "manager", name="Mate Kay")
+    w = o.get("/kudos").data.decode()
+    assert "Kudos wall" in w and "Mate Kay" in w
+    # send kudos, recipient is notified, wall shows it
+    uid = re.search(r'<option value="(\d+)">Mate Kay', w).group(1)
+    r = o.post("/kudos/send", data=dict(to=uid, emoji="🔥", note="Nailed the launch reel"), follow_redirects=True).data.decode()
+    assert "Kudos sent" in r and "Nailed the launch reel" in r
+    n = m.get("/notifications").data.decode()
+    assert "sent you kudos" in n
+    assert "Say what they nailed" in o.post("/kudos/send", data=dict(to=uid, note=""), follow_redirects=True).data.decode()
+    assert "Pick a teammate" in o.post("/kudos/send", data=dict(to="999999", note="x"), follow_redirects=True).data.decode()
+    # viewers and clients can't send
+    v = _join(app, o, mails, "kudosview@x.com", "viewer")
+    assert v.post("/kudos/send", data=dict(to=uid, note="hi")).status_code == 403
+    assert "Nailed the launch reel" in o.get("/app").data.decode()
+    # reactions toggle on a record
+    o.post("/m/tasks/save", data=dict(title="React to me", assignee="Mate Kay"))
+    page = o.get("/m/tasks").data.decode()
+    rid = re.search(r"/m/tasks/(\d+)/edit", page).group(1)
+    assert "React:" in o.get(f"/m/tasks/{rid}/edit").data.decode()
+    o.post(f"/m/tasks/{rid}/react", data=dict(emoji="👏"))
+    assert "react mine" in o.get(f"/m/tasks/{rid}/edit").data.decode()
+    assert "reacted" in m.get("/notifications").data.decode()
+    o.post(f"/m/tasks/{rid}/react", data=dict(emoji="👏"))
+    assert "react mine" not in o.get(f"/m/tasks/{rid}/edit").data.decode()
+    o.post(f"/m/tasks/{rid}/react", data=dict(emoji="💩"))   # not an allowed reaction
+    assert "💩" not in o.get(f"/m/tasks/{rid}/edit").data.decode()
+
+
+def test_v10_checklist_agenda_covers(app):
+    c = signup(app, "v10@x.com", ws="V10 Co")
+    c.post("/m/tasks/save", data={"title": "Ship the reel", "status": "To do", "priority": "High"})
+    r = c.get("/m/tasks")
+    assert b'class="todo"' in r.data and b'class="tick"' in r.data and b"Ship the reel" in r.data
+    assert b'class="todo"' not in c.get("/m/tasks?view=table").data
+    assert b'class="agenda"' in c.get("/calendar").data
+    c.post("/moodboards/new", data={"name": "Vibes"})
+    assert b"bcover" in c.get("/moodboards").data
+    assert "Kudos wall" in c.get("/manual").get_data(as_text=True)
+
+
+def test_presence_and_mention_chips(app, mails):
+    o = signup(app, "pres@x.com", ws="Pres Co")
+    m = _join(app, o, mails, "presmate@x.com", "manager", name="Mate Kay")
+    o.post("/m/tasks/save", data={"title": "Shoot day"})
+    rid = int(re.search(r"/m/tasks/(\d+)/", o.get("/m/tasks").get_data(as_text=True)).group(1))
+    page = o.get(f"/m/tasks/{rid}/edit").get_data(as_text=True)
+    assert 'class="mchip"' in page and "@Mate" in page and 'id="here"' in page
+    assert o.post(f"/m/tasks/{rid}/presence").get_json()["here"] == []
+    assert len(m.post(f"/m/tasks/{rid}/presence").get_json()["here"]) == 1
+    assert len(o.post(f"/m/tasks/{rid}/presence").get_json()["here"]) == 1
+
+
+def test_vibe_presets_and_trophies(app):
+    c = signup(app, "vibe@x.com", ws="Vibe Co")
+    assert "Pick your vibe" in c.get("/account").get_data(as_text=True)
+    assert "Pick your vibe" in c.get("/app").get_data(as_text=True)
+    r = c.post("/account/theme", data={"color": "#ec4899", "secondary": "#fbcfe8"}, follow_redirects=True)
+    assert b"#ec4899" in c.get("/app").data
+    assert "Pick your vibe" not in c.get("/app").get_data(as_text=True)
+    rc = c.get("/recap").get_data(as_text=True)
+    assert "Trophy shelf" in rc and "Made it yours" in rc

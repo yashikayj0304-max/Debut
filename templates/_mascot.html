@@ -1,0 +1,21 @@
+{# Deb, the Debut mascot. {{ deb('happy'|'party'|'wow'|'sleepy'|'wave'|'search'|'oops', 120) }} Styled in static/identity.css #}
+{% macro deb(mood='happy', size=120) -%}
+<svg class="deb deb-{{ mood }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 120 120" role="img" aria-label="Deb, the Debut mascot">
+<ellipse cx="60" cy="111" rx="30" ry="5" class="deb-shadow"/>
+<path d="M60 16c26 0 44 18 44 44 0 24-12 46-44 46S16 84 16 60c0-26 18-44 44-44z" class="deb-body"/>
+<path d="M32 34c6-8 16-12 26-12" class="deb-shine"/>
+<path d="M60 16c0-6 0-9 3-12" class="deb-sprout"/><path d="M63 5c6-5 13-3 14 1-5 4-12 4-14-1z" class="deb-leaf"/>
+<circle cx="38" cy="68" r="7" class="deb-cheek"/><circle cx="82" cy="68" r="7" class="deb-cheek"/>
+{% if mood == 'sleepy' -%}
+<path d="M40 57q6 5 12 0M68 57q6 5 12 0" class="deb-eye-l"/><path d="M53 74q7 4 14 0" class="deb-mouth"/><text x="90" y="34" class="deb-z">z</text><text x="100" y="22" class="deb-z deb-z2">z</text>
+{%- elif mood == 'wow' or mood == 'oops' -%}
+<circle cx="46" cy="56" r="6.5" class="deb-eye"/><circle cx="74" cy="56" r="6.5" class="deb-eye"/><circle cx="48" cy="54" r="2.2" class="deb-glint"/><circle cx="76" cy="54" r="2.2" class="deb-glint"/>
+{% if mood == 'wow' %}<ellipse cx="60" cy="78" rx="6" ry="8" class="deb-mouth-o"/>{% else %}<path d="M48 82q12-12 24 0" class="deb-mouth"/>{% endif %}
+{%- else -%}
+<circle cx="46" cy="56" r="6.5" class="deb-eye"/><circle cx="74" cy="56" r="6.5" class="deb-eye"/><circle cx="48" cy="54" r="2.2" class="deb-glint"/><circle cx="76" cy="54" r="2.2" class="deb-glint"/><path d="M46 72q14 14 28 0" class="deb-mouth"/>
+{%- endif %}
+{% if mood == 'party' -%}<path d="M38 24l22-26 22 26z" class="deb-hat"/><circle cx="60" cy="-2" r="4.5" class="deb-pom"/><path d="M48 15l6-8M62 15l6-8" class="deb-hatline"/>{%- endif %}
+{% if mood == 'wave' -%}<path d="M102 70q8-8 6-20" class="deb-arm"/><circle cx="108" cy="46" r="8" class="deb-hand"/>{%- endif %}
+{% if mood == 'search' -%}<circle cx="92" cy="88" r="14" class="deb-lens"/><path d="M102 98l12 12" class="deb-handle"/>{%- endif %}
+</svg>
+{%- endmacro %}

@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}
 <div class="head"><h1>🖼️ Mood Boards</h1><form method="post" action="{{ url_for('board_sample') }}"><button class="btn ghost" title="See a worked example with sample notes, colours and links already placed">✨ Load a sample board</button></form></div><p class="muted">Collect images, colours, notes and links into visual boards for each campaign or launch.</p>
 
 <div class="card" style="margin-bottom:16px"><b>🧭 How it works</b>
@@ -15,6 +15,6 @@
 <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">{% for k, label in [('diwali','🪔 Diwali 2026 festive'),('launch','🚀 Product launch'),('influencer','🤳 Influencer collab'),('brand','🎨 Brand identity')] %}<form method="post" action="{{ url_for('board_from_template', tkey=k) }}"><button class="btn ghost sm">{{ label }}</button></form>{% endfor %}</div></div>
 <form method="post" action="{{ url_for('board_new') }}" class="card two"><label>Board name<input name="name" required placeholder="e.g. Diwali 2026 — chocolate gifting"></label><label>Description<input name="description"></label><div><button class="btn">Create board</button></div></form>
 <div class="grid">{% for b in boards %}<a class="tile" href="{{ url_for('board_view', bid=b['id']) }}">
-{% if covers[b['id']] %}<img src="{{ media(covers[b['id']]['content']) }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px">{% endif %}
-<b style="font-size:16px">{{ b['name'] }}</b><span class="muted">{{ b['n'] }} items · {{ b['description'] }}</span></a>{% else %}<p class="muted">No boards yet — create one above, or load the sample to see how it works first.</p>{% endfor %}</div>
+{% if covers[b['id']] %}<img src="{{ media(covers[b['id']]['content']) }}" style="width:100%;height:120px;object-fit:cover;border-radius:12px;margin-bottom:8px;border:2px solid var(--out,#1b1433)">{% else %}<div class="bcover bc{{ loop.index0 % 5 }}" aria-hidden="true"><i></i><i></i><i></i></div>{% endif %}
+<b style="font-size:16px">{{ b['name'] }}</b><span class="muted">{{ b['n'] }} items · {{ b['description'] }}</span></a>{% else %}{{ empty('board', 'No boards yet', 'Create one above, or load the sample to see how it works first.') }}{% endfor %}</div>
 {% endblock %}

@@ -1,9 +1,9 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}
 <div class="head"><h1>🏷️ UTM Link Builder</h1><a class="btn" href="{{ url_for('utm_new') }}">＋ New UTM link</a></div>
 <p class="muted">Tracking links so every click is attributable in Google Analytics. Build one, copy it, paste it into your post, ad or email.</p>
 {% if rows %}<table class="stack"><tr><th>Label</th><th>Campaign</th><th>Source / medium</th><th>Link</th><th></th></tr>
 {% for r in rows %}<tr><td data-label="Label"><b>{{ r['name'] }}</b></td><td data-label="Campaign">{{ r['campaign'] or '—' }}</td><td data-label="Source / medium">{{ r['source'] or '—' }} / {{ r['medium'] or '—' }}</td><td data-label="Link"><code class="utm-url" title="{{ r['full_url'] }}">{{ r['full_url']|truncate(60) }}</code></td>
 <td style="white-space:nowrap"><button type="button" class="btn ghost sm" data-copy="{{ r['full_url'] }}" onclick="copyText(this)">Copy</button>
 <form method="post" action="{{ url_for('m_delete', key='utm_links', rid=r['id']) }}" style="display:inline" onsubmit="return confirm('Delete this link?')"><input type="hidden" name="next" value="/utm"><button class="btn danger sm" aria-label="Delete">✕</button></form></td></tr>{% endfor %}</table>
-{% else %}<div class="card empty"><span class="big">🏷️</span><b>No tracking links yet</b><p class="muted">Create your first link in a few seconds. Pick where it will be posted and we add the tracking for you.</p><a class="btn" href="{{ url_for('utm_new') }}">＋ New UTM link</a></div>{% endif %}
+{% else %}<div class="card">{{ empty('link', 'No tracking links yet', 'Create your first link in a few seconds. Pick where it will be posted and we add the tracking for you.', url_for('utm_new'), '＋ New UTM link') }}</div>{% endif %}
 {% endblock %}

@@ -1,0 +1,117 @@
+/* ===== Debut identity: "sticker pop" =====
+   Chunky outlines, hard offset shadows, pressable pill buttons, tilted sticker badges, one display font.
+   Brand colours still come from the workspace theme variables (--pri, --sec ...). Loaded last. */
+:root{
+  --out:#1b1433;--hard:3px 3px 0 var(--out);--hard-sm:2px 2px 0 var(--out);--hard-lg:5px 5px 0 var(--out);
+  --font-d:"Bricolage Grotesque","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:18px;--bw:2px}
+html[data-theme=dark]{--out:color-mix(in srgb,var(--pri) 55%,#3b3166);--hard:3px 3px 0 #05030c;--hard-sm:2px 2px 0 #05030c;--hard-lg:5px 5px 0 #05030c}
+h1,h2,h3,.head h1,.price,.fhead h1,.dhero h2,.hero h1,.tile b,.featdlg h2{font-family:var(--font-d);letter-spacing:-.025em}
+h1{font-weight:800}h2,h3{font-weight:700}
+
+/* surfaces: outlined with a hard shadow */
+.card,.plan,.tile,.dd-menu,.overlay-modal,.featdlg,.authbox{border:var(--bw) solid var(--out)!important;box-shadow:var(--hard)!important;border-radius:var(--r)}
+.card:hover,.tile:hover{box-shadow:var(--hard-lg)!important}
+.card,.tile{transition:transform .14s ease,box-shadow .14s ease}
+.card:hover{transform:translate(-1px,-1px)}
+.tile:hover{transform:translate(-2px,-2px)!important}
+table{border:var(--bw) solid var(--out)!important;box-shadow:var(--hard)!important;border-radius:var(--r)}
+th{font-family:var(--font-d);text-transform:none;letter-spacing:0;font-size:13px;font-weight:700;border-bottom:var(--bw) solid var(--out)}
+.dhero{border:var(--bw) solid var(--out);box-shadow:var(--hard-lg)}
+.fhead{border:var(--bw) solid var(--out);box-shadow:var(--hard-sm)}
+.tile::before{display:none}
+.grid .tile .ti{border:var(--bw) solid var(--out);box-shadow:var(--hard-sm)}
+
+/* buttons: chunky, press down */
+.btn{border:var(--bw) solid var(--out)!important;border-radius:999px;font-weight:800;letter-spacing:-.005em;box-shadow:var(--hard-sm)!important;transition:transform .1s ease,box-shadow .1s ease,filter .15s}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:var(--hard)!important;filter:none}
+.btn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--out)!important}
+.btn.ghost{background:var(--card);color:var(--ink)}
+.btn.danger{color:var(--bad)}
+.btn.sm{box-shadow:1px 1px 0 var(--out)!important}.btn.sm:hover{box-shadow:2px 2px 0 var(--out)!important}
+.tb-create{border:var(--bw) solid var(--out);box-shadow:var(--hard-sm)}
+.tb-ic,.tb-profile{border:var(--bw) solid var(--out);box-shadow:var(--hard-sm);border-radius:14px}
+.tb-profile{border-radius:999px}
+.tb-ic:active{transform:translate(2px,2px);box-shadow:none}
+.bnav .bn-plus{border:var(--bw) solid var(--out)}
+
+/* inputs: thick outline, brand glow on focus */
+input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),select,textarea{border:var(--bw) solid var(--out)!important;border-radius:14px}
+input:focus,select:focus,textarea:focus{box-shadow:var(--hard-sm)!important;outline:0}
+form.nice input:not([type=checkbox]):not([type=color]),form.nice select,form.nice textarea{border:var(--bw) solid var(--out)!important}
+.tb-search input{border-radius:999px}
+
+/* stickers: badges and pills tilt */
+.badge,.pill{border:1.5px solid var(--out);border-radius:999px;font-weight:800;box-shadow:1px 1px 0 var(--out)}
+td .badge{transform:rotate(-2deg);display:inline-block}
+.dot{border:1.5px solid var(--out)}
+.dist-chip{border:var(--bw) solid var(--out);box-shadow:var(--hard-sm);font-weight:700}
+.dist-bar{border:var(--bw) solid var(--out);height:14px;gap:0}.dist-bar i{border-radius:0;border-right:var(--bw) solid var(--out)}.dist-bar i:last-child{border-right:0}
+.chip,.hero .chips .chip{border:var(--bw) solid var(--out)!important;box-shadow:var(--hard-sm)!important}
+
+/* sidebar */
+aside{border-right:var(--bw) solid var(--out)}
+aside a{border-radius:12px;font-weight:600}
+aside a.on{border:var(--bw) solid var(--out);box-shadow:var(--hard-sm)}
+.ess-h,aside h4,.ngrp>summary{font-family:var(--font-d)}
+.ngrp>summary{text-transform:none;letter-spacing:0;font-size:13.5px;font-weight:700;color:var(--ink)}
+.alltools-btn{border:var(--bw) solid var(--out);border-style:solid;box-shadow:var(--hard-sm);background:var(--pri2)}
+.alltools-btn:active{transform:translate(2px,2px);box-shadow:none}
+.topbar,.top{border-bottom:var(--bw) solid var(--out)}
+
+/* toasts as stickers */
+.toasts .flash{border:var(--bw) solid var(--out)!important;box-shadow:var(--hard)!important;border-radius:16px;background:var(--card);color:var(--ink);transform:rotate(-.6deg)}
+.toasts .flash:nth-child(even){transform:rotate(.6deg)}
+
+/* dialogs */
+dialog{border:var(--bw) solid var(--out);box-shadow:var(--hard-lg)}
+.fd-x{border:var(--bw) solid var(--out)}
+.empty-state .big,.fd-ic{border:var(--bw) solid var(--out);box-shadow:var(--hard-sm)}
+
+/* ---------- Deb, the mascot ---------- */
+.deb{display:block;overflow:visible}
+.deb .deb-body{fill:var(--pri);stroke:var(--out);stroke-width:3.5}
+.deb .deb-shine{fill:none;stroke:rgba(255,255,255,.55);stroke-width:5;stroke-linecap:round}
+.deb .deb-shadow{fill:rgba(0,0,0,.14)}
+.deb .deb-eye{fill:var(--out)}.deb .deb-glint{fill:#fff}
+.deb .deb-eye-l{fill:none;stroke:var(--out);stroke-width:4;stroke-linecap:round}
+.deb .deb-cheek{fill:#ff8fb1;opacity:.85}
+.deb .deb-mouth{fill:none;stroke:var(--out);stroke-width:4;stroke-linecap:round}
+.deb .deb-mouth-o{fill:var(--out)}
+.deb .deb-sprout{fill:none;stroke:var(--out);stroke-width:4;stroke-linecap:round}
+.deb .deb-leaf{fill:#7be0a8;stroke:var(--out);stroke-width:3}
+.deb .deb-hat{fill:var(--sec,#ffd60a);stroke:var(--out);stroke-width:3.5;stroke-linejoin:round}.deb .deb-pom{fill:#ff6b9d;stroke:var(--out);stroke-width:3}.deb .deb-hatline{stroke:var(--out);stroke-width:3;fill:none}
+.deb .deb-arm{fill:none;stroke:var(--out);stroke-width:5;stroke-linecap:round}.deb .deb-hand{fill:var(--pri);stroke:var(--out);stroke-width:3.5}
+.deb .deb-lens{fill:rgba(255,255,255,.55);stroke:var(--out);stroke-width:4}.deb .deb-handle{stroke:var(--out);stroke-width:6;stroke-linecap:round}
+.deb .deb-z{font:800 14px var(--font-d);fill:var(--out)}.deb .deb-z2{font-size:10px}
+@media(prefers-reduced-motion:no-preference){
+ .deb-wave .deb-hand,.deb-wave .deb-arm{transform-origin:92px 66px;animation:wave 1.4s ease-in-out infinite}
+ @keyframes wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-16deg)}}
+ .deb-happy,.deb-party,.deb-wow,.deb-search,.deb-oops{animation:bob 3.6s ease-in-out infinite}.deb-sleepy{animation:bob 6s ease-in-out infinite}
+ @keyframes bob{50%{transform:translateY(-6px) rotate(-1.5deg)}}
+ .deb .deb-eye{transform-origin:center;transform-box:fill-box;animation:blink 5s infinite}@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+}
+.empty-state .deb{margin:0 auto 6px}
+.empty-state .big{display:none}
+.dhero .deb-wrap{position:absolute;right:22px;bottom:-6px;z-index:1}.dhero .deb{filter:drop-shadow(3px 3px 0 var(--out))}
+.dhero::after{display:none}
+@media(max-width:800px){.dhero .deb-wrap{display:none}}
+.hero .deb-wrap{display:flex;justify-content:center;margin-bottom:6px}
+.hero .deb{filter:drop-shadow(4px 4px 0 var(--out))}
+
+/* landing hero with attitude */
+.hero{border:var(--bw) solid var(--out);box-shadow:var(--hard-lg);border-radius:32px}
+.hero h1{font-weight:800}
+.hero .btn:not(.ghost){box-shadow:var(--hard)!important}
+.marquee{overflow:hidden;border-block:var(--bw) solid var(--out);background:var(--pri);color:var(--on,#fff);margin:26px 0;transform:rotate(-1deg);white-space:nowrap}
+.marquee div{display:inline-block;padding:10px 0;font:800 17px var(--font-d);animation:marq 28s linear infinite}
+.marquee span{margin:0 18px}
+@keyframes marq{to{transform:translateX(-50%)}}
+@media(prefers-reduced-motion:reduce){.marquee div{animation:none}}
+
+/* streak + recap */
+.streak{display:inline-flex;align-items:center;gap:6px;border:var(--bw) solid var(--out);border-radius:999px;padding:3px 12px;font-weight:800;font-size:13px;background:#fff3b0;color:#1b1433;box-shadow:var(--hard-sm)}
+.recap-wrap{display:grid;gap:18px;grid-template-columns:minmax(0,420px) 1fr;align-items:start}
+@media(max-width:800px){.recap-wrap{grid-template-columns:1fr}}
+.recap-card{border:var(--bw) solid var(--out);border-radius:28px;box-shadow:var(--hard-lg);overflow:hidden;background:var(--pri);color:var(--on,#fff)}
+.recap-card svg{display:block;width:100%;height:auto}

@@ -1,0 +1,6 @@
+{# Illustrated empty states. Usage: {% from "_empty.html" import empty %}{{ empty('list', 'Title', 'Text', href, 'Button label', pop) }} #}
+{% from "_mascot.html" import deb %}
+{% macro art(kind) -%}{{ deb({'list':'sleepy','calendar':'happy','board':'wow','chart':'search','people':'wave','search':'search','bell':'sleepy','link':'happy'}.get(kind,'sleepy'), 130) }}{%- endmacro %}
+{% macro empty(kind, title, text, href=None, label=None, pop='') -%}
+<div class="empty-state">{{ art(kind) }}<h3>{{ title }}</h3><p>{{ text }}</p>{% if href and label %}<a class="btn" href="{{ href }}"{{ pop|safe }}>{{ label }}</a>{% endif %}</div>
+{%- endmacro %}

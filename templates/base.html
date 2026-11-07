@@ -6,7 +6,7 @@
 {% if user and ws and not bare %}<meta name="robots" content="noindex,nofollow">{% endif %}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5cd6'/%3E%3Cpath d='M9 21l5-10 4 6 5-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"><title>{% block title %}{{ C.APP_NAME }}{% endblock %}</title>
 <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
 <script>(function(){try{var t=localStorage.getItem("theme");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='identity.css') }}">
 {% if brand %}<style>:root{--pri:{{ brand.pri }};--pri-d:{{ brand.pri_d }};--pri2:{{ brand.pri2 }};--pri3:{{ brand.pri3 }};--bg:{{ brand.bg }};--bg2:{{ brand.bg2 }};--accent:{{ brand.accent }};--sec:{{ brand.sec }};--sec-d:{{ brand.sec_d }};--sec-g:{{ brand.sec_g }};--on:{{ brand.on }}}
 aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{% endif %}</head>
 <body class="{{ 'app' if (user and ws and not bare) else 'pub' }}">
@@ -45,9 +45,14 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
 {% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
-{% for g, items in NAV.items() %}<details class="ngrp" data-g="{{ g }}"{% if loop.first %} data-tour="modules"{% endif %}><summary>{{ g }}</summary>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</details>{% endfor %}
+{% if ESSENTIALS %}<div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b>{% for label, href in ESSENTIALS %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</div>
+<button type="button" class="alltools-btn" id="allBtn" aria-expanded="false" onclick="toggleAll()">🧰 All tools <span class="muted">· {{ NAV.values()|map('length')|sum }} pages</span><i>▾</i></button>
+<div id="allTools" hidden><input type="search" id="allq" placeholder="Find a tool…" aria-label="Find a tool" autocomplete="off">{% endif %}
+{% for g, items in NAV.items() %}<details class="ngrp" data-g="{{ g }}"><summary>{{ g }}</summary>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</details>{% endfor %}
+{% if ESSENTIALS %}</div>{% endif %}
 <details class="ngrp side-foot" data-g="Workspace"><summary>Workspace</summary>
 {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">💳 Plan: <span class="pill">{{ plan['name'] }}</span></a>{% endif %}
+{% if role not in ('client',) %}<a href="{{ url_for('kudos') }}">🎉 Kudos</a>{% endif %}
 {% if role in TEAM_MANAGERS %}<a href="{{ url_for('team_hub') }}">👑 Team hub{{ ' 🔒' if 'group' not in plan['features'] }}</a><a href="{{ url_for('ws.team') }}">👥 Team &amp; roles</a><a href="{{ url_for('ws.activity') }}">🕘 Activity</a>{% endif %}
 {% if role in ('owner','admin','lead','manager') %}<a href="{{ url_for('report') }}">📑 Client report</a><a href="{{ url_for('ws.integrations') }}">🔌 Integrations</a><a href="{{ url_for('ws.export_zip') }}">⬇ Export data</a>{% elif role not in ('creator', 'client') %}<a href="{{ url_for('report') }}">📑 Report</a>{% endif %}
 {% if is_admin %}<a href="{{ url_for('admin.index') }}">🛠 Admin</a>{% elif admin_needs_2fa %}<a href="{{ url_for('ws.twofa') }}">🔐 Turn on 2FA to unlock Admin</a>{% endif %}
@@ -69,21 +74,21 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 <script>
 window.CSRF=document.querySelector('meta[name=csrf-token]').content;
 document.querySelectorAll('form').forEach(function(f){if((f.method||'').toLowerCase()==='post'&&!f.querySelector('[name=csrf_token]')){var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);}});
-(function(){var p=location.pathname,best=null;document.querySelectorAll("aside a[href]").forEach(function(a){var h=a.getAttribute("href").split("?")[0];if(h===p||(h!=="/app"&&h.length>1&&p.indexOf(h)===0)){if(!best||h.length>best.getAttribute("href").length)best=a;}});if(best)best.classList.add("on");})();
+(function(){var p=location.pathname,best=null;document.querySelectorAll("aside a[href]").forEach(function(a){var h=a.getAttribute("href").split("?")[0];if(h===p||(h!=="/app"&&h.length>1&&p.indexOf(h)===0)){if(!best||h.length>best.getAttribute("href").length)best=a;}});if(best){var bh=best.getAttribute("href");document.querySelectorAll("aside a[href=\""+bh+"\"]").forEach(function(a){a.classList.add("on");});}if(false)best.classList.add("on");})();
 // ---------- sidebar headings are drop-downs (one open at a time): remember the open one, and open the one holding the current page ----------
 (function(){
  var KEY="navOpen1",groups=document.querySelectorAll("aside details.ngrp"),cur="";
  try{cur=localStorage.getItem(KEY)||"";}catch(e){}
- var on=document.querySelector("aside a.on");if(on){var p=on.closest("details.ngrp");if(p)cur=p.dataset.g;}
+ var on=document.querySelector("aside details.ngrp a.on");if(on){var p=on.closest("details.ngrp");if(p)cur=p.dataset.g;}
  groups.forEach(function(d){d.open=(d.dataset.g===cur);});
  groups.forEach(function(d){d.addEventListener("toggle",function(){
-  if(d.open){groups.forEach(function(o){if(o!==d&&o.open)o.open=false;});try{localStorage.setItem(KEY,d.dataset.g);}catch(e){}}
+  if(d.open&&!(document.getElementById("allq")&&document.getElementById("allq").value)){groups.forEach(function(o){if(o!==d&&o.open)o.open=false;});try{localStorage.setItem(KEY,d.dataset.g);}catch(e){}}
   else{try{if(localStorage.getItem(KEY)===d.dataset.g)localStorage.setItem(KEY,"");}catch(e){}}
  });});
 })();
 // ---------- keep the sidebar scrolled to where you were, across page navigations (full page loads don't preserve scroll on their own) ----------
 (function(){
- var aside=document.querySelector("aside");if(!aside)return;
+ var aside=document.querySelector("aside");if(!aside||{{ "true" if role == "client" else "false" }})return;
  try{var saved=sessionStorage.getItem("asideScroll");if(saved!==null)aside.scrollTop=parseInt(saved,10)||0;}catch(e){}
  var save=function(){try{sessionStorage.setItem("asideScroll",String(aside.scrollTop));}catch(e){}};
  aside.addEventListener("scroll",save,{passive:true});
@@ -192,10 +197,10 @@ window.addEventListener('load',function(){window.scrollTo(0,0);document.body.cla
 // ---------- first-time tour: a few spotlighted tips pointing at where things live ----------
 var TOUR_STEPS=[
  {sel:"[data-tour=dashboard]",title:"🏠 Home",text:"Your home screen. The \'Today\' list at the top auto-builds itself each day from what\'s overdue plus what\'s due today, so you always know what to do next — plus what\'s publishing soon and quick links into every module."},
- {sel:"[data-tour=modules]",title:"Everything is grouped here",text:"Plans, content, campaigns and more are grouped by topic in this menu. Scroll down to see them all."},
- {sel:"[data-tour=create]",title:"＋ Create",text:"Add content, a task, a campaign, a lead or a key date from anywhere. It opens as a pop-up so you never lose your place."},
+ {sel:"[data-tour=modules]",title:"Your essentials live here",text:"The pages you use daily sit up top. Hit 🧰 All tools for the rest, and type in the box to find anything fast. Tap ☆ on a page to pin it."},
+ {sel:"[data-tour=create]",title:"＋ Create",text:"Drop in content, a task, a campaign, a lead or a key date from anywhere. It pops up, so you never lose your place."},
  {sel:"[data-tour=search]",title:"Search",text:"Type and press Enter to search every record at once. Press Ctrl+K (⌘+K on Mac) to jump here from anywhere, and Esc or ✕ to clear it."},
- {sel:"[data-tour=bell]",title:"Notifications",text:"You\'ll hear here when someone assigns you work, mentions you, or needs your approval."},
+ {sel:"[data-tour=bell]",title:"Notifications",text:"Someone assigned you work, mentioned you or needs an approval? It shows up here."},
  {sel:"[data-tour=help]",title:"Help \u0026 user manual",text:"The user manual, guides and a quick \u2018where is everything\u2019 reference live here, any time you need them."},
  {sel:"[data-tour=feedback]",title:"Your profile menu",text:"Click your name for your profile, to send feedback (it goes straight to the team, with the page you were on attached) and to log out."}
 ];
@@ -233,17 +238,41 @@ function tourStep(i){
 function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0);}
 {% if user and ws and not bare and not user['onboarded'] and role not in ('client',) %}window.addEventListener('load',function(){setTimeout(startTour,600);});{% endif %}
 
+// ---------- shorter sidebar: essentials + searchable All tools ----------
+(function(){var p=location.pathname;document.querySelectorAll('.bnav a[href]').forEach(function(a){var h=a.getAttribute('href');if(h&&h!=='#'&&(h===p||(h.length>1&&p.indexOf(h)===0&&h!=='/')))a.classList.add('on')})})();
+function toggleAll(force){var w=document.getElementById("allTools"),b=document.getElementById("allBtn");if(!w)return;var open=(force===undefined)?w.hidden:force;w.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");b.classList.toggle("open",open);if(force===undefined){try{localStorage.setItem("allToolsOpen",open?"1":"");}catch(e){}}if(open&&force===undefined){var q=document.getElementById("allq");if(q)q.focus();}}
+(function(){var w=document.getElementById("allTools");if(!w)return;
+ var o="";try{o=localStorage.getItem("allToolsOpen")||"";}catch(e){}
+ if(o||(w.querySelector("details a.on")&&!document.querySelector(".ess a.on")))toggleAll(true);
+ var q=document.getElementById("allq");
+ q.addEventListener("input",function(){var t=q.value.trim().toLowerCase();
+  w.querySelectorAll("details.ngrp").forEach(function(d){var hit=0;d.querySelectorAll(".nrow, :scope>a").forEach(function(r){var a=r.matches("a")?r:r.querySelector("a");var m=!t||a.textContent.toLowerCase().indexOf(t)>-1;r.style.display=m?"":"none";if(m)hit++;});d.style.display=(!t||hit)?"":"none";if(t)d.open=!!hit;});});
+})();
+
 // ---------- dark mode, pinned pages, confetti ----------
 function setThemeIcon(){var d=document.documentElement.getAttribute("data-theme")==="dark";document.querySelectorAll(".tb-theme").forEach(function(b){b.textContent=d?"☀️":"🌙";});var m=document.querySelector("meta[name=color-scheme]");}
 function toggleTheme(){var d=document.documentElement.getAttribute("data-theme")==="dark";if(d)document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme","dark");try{localStorage.setItem("theme",d?"light":"dark");}catch(e){}setThemeIcon();}
 setThemeIcon();
 function confetti(){if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;var cs=["#7c5cd6","#ff6b9d","#ffd60a","#2ec4b6","#ff9f1c","#4cc9f0"];for(var i=0;i<70;i++){var e=document.createElement("i");e.className="confetti-bit";e.style.left=(Math.random()*100)+"vw";e.style.background=cs[i%cs.length];e.style.setProperty("--dx",((Math.random()-.5)*240)+"px");e.style.setProperty("--rot",(Math.random()*720)+"deg");e.style.animationDelay=(Math.random()*.4)+"s";document.body.appendChild(e);setTimeout(function(x){x.remove();},2600,e);}}
 (function(){var f=document.querySelector(".toasts .flash");if(f&&f.textContent.indexOf("🎉")>-1)confetti();})();
+/* instant (no-reload) tick-offs and reactions */
+function fd(f){var d=new FormData(f);d.set("csrf_token",window.CSRF);return d}
+document.addEventListener("submit",function(e){var f=e.target;
+ var row=f.closest&&f.closest(".trow");
+ if(row&&f.querySelector(".tick")&&f.querySelector("[name=value]")){e.preventDefault();var v=f.querySelector("[name=value]"),done=!row.classList.contains("done");
+  row.classList.toggle("done",done);var t=f.querySelector(".tick"),body=fd(f);t.textContent=done?"✓":"";v.value=done?"To do":"Done";if(done)confetti();
+  fetch(f.action,{method:"POST",body:body,headers:{"X-CSRFToken":window.CSRF},credentials:"same-origin"}).then(function(r){if(!r.ok)throw 0}).catch(function(){row.classList.toggle("done",!done);t.textContent=done?"":"✓";v.value=done?"Done":"To do"});return}
+ var rb=f.closest&&f.closest(".react-bar");
+ if(rb){var b=f.querySelector(".react");if(!b)return;e.preventDefault();var mine=b.classList.toggle("mine"),c=b.querySelector("b");
+  var n=(parseInt(c&&c.textContent)||0)+(mine?1:-1);if(c){c.textContent=n>0?n:""}else if(n>0){c=document.createElement("b");c.textContent=n;b.appendChild(c)}
+  fetch(f.action,{method:"POST",body:fd(f),headers:{"X-CSRFToken":window.CSRF},credentials:"same-origin"}).catch(function(){})}
+});
+
 (function(){
  var aside=document.querySelector("aside");if(!aside)return;
  var KEY="pinnedPages",pins=[];try{pins=JSON.parse(localStorage.getItem(KEY)||"[]");}catch(e){}
  function save(){try{localStorage.setItem(KEY,JSON.stringify(pins));}catch(e){}}
- var first=aside.querySelector("details.ngrp"),box=document.createElement("div");box.className="pinned";box.id="pinnedBox";aside.insertBefore(box,first);
+ var first=aside.querySelector(".ess")||aside.querySelector("details.ngrp"),box=document.createElement("div");box.className="pinned";box.id="pinnedBox";aside.insertBefore(box,first);
  var cur=location.pathname;
  function draw(){
   box.innerHTML="";var any=0;

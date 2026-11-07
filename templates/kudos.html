@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% from "_mascot.html" import deb %}{% from "_empty.html" import empty %}{% block title %}Kudos{% endblock %}{% block body %}
+<div class="head"><h1>🎉 Kudos wall</h1></div>
+<p class="muted">Shout out a teammate who nailed something. They get a notification and it lands on the wall.</p>
+{% if role != 'viewer' %}<div class="card kudos-send">{% if mates %}<form method="post" action="{{ url_for('kudos_send') }}" class="nice">
+<label>Who's getting flowers?<select name="to" required><option value="">Pick a teammate</option>{% for m in mates %}<option value="{{ m['uid'] }}">{{ m['name'] or m['email'] }}</option>{% endfor %}</select></label>
+<label>Pick a vibe<span class="kemoji">{% for e in emojis %}<label class="ke"><input type="radio" name="emoji" value="{{ e }}" {{ 'checked' if loop.first else '' }}><span>{{ e }}</span></label>{% endfor %}</span></label>
+<label style="grid-column:1/-1">What did they nail?<input name="note" maxlength="200" required placeholder="e.g. Saved the launch with that last-minute reel"></label>
+<div class="fbar"><button class="btn">Send kudos 🎉</button></div></form>
+{% else %}{{ empty('people', 'Invite someone to cheer on', 'Kudos are for teammates. Add one in Team & roles and start the good vibes.', url_for('ws.team'), 'Invite a teammate') }}{% endif %}</div>{% endif %}
+<div class="kwall">{% for k in wall %}<div class="kcard-k"><span class="kemo">{{ k['emoji'] }}</span><div><b>{{ k['aname'] or k['aemail'] }}</b> → <b>{{ k['bname'] or k['bemail'] }}</b><p>{{ k['note'] }}</p><small class="muted">{{ k['created_at']|string|truncate(16, True, '') }}</small></div></div>
+{% else %}{% if mates %}{{ empty('deb', 'No kudos yet', 'Be the first to hype someone up.') }}{% endif %}{% endfor %}</div>
+{% endblock %}

@@ -690,7 +690,7 @@ def board_or_404(bid):
 @route("/moodboards")
 def moodboards():
     boards = q("SELECT b.*, (SELECT COUNT(*) FROM board_items i WHERE i.board_id=b.id) AS n FROM boards b WHERE b.workspace_id=? ORDER BY b.id DESC", (W(),))
-    covers = {b["id"]: q("SELECT * FROM board_items WHERE board_id=? AND workspace_id=? AND kind='image' LIMIT 1", (b["id"], W()), one=True) for b in boards}
+    covers = {b["id"]: q("SELECT * FROM board_items WHERE board_id=? AND workspace_id=? AND kind='image' AND content NOT LIKE 'data:image/svg%' LIMIT 1", (b["id"], W()), one=True) for b in boards}
     return render_template("moodboards.html", boards=boards, covers=covers)
 
 

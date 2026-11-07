@@ -564,6 +564,19 @@ def _darken_until(hexcolor, bg="#ffffff", need=4.5):
     return c
 
 
+DARK_CARD = "#1d1930"
+
+
+def _lift(hexcolor, need=3.2):
+    """Lighten a brand colour until it stands out against the dark theme's cards (dark brand colours like ink or navy would vanish)."""
+    c = hexcolor
+    for _ in range(10):
+        if contrast(c, DARK_CARD) >= need:
+            break
+        c = _mix(c, (255, 255, 255), 0.14)
+    return c
+
+
 def _text_on(c1, c2):
     """White or dark text, whichever reads on BOTH ends of a gradient; None if neither does."""
     for ink in ("#ffffff", DARK_INK):
@@ -596,7 +609,17 @@ def hex_shades(hexcolor, secondary=None):
         on = _text_on(hexcolor, sec_g)
     if on is None:
         on = "#ffffff" if contrast("#ffffff", hexcolor) >= contrast(DARK_INK, hexcolor) else DARK_INK
-    return dict(pri=hexcolor, pri_d=_darken_until(_mix(hexcolor, (0, 0, 0), 0.22)), pri2=_mix(hexcolor, (255, 255, 255), 0.92),
+    pri_dm = _lift(hexcolor)
+    sec_dm = _lift(sec, 3.0)
+    sec_g_dm, on_dm = sec_dm, _text_on(pri_dm, sec_dm)
+    t = 0.0
+    while on_dm is None and t < 1.0:
+        t = round(t + 0.1, 1)
+        sec_g_dm = _mix(sec_dm, _rgb(pri_dm), t)
+        on_dm = _text_on(pri_dm, sec_g_dm)
+    if on_dm is None:
+        on_dm = "#ffffff" if contrast("#ffffff", pri_dm) >= contrast(DARK_INK, pri_dm) else DARK_INK
+    return dict(pri_dm=pri_dm, sec_dm=sec_dm, sec_g_dm=sec_g_dm, on_dm=on_dm, pri=hexcolor, pri_d=_darken_until(_mix(hexcolor, (0, 0, 0), 0.22)), pri2=_mix(hexcolor, (255, 255, 255), 0.92),
                 pri3=_mix(hexcolor, (255, 255, 255), 0.82), bg=_mix(hexcolor, (255, 255, 255), 0.95),
                 bg2=_mix(hexcolor, (255, 255, 255), 0.88), accent=sec, sec=sec, sec_d=_darken_until(_mix(sec, (0, 0, 0), 0.22)),
                 on=on, sec_g=sec_g)

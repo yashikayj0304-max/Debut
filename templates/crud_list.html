@@ -1,11 +1,11 @@
 {% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}{% set popup = true %}{% set pop = ' onclick="return openOverlay(this.href,\'\')"'|safe if popup else '' %}
-<div class="head"><h1>{{ m.icon }} {{ m.title }}</h1><div>
+<div class="head"><h1>{{ m.icon }} {{ m.title }}</h1><div class="acts">
 {% if role != 'viewer' %}<a class="btn" href="{{ url_for('m_new', key=key) }}"{{ pop }}>+ New</a>{% endif %}
 {% if m.kanban %}<a class="btn ghost" href="{{ url_for('kanban', key=key) }}">Board view</a>{% endif %}
 {% if key == 'content_items' %}<a class="btn ghost" href="{{ url_for('calendar_view') }}">Calendar</a>{% endif %}
-<a class="btn ghost" href="{{ url_for('m_template_xlsx', key=key) }}">⬇ Filled-in mock example (Excel)</a>
-<a class="btn ghost" href="{{ url_for('m_export', key=key) }}">Export CSV</a>
-{% if role != 'viewer' %}<a class="btn ghost" href="#importcsv" onclick="var d=document.getElementById('importcsv');d.open=true;d.scrollIntoView({block:'center'})">Import CSV</a>{% endif %}</div></div>
+<a class="btn ghost q" href="{{ url_for('m_template_xlsx', key=key) }}">⬇ Filled-in mock example (Excel)</a>
+<a class="btn ghost q" href="{{ url_for('m_export', key=key) }}">Export CSV</a>
+{% if role != 'viewer' %}<a class="btn ghost q" href="#importcsv" onclick="var d=document.getElementById('importcsv');d.open=true;d.scrollIntoView({block:'center'})">Import CSV</a>{% endif %}</div></div>
 {% if role != 'viewer' %}<details id="importcsv" style="margin:6px 0"><summary class="muted" style="cursor:pointer">Import from CSV</summary><form method="post" action="{{ url_for('m_import', key=key) }}" enctype="multipart/form-data" class="card" style="margin-top:8px"><p class="muted">Use the same column names as “Export CSV” (or the field labels), one row per record. Up to 2,000 rows. Use the filled-in Excel example above to see the exact format before you upload — if you build your sheet in Excel, just save it as CSV before importing.</p><input type="file" name="file" accept=".csv" required> <button class="btn sm">Import</button></form></details>{% endif %}
 {% if gap_banner %}<div class="banner"><a href="{{ url_for('marketing_health') }}">⚠ {{ gap_banner }} gap{{ 's' if gap_banner != 1 else '' }} here — see Marketing Health for the full checklist</a></div>{% endif %}
 <p class="muted">{{ m.desc }}</p>

@@ -48,8 +48,14 @@ def check_password(pw, email=""):
         return "Password must include at least one UPPERCASE letter."
     if not re.search(r"[^A-Za-z0-9]", pw):
         return "Password must include at least one special character (e.g. ! @ # $ %)."
-    if pw.lower() in WEAK or pw.lower() == email.lower():
-        return "That password is too easy to guess."
+    low = pw.lower()
+    local = (email or "").split("@")[0].lower()
+    if low in WEAK or low == (email or "").lower() or any(w in low for w in ("password", "qwerty", "123456", "letmein", "iloveyou")):
+        return "That password is too easy to guess — avoid common words and sequences."
+    if len(local) >= 4 and local in low:
+        return "Your password shouldn't contain your email name."
+    if re.search(r"(.)\1{3,}", pw):
+        return "Avoid repeating the same character four or more times in a row."
     return None
 
 

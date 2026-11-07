@@ -41,40 +41,104 @@ def team():
                            seats_used=S.seats_used(wid), clients_used=S.clients_used(wid), clients_allowed=g.plan["clients"])
 
 
-@bp.route("/team/invite", methods=["POST"])
-@S.roles(*C.TEAM_MANAGERS)
-def invite():
-    wid, email, role = g.ws["id"], S.clean_text(request.form.get("email"), 254).lower(), request.form.get("role", "manager")
-    if not EMAIL_RE.match(email) or not S.can_assign(g.role, role):
-        flash("Enter a valid email and a role you are allowed to assign.")
-        return redirect(url_for("ws.team"))
-    members = _members(wid)
-    client_name = S.clean_text(request.form.get("client_name"), 120)
+def _invite_core(email, role, client_name):
+    """Create one invite. Returns (ok, message). Plan seat limits are re-checked on every call, so bulk invites stop exactly at the limit."""
+    wid = g.ws["id"]
+    email = (email or "").strip().lower()
+    role = (role or "").strip().lower()
+    if not EMAIL_RE.match(email):
+        return False, f"{email or '(blank)'}: not a valid email"
+    if not S.can_assign(g.role, role):
+        return False, f"{email}: you can't assign the role “{role}”"
     live = "workspace_id=? AND accepted=0 AND expires>=?"
+    if any(m["email"] == email for m in _members(wid)):
+        return False, f"{email}: already in this workspace"
+    if q(f"SELECT 1 FROM invites WHERE {live} AND email=?", (wid, S.today().isoformat(), email), one=True):
+        return False, f"{email}: already has a pending invite"
     if role == "client":
         if not client_name:
-            flash("Enter the client's name. It must match the “Client” field on their content, so they only see their own work.")
-            return redirect(url_for("ws.team"))
+            return False, f"{email}: a client invite needs the client's name"
         used = S.clients_used(wid) + q(f"SELECT COUNT(*) c FROM invites WHERE {live} AND role='client'", (wid, S.today().isoformat()), one=True)["c"]
         if used >= g.plan["clients"]:
-            flash(f"Your {g.plan['name']} plan includes {g.plan['clients']} client-portal seat(s). Upgrade to invite more clients." if g.plan["clients"] else "The client portal is part of the Team and Agency plans.")
-            return redirect(url_for("ws.team"))
+            return False, (f"{email}: your {g.plan['name']} plan includes {g.plan['clients']} client-portal seat(s) — upgrade to invite more" if g.plan["clients"] else f"{email}: the client portal is part of the Team and Agency plans")
     else:
         used = S.seats_used(wid) + q(f"SELECT COUNT(*) c FROM invites WHERE {live} AND role!='client'", (wid, S.today().isoformat()), one=True)["c"]
         if used >= g.plan["seats"]:
-            flash(f"Your {g.plan['name']} plan includes {g.plan['seats']} seat(s). Upgrade to invite more people.")
-            return redirect(url_for("ws.team"))
-    if any(m["email"] == email for m in members):
-        flash("That person is already in this workspace.")
-        return redirect(url_for("ws.team"))
+            return False, f"{email}: your {g.plan['name']} plan includes {g.plan['seats']} seat(s) — upgrade to invite more people"
     token = secrets.token_urlsafe(24)
     ins("invites", dict(workspace_id=wid, email=email, role=role, client_name=client_name if role == "client" else "", token_hash=S.sha(token), expires=(S.today() + dt.timedelta(days=7)).isoformat()))
     link = url_for("auth.invite", token=token)
     sent = S.send_email(email, f"{g.user['name']} invited you to {g.ws['name']} on {C.APP_NAME}", (f"You've been invited to the {C.APP_NAME} client portal for {client_name}, where you can review and approve your work.\n\nOpen it: {C.APP_URL}{link}\n\nThe link expires in 7 days." if role == "client" else f"You've been invited as {role}.\n\nJoin: {C.APP_URL}{link}\n\nThe link expires in 7 days."))
     dev_link(sent, link)
     S.audit("invite", f"{email} as {role}")
-    flash(f"Invite sent to {email}." if sent else f"Invite created for {email}.")
+    return True, email
+
+
+@bp.route("/team/invite", methods=["POST"])
+@S.roles(*C.TEAM_MANAGERS)
+def invite():
+    # one role, many people: paste or type several emails (commas, spaces or new lines)
+    role = request.form.get("role", "manager")
+    client_name = S.clean_text(request.form.get("client_name"), 120)
+    emails = [e for e in re.split(r"[\s,;]+", request.form.get("email", "")) if e][:100]
+    if not emails:
+        flash("Enter at least one email address.")
+        return redirect(url_for("ws.team"))
+    return _finish_invites([(e, role, client_name) for e in emails])
+
+
+def _finish_invites(rows):
+    done, failed = [], []
+    for email, role, cn in rows:
+        ok, msg = _invite_core(email, role, cn)
+        (done if ok else failed).append(msg)
+    if done:
+        flash(f"Invite sent to {done[0]}." if len(done) == 1 and not failed else f"{len(done)} invite(s) created: " + ", ".join(done[:8]) + (" …" if len(done) > 8 else ""))
+    for f in failed[:6]:
+        flash("Not invited — " + f)
+    if len(failed) > 6:
+        flash(f"…and {len(failed) - 6} more were skipped.")
     return redirect(url_for("ws.team"))
+
+
+INVITE_CSV_HEADER = ["email", "role", "client_name"]
+
+
+@bp.route("/team/invite-template.csv")
+@S.roles(*C.TEAM_MANAGERS)
+def invite_template():
+    import csv, io
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(INVITE_CSV_HEADER)
+    w.writerow(["asha@yourcompany.com", "manager", ""])
+    w.writerow(["ravi@yourcompany.com", "creator", ""])
+    w.writerow(["priya@clientbrand.com", "client", "Client brand name"])
+    return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=invite-people-template.csv"})
+
+
+@bp.route("/team/invite-csv", methods=["POST"])
+@S.roles(*C.TEAM_MANAGERS)
+def invite_csv():
+    import csv, io
+    f = request.files.get("file")
+    if not f or not f.filename:
+        flash("Choose a CSV file first (download the template above to see the format).")
+        return redirect(url_for("ws.team"))
+    raw = f.read(300_000)
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    rows = []
+    for r in csv.DictReader(io.StringIO(text)):
+        r = {(k or "").strip().lower(): (v or "").strip() for k, v in r.items()}
+        if r.get("email"):
+            rows.append((r["email"], r.get("role") or request.form.get("default_role", "manager"), S.clean_text(r.get("client_name", ""), 120)))
+    if not rows:
+        flash("No rows found. The first line must be: email, role, client_name.")
+        return redirect(url_for("ws.team"))
+    return _finish_invites(rows[:200])
 
 
 @bp.route("/team/role", methods=["POST"])
@@ -107,7 +171,11 @@ def remove_member():
 @bp.route("/team/revoke/<int:iid>", methods=["POST"])
 @S.roles(*C.TEAM_MANAGERS)
 def revoke_invite(iid):
+    inv = q("SELECT * FROM invites WHERE id=? AND workspace_id=?", (iid, g.ws["id"]), one=True)
     ex("DELETE FROM invites WHERE id=? AND workspace_id=?", (iid, g.ws["id"]))
+    if inv:
+        S.audit("invite_revoked", f"{inv['email']} ({inv['role']})")
+        flash(f"Invite for {inv['email']} revoked.")
     return redirect(url_for("ws.team"))
 
 

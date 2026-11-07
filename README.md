@@ -7,7 +7,10 @@ live Market Pulse (news, trends, videos, competitors) and AI web research, AI St
 - Local: run **Launch Debut.bat** (Windows) or `pip install -r requirements.txt && python app.py` → http://127.0.0.1:8001
 - Production: read **DEPLOY.md**
 - Tests: `python -m pytest tests`
+- Handy shortcuts in the app: **Ctrl/⌘+K** quick finder, **＋ Create** menu, and a bottom bar on phones.
 
-**Docs (folder `docs/`):** `Debut-Launch-Playbook.pdf` (who you need and what to do before, during and after launch), `Debut-Developer-Deployment-Guide.md` for the developer, `Debut-Guide-Personal-Branding.pdf` and `Debut-Guide-Agencies-and-Teams.pdf` for customers, and `Debut-Visual-Tour.pdf` (real screenshots of every screen and role).
+**User manual:** in the app at `/manual` (public, also linked from the sign-up page, Help and the footer) and as `docs/Debut-User-Manual.pdf`. Update `templates/manual.html`, then regenerate the PDF (see `DEVELOPER_GUIDE.md`, “Keeping the manual current”).
+
+**Docs (folder `docs/`):** `Debut-User-Manual.pdf` (start here, 7 Nov 2026), `Debut-Launch-Playbook.pdf` (who you need and what to do before, during and after launch), `Debut-Developer-Deployment-Guide.md` for the developer, `Debut-Guide-Personal-Branding.pdf` and `Debut-Guide-Agencies-and-Teams.pdf` for customers, and `Debut-Visual-Tour.pdf` (real screenshots of every screen and role).
 
 **Handing this to a developer? Give them `DEVELOPER_GUIDE.md`** (step-by-step deployment, configuration, Razorpay, email, backups, smoke tests, troubleshooting).

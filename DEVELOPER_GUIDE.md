@@ -605,3 +605,15 @@ Third-party code bundled: Chart.js 4.5.1 (MIT) in `static/vendor/`, licence file
 - Free-plan workspaces cost real money (AI credits, storage): keep the Free limits modest and watch the "Free workspaces" tile in `/admin`.
 
 *End of guide.*
+
+
+---
+
+## Keeping the manual current (added 7 Nov 2026)
+
+- The user manual is one template, `templates/manual.html`, served publicly at `/manual`. Plan numbers come from `config.py` automatically; everything else is plain text, so edit it when a feature changes.
+- The sign-up page, Help page, footer and product tour link to it. The Help page “Where is everything?” table and Quick answers are in `templates/help.html`; tour steps are `TOUR_STEPS` in `templates/base.html`.
+- Regenerate the PDF after editing (app running locally on port 8001):
+  `python -c "from playwright.sync_api import sync_playwright as p; b=p().start().chromium.launch(); pg=b.new_page(); pg.goto('http://127.0.0.1:8001/manual'); pg.pdf(path='static/guides/Debut-User-Manual.pdf', format='A4', print_background=True, margin={'top':'14mm','bottom':'14mm','left':'12mm','right':'12mm'})"`
+  then copy it to `docs/Debut-User-Manual.pdf`.
+- UI notes: the command palette (Ctrl/⌘+K) is built from the sidebar `NAV` plus create actions in `app.py` (`pal_items`); the ＋ Create menu and bottom bar are in `templates/base.html`; the secondary colour feeds CSS variable `--sec` (see `services.brand_shades`).

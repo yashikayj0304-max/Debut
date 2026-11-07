@@ -6,7 +6,7 @@ from email.utils import parsedate_to_datetime
 from urllib.parse import quote, quote_plus
 from xml.etree import ElementTree as ET
 import requests
-from flask import g, render_template, request, redirect, url_for, flash, jsonify, abort, Response, send_from_directory
+from flask import g, render_template, request, redirect, url_for, flash, jsonify, abort, Response, send_from_directory, make_response
 import secrets
 from itsdangerous import URLSafeSerializer, BadSignature
 import config as C
@@ -74,6 +74,11 @@ def landing():
 @route("/pricing")
 def pricing():
     return render_template("pricing.html", plans=C.PLANS)
+
+
+@route("/manual")
+def manual():
+    return render_template("manual.html")
 
 
 @route("/terms")
@@ -779,6 +784,49 @@ def board_save_colours(bid):
             n += 1
     flash(f"Saved {n} new colour(s) to your Brand Kit." if n else "Those colours are already in your Brand Kit (or this board has none).")
     return redirect(url_for("board_view", bid=bid))
+
+
+@route("/moodboards/<int:bid>/share", methods=["POST"])
+def board_share(bid):
+    board_or_404(bid)
+    act = request.form.get("do", "on")
+    if act == "off":
+        ex("UPDATE boards SET share_token='' WHERE id=? AND workspace_id=?", (bid, W()))
+        S.audit("board_share_off", f"board#{bid}")
+        flash("Public link turned off — anyone who had it can no longer open the board.")
+    else:                                   # "on" and "reset" both mint a fresh unguessable token (reset invalidates the old link)
+        ex("UPDATE boards SET share_token=? WHERE id=? AND workspace_id=?", (secrets.token_urlsafe(18), bid, W()))
+        S.audit("board_share_on" if act == "on" else "board_share_reset", f"board#{bid}")
+        flash("Public link ready — copy it below." if act == "on" else "New public link created; the old one no longer works.")
+    return redirect(url_for("board_view", bid=bid, share=1))
+
+
+def _public_board(token):
+    if not token or len(token) < 16:
+        abort(404)
+    return q("SELECT * FROM boards WHERE share_token=? AND share_token!=''", (token,), one=True) or abort(404)
+
+
+@route("/b/<token>")
+def board_public(token):
+    b = _public_board(token)
+    items = q("SELECT * FROM board_items WHERE board_id=? AND workspace_id=? ORDER BY z, id", (b["id"], b["workspace_id"]))
+    ws = q("SELECT name, logo_url FROM workspaces WHERE id=?", (b["workspace_id"],), one=True)
+    r = make_response(render_template("moodboard_public.html", b=b, items=items, ws=ws, token=token, hide_chrome=True, bare=True))
+    r.headers["X-Robots-Tag"] = "noindex, nofollow"
+    r.headers["Referrer-Policy"] = "no-referrer"
+    return r
+
+
+@route("/b/<token>/img/<int:iid>")
+def board_public_img(token, iid):
+    b = _public_board(token)
+    it = q("SELECT * FROM board_items WHERE id=? AND board_id=? AND kind='image'", (iid, b["id"]), one=True) or abort(404)
+    c = it["content"] or ""
+    if c.startswith("/media/"):
+        _, _, wid, name = c.split("/", 3)
+        return send_from_directory(os.path.join(C.UPLOAD_DIR, str(b["workspace_id"])), os.path.basename(name))
+    return redirect(S.media_url(c))
 
 
 @route("/moodboards/<int:bid>")

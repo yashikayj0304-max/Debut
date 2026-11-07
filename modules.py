@@ -352,3 +352,24 @@ AI_TASKS["research_trends"] = ("Live research: trends & content opportunities", 
 AI_TASKS["pulse_brief"] = ("Market Pulse brief", "Turn this week's live market signals into a brief.")
 FORCE_RESEARCH = {"research_market", "research_competitor", "research_trends"}
 HIDDEN_TASKS = {"pulse_brief"}
+
+
+# Short help shown under a field in every New/Edit form (pop-up or full page)
+HINTS = {
+    "budget": "Total amount you plan to spend (₹). We warn you in red when under 10% is left.",
+    "spent": "Update this as you spend — it drives the 'Budget used' bar.",
+    "spend": "Update this as you spend — it drives the 'Budget used' bar.",
+    "description": "A short description so teammates know what this is.",
+    "notes": "Anything worth remembering — shows in the list so you can scan it quickly.",
+    "brief": "What exactly should be made? Audience, tone, must-haves.",
+    "keywords": "Separate with commas.", "keyword": "The exact phrase people type into search.",
+    "hashtags": "Separate with spaces, e.g. #diwali #festive.",
+    "due_date": "When this must be done.", "publish_date": "The day it goes live.",
+    "owner": "Who is responsible? Start typing a teammate's name.", "assignee": "Who is doing this? Start typing a teammate's name.",
+    "client": "Exactly as in your client list — that's how the client portal finds it.",
+    "url": "Paste the full link, starting with https://", "link": "Paste the full link, starting with https://",
+    "followers": "Numbers only, e.g. 45000.", "price": "In ₹, numbers only.", "price_client": "What the client pays (₹). Creators never see this.",
+    "cost_creator": "What you pay the creator (₹).", "word_count": "Approximate length.",
+    "priority": "High = do first.", "status": "Where is this right now?",
+    "target": "The number you want to reach.", "metric": "What you measure, e.g. Instagram followers.",
+}

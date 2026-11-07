@@ -221,7 +221,7 @@ def m_list(key):
     rows = q(sql + f" ORDER BY {order} LIMIT {per + 1} OFFSET {(page - 1) * per}", args)
     types = {x[0]: (x[1], x[2]) for x in m["fields"]}
     cols = [(c, types[c][0], types[c][1]) for c in m["cols"] if c not in hidden]
-    return render_template("crud_list.html", key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner)
+    return render_template("crud_list.html", key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner, bkeys={"campaigns": ("budget", "spent"), "promotions": ("budget", "spend")}.get(key))
 
 
 def _hidden(key):
@@ -249,6 +249,10 @@ def clean_fields(m, source, quiet=False, partial=False):
     data = {}
     for n, label, typ, opts in m["fields"]:
         if partial and n not in source:
+            continue
+        if typ == "multi":
+            raw = source.getlist(n) if hasattr(source, "getlist") else re.split(r"[,;]", str(source.get(n, "") or ""))
+            data[n] = ", ".join(dict.fromkeys(x.strip() for x in raw if x.strip() in opts))
             continue
         v = S.clean_text(source.get(n, ""))
         if typ == "url":
@@ -526,10 +530,13 @@ def m_reorder(key, rid):
             changed_hooks(key, rid, m, {"status": new_val}, row)
     before_id = request.form.get("before_id", "").strip()
     siblings = [r["id"] for r in q(f"SELECT id FROM {key} WHERE workspace_id=? AND {qi(field)}=? ORDER BY sort_order ASC, id DESC", (W(), new_val))]
+    old_i = siblings.index(rid) if rid in siblings else None
     if rid in siblings:
         siblings.remove(rid)
     if before_id.isdigit() and int(before_id) in siblings:
-        siblings.insert(siblings.index(int(before_id)), rid)
+        ti = siblings.index(int(before_id))
+        # dragging a card DOWN within its own column: it lands where the target card was (i.e. after it)
+        siblings.insert(ti + 1 if old_i is not None and old_i <= ti else ti, rid)
     else:
         siblings.append(rid)
     for i, sid in enumerate(siblings):
@@ -692,6 +699,88 @@ def board_sample():
     return redirect(url_for("board_view", bid=bid))
 
 
+BOARD_TEMPLATES = {
+    "diwali": ("Diwali 2026 — festive campaign", "Warm, gifting-led festive board. Themes seen in this year's campaigns: music and home prep, gifting and family, humour over guilt.", [
+        ("color", "#B8860B", "Diya gold"), ("color", "#8B1E3F", "Deep magenta"), ("color", "#FF8C1A", "Marigold"), ("color", "#1B1033", "Night-sky navy"),
+        ("note", "Story angle: getting the home ready together (cleaning, decorating, lights) — the 'tyohaar shuru' feeling.", "Story angle"),
+        ("note", "Gifting angle: thoughtful beats expensive. One hero gift, one hamper, one under-₹500 pick.", "Gifting angle"),
+        ("note", "Tone: warm, a little funny, never guilt-trippy. Short captions, one emoji max.", "Tone"),
+        ("note", "Shots: diya close-ups, hands exchanging gifts, rangoli from above, family at the table (golden-hour light).", "Shot list"),
+        ("link", "https://www.pinterest.com/search/pins/?q=diwali%20campaign%20creative", "Inspiration search")]),
+    "launch": ("Product launch", "Everything for a launch in one place: look, message, shots and channels.", [
+        ("color", "#7c5cd6", "Brand primary"), ("color", "#f1ecff", "Soft background"), ("color", "#2b2442", "Dark text / contrast"),
+        ("note", "One-line promise: what changes for the customer after buying?", "Core promise"),
+        ("note", "Hero shot: product alone, textured surface, soft natural light, one prop max.", "Hero shot"),
+        ("note", "Teaser (T-7), reveal (T-0), proof (T+3: reviews / UGC), offer (T+7).", "Launch rhythm"),
+        ("note", "Channels: Instagram Reels, WhatsApp broadcast, email, 3 creators.", "Channels")]),
+    "influencer": ("Influencer collaboration", "Brief the creator visually: do's, don'ts, look and feel.", [
+        ("color", "#e8590c", "Accent"), ("color", "#fff4e6", "Light tint"),
+        ("note", "Do: show real use in the first 3 seconds, speak in your own words, tag the brand handle.", "Do"),
+        ("note", "Don't: read the script word for word, use competitor props, over-edit skin.", "Don't"),
+        ("note", "Deliverables: 1 Reel (30-45s), 3 Stories with link sticker, 1 static post. Usage rights: 60 days.", "Deliverables"),
+        ("link", "https://www.instagram.com/", "Reference account")]),
+    "brand": ("Brand identity", "Colours, voice and visual rules at a glance.", [
+        ("color", "#7c5cd6", "Primary"), ("color", "#e8590c", "Secondary"), ("color", "#f1ecff", "Background"), ("color", "#2b2442", "Text"),
+        ("note", "Voice: friendly, plain-spoken, confident. We explain, we don't lecture.", "Voice"),
+        ("note", "Photography: natural light, real people, uncluttered backgrounds.", "Photography"),
+        ("note", "Never: stock-smile photos, ALL-CAPS shouting, more than one exclamation mark.", "Never")]),
+}
+
+
+@route("/moodboards/template/<tkey>", methods=["POST"])
+def board_from_template(tkey):
+    t = BOARD_TEMPLATES.get(tkey) or abort(404)
+    if q("SELECT COUNT(*) c FROM boards WHERE workspace_id=?", (W(),), one=True)["c"] >= g.plan["boards"]:
+        flash(f"The {g.plan['name']} plan includes {g.plan['boards']} mood boards. Upgrade for more.")
+        return redirect(url_for("moodboards"))
+    bid = ins("boards", dict(workspace_id=W(), name=t[0], description=t[1]))
+    for kind, content, caption in t[2]:
+        ins("board_items", dict(workspace_id=W(), board_id=bid, kind=kind, content=content, caption=caption, **_next_slot(bid)))
+    S.audit("create", f"board#{bid} (template {tkey})")
+    return redirect(url_for("board_view", bid=bid))
+
+
+@route("/moodboards/<int:bid>/rename", methods=["POST"])
+def board_rename(bid):
+    board_or_404(bid)
+    name = S.clean_text(request.form.get("name"), 120)
+    if name:
+        ex("UPDATE boards SET name=?, description=? WHERE id=? AND workspace_id=?", (name, S.clean_text(request.form.get("description"), 300), bid, W()))
+        flash("Board updated.")
+    return redirect(url_for("board_view", bid=bid))
+
+
+@route("/moodboards/<int:bid>/duplicate", methods=["POST"])
+def board_duplicate(bid):
+    b = board_or_404(bid)
+    if q("SELECT COUNT(*) c FROM boards WHERE workspace_id=?", (W(),), one=True)["c"] >= g.plan["boards"]:
+        flash(f"The {g.plan['name']} plan includes {g.plan['boards']} mood boards. Upgrade for more.")
+        return redirect(url_for("board_view", bid=bid))
+    nid = ins("boards", dict(workspace_id=W(), name=(b["name"] or "Board")[:110] + " (copy)", description=b["description"] or ""))
+    for it in q("SELECT * FROM board_items WHERE board_id=? AND workspace_id=? ORDER BY z, id", (bid, W())):
+        d = {k: it[k] for k in ("kind", "content", "caption", "x", "y", "w", "h", "z")}
+        if it["kind"] == "image" and not str(it["content"]).startswith(("http", "data:")):
+            d["content"] = it["content"]          # uploaded files are shared by reference; deleting one board's copy is guarded below
+        ins("board_items", dict(workspace_id=W(), board_id=nid, **d))
+    S.audit("create", f"board#{nid} (copy of {bid})")
+    flash("Board duplicated.")
+    return redirect(url_for("board_view", bid=nid))
+
+
+@route("/moodboards/<int:bid>/save-colours", methods=["POST"])
+def board_save_colours(bid):
+    board_or_404(bid)
+    have = {(r["value"] or "").lower() for r in q("SELECT value FROM brand_kit WHERE workspace_id=? AND kind='Colour'", (W(),))}
+    n = 0
+    for it in q("SELECT * FROM board_items WHERE board_id=? AND workspace_id=? AND kind='color' ORDER BY id", (bid, W())):
+        if it["content"].lower() not in have:
+            ins("brand_kit", dict(workspace_id=W(), name=it["caption"] or "Board colour", kind="Colour", value=it["content"], notes="From a mood board"))
+            have.add(it["content"].lower())
+            n += 1
+    flash(f"Saved {n} new colour(s) to your Brand Kit." if n else "Those colours are already in your Brand Kit (or this board has none).")
+    return redirect(url_for("board_view", bid=bid))
+
+
 @route("/moodboards/<int:bid>")
 def board_view(bid):
     b = board_or_404(bid)
@@ -791,8 +880,7 @@ def board_item_edit(iid):
         if new_url:
             old_content = it["content"]
             ex("UPDATE board_items SET content=?, caption=? WHERE id=?", (new_url, caption, iid))
-            if old_content and not old_content.startswith("http") and not old_content.startswith("data:"):
-                S.delete_file(old_content)
+            _drop_file(old_content, (iid,))
         else:
             ex("UPDATE board_items SET caption=? WHERE id=?", (caption, iid))
     return jsonify(ok=True)
@@ -810,8 +898,7 @@ def board_item_replace_image(iid):
     new_content = S.store_file(W(), ext, data)
     old_content = it["content"]
     ex("UPDATE board_items SET content=? WHERE id=?", (new_content, iid))
-    if old_content and not old_content.startswith("http"):
-        S.delete_file(old_content)
+    _drop_file(old_content, (iid,))
     return jsonify(ok=True, url=S.media_url(new_content))
 
 
@@ -828,11 +915,21 @@ def board_arrange(bid):
     return redirect(url_for("board_view", bid=bid))
 
 
+def _drop_file(content, exclude_ids=()):
+    """Delete an uploaded file only if no other board card still uses it (duplicated boards share files)."""
+    if not content or content.startswith(("http", "data:")):
+        return
+    rows = q("SELECT id FROM board_items WHERE content=? AND workspace_id=?", (content, W()))
+    if any(r["id"] not in exclude_ids for r in rows):
+        return
+    S.delete_file(content)
+
+
 @route("/moodboards/item/<int:iid>/delete", methods=["POST"])
 def board_item_delete(iid):
     it = q("SELECT * FROM board_items WHERE id=? AND workspace_id=?", (iid, W()), one=True) or abort(404)
     if it["kind"] == "image":
-        S.delete_file(it["content"])
+        _drop_file(it["content"], (iid,))
     ex("DELETE FROM board_items WHERE id=? AND workspace_id=?", (iid, W()))
     return redirect(url_for("board_view", bid=it["board_id"]))
 
@@ -840,8 +937,10 @@ def board_item_delete(iid):
 @route("/moodboards/<int:bid>/delete", methods=["POST"])
 def board_delete(bid):
     board_or_404(bid)
-    for it in q("SELECT * FROM board_items WHERE board_id=? AND workspace_id=? AND kind='image'", (bid, W())):
-        S.delete_file(it["content"])
+    mine = q("SELECT * FROM board_items WHERE board_id=? AND workspace_id=? AND kind='image'", (bid, W()))
+    ids = tuple(r["id"] for r in q("SELECT id FROM board_items WHERE board_id=? AND workspace_id=?", (bid, W())))
+    for it in mine:
+        _drop_file(it["content"], ids)
     ex("DELETE FROM board_items WHERE board_id=? AND workspace_id=?", (bid, W()))
     ex("DELETE FROM boards WHERE id=? AND workspace_id=?", (bid, W()))
     S.audit("delete", f"board#{bid}")
@@ -922,7 +1021,10 @@ def fetch_all(wid, force=False):
 def updates():
     c = fetch_all(W(), force=bool(request.args.get("refresh")))
     cat = request.args.get("cat", "")
-    return render_template("updates.html", items=[i for i in c["items"] if not cat or i["category"] == cat][:120], cats=sorted({i["category"] for i in c["items"]}), cat=cat, errors=c["errors"])
+    import news_snapshot as NS
+    snap = [i for i in NS.SNAPSHOT if not cat or i["category"] == cat]
+    cats = sorted({i["category"] for i in c["items"]} | {i["category"] for i in NS.SNAPSHOT})
+    return render_template("updates.html", items=[i for i in c["items"] if not cat or i["category"] == cat][:120], cats=cats, cat=cat, errors=c["errors"], snap=snap, as_of=NS.AS_OF)
 
 
 @route("/updates/save", methods=["POST"])

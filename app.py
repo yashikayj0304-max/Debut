@@ -166,6 +166,12 @@ def create_app(config=None, init=True, database_url=None):
                 if k in IND.MODULE_INDUSTRIES and g.ws["industry"] not in IND.MODULE_INDUSTRIES[k]:
                     continue
                 groups[m["group"]].append((f"{m['icon']} {m['title']}{lock(MODULE_FEATURE.get(k))}", url_for("m_list", key=k)))
+            # Calendar and Content Items belong together (one shows the other's dates), so sit them side by side
+            cal_href, ci_href = url_for("calendar_view"), url_for("m_list", key="content_items")
+            cal_i = next((i for i, x in enumerate(groups["Content"]) if x[1] == cal_href), None)
+            ci_i = next((i for i, x in enumerate(groups["Content"]) if x[1] == ci_href), None)
+            if cal_i is not None and ci_i is not None:
+                groups["Content"].insert(cal_i + 1, groups["Content"].pop(ci_i))
             d["NAV"] = OrderedDict((k, v) for k, v in groups.items() if v)
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])

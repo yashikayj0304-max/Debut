@@ -114,8 +114,23 @@ def revoke_invite(iid):
 @bp.route("/activity")
 @S.roles(*C.TEAM_MANAGERS)
 def activity():
-    rows = q("SELECT a.*, u.name AS uname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.workspace_id=? ORDER BY a.id DESC LIMIT 150", (g.ws["id"],))
-    return render_template("activity.html", rows=rows)
+    lim = 1000 if "group" in g.plan["features"] else 150
+    rows = q("SELECT a.*, u.name AS uname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.workspace_id=? ORDER BY a.id DESC LIMIT %d" % lim, (g.ws["id"],))
+    return render_template("activity.html", rows=rows, lim=lim)
+
+
+@bp.route("/activity/export.csv")
+@S.roles(*C.TEAM_MANAGERS)
+def activity_export():
+    import csv, io
+    lim = 1000 if "group" in g.plan["features"] else 150
+    rows = q("SELECT a.*, u.name AS uname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.workspace_id=? ORDER BY a.id DESC LIMIT %d" % lim, (g.ws["id"],))
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["When", "Who", "Action", "Detail"])
+    for r in rows:
+        w.writerow([_csv_safe(str(x or "")) for x in (r["created_at"], r["uname"] or "system", r["action"], r["detail"])])
+    return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=activity-log.csv"})
 
 
 @bp.route("/account")

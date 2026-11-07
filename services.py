@@ -504,15 +504,19 @@ def _mix(hexcolor, target, amt):
 
 
 def hex_shades(hexcolor, secondary=None):
-    """A small palette derived from a primary brand colour (a darker shade for text/hover, two light tints for
-    backgrounds) plus a secondary accent colour — either the one given, or, if none was set, a light tint of the
-    primary, so the theme still looks coherent out of the box."""
+    """A small palette derived from a primary brand colour (a darker shade for text/hover, light tints that drive
+    the app's actual background) plus a secondary accent colour - either the one given, or, if none was set, a
+    light tint of the primary, so the theme still looks coherent out of the box.
+    bg/bg2 are what the page background actually uses (so the primary colour visibly sets the background, not
+    just a sidebar gradient); accent is where the secondary colour actually gets used (input focus rings, tile
+    accents, chip borders) - when no secondary is set it falls back to a primary tint so the look stays coherent."""
     if not hexcolor or not HEX_RE.match(hexcolor):
         return None
-    accent = _mix(hexcolor, (255, 255, 255), 0.35)
-    sec = secondary if secondary and HEX_RE.match(secondary) else accent
+    primary_tint_fallback = _mix(hexcolor, (255, 255, 255), 0.35)
+    sec = secondary if secondary and HEX_RE.match(secondary) else primary_tint_fallback
     return dict(pri=hexcolor, pri_d=_mix(hexcolor, (0, 0, 0), 0.22), pri2=_mix(hexcolor, (255, 255, 255), 0.92),
-                pri3=_mix(hexcolor, (255, 255, 255), 0.82), accent=accent, sec=sec, sec_d=_mix(sec, (0, 0, 0), 0.22))
+                pri3=_mix(hexcolor, (255, 255, 255), 0.82), bg=_mix(hexcolor, (255, 255, 255), 0.95),
+                bg2=_mix(hexcolor, (255, 255, 255), 0.88), accent=sec, sec=sec, sec_d=_mix(sec, (0, 0, 0), 0.22))
 
 
 def brand_shades(ws):

@@ -30,7 +30,7 @@ CLIENT_OK = {"dashboard", "portal", "portal_item", "portal_decide", "portal_comm
              "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify", "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.onboarded"}
 CREATOR_OK = {"dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_status", "calendar_view", "search", "moodboards", "board_view", "media", "ideas",
               "auth.logout", "auth.switch_ws", "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify",
-              "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
+              "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "presence", "kudos", "kudos_send", "react", "presence", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
 FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order_assign": "content_ops", "discover": "influencers", "outreach": "influencers",
               "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "marketing_health": "analytics", "ai_studio": "ai", "api_ai": "ai"}
 
@@ -137,7 +137,7 @@ def create_app(config=None, init=True, database_url=None):
 
     @app.context_processor
     def ctx():
-        d = dict(HINTS=M_HINTS, C=C, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None)
+        d = dict(HINTS=M_HINTS, C=C, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[])
         if g.get("user") and g.get("ws"):
             d["trial_left"] = S.trial_days_left(g.ws)
             d["plan_key"] = g.plan_key
@@ -151,7 +151,7 @@ def create_app(config=None, init=True, database_url=None):
             groups = OrderedDict([("Strategy", []), ("Content", []), ("Campaigns", []), ("Promotions & Events", []), ("Content Ops", []), ("Growth", []), ("Intelligence", [])])
             special = {"Content": [("Calendar", "calendar_view", "📅"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
                        "Campaigns": [("Discover Influencers", "discover", "🔭"), ("UTM Builder", "utm", "🏷️")],
-                       "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈"), ("Marketing Health", "marketing_health", "🩺")],
+                       "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈"), ("Marketing Health", "marketing_health", "🩺"), ("Your Recap", "recap", "✨")],
                        "Intelligence": [("Market Pulse", "pulse_page", "📡"), ("Latest Updates", "updates", "⚡"), ("AI Studio", "ai_studio", "🤖")]}
             feat_of = {"content_ops": "content_ops", "discover": "influencers", "analytics": "analytics", "ai_studio": "ai", "marketing_health": "analytics"}
             creator = g.role == "creator"
@@ -174,8 +174,13 @@ def create_app(config=None, init=True, database_url=None):
             if cal_i is not None and ci_i is not None:
                 groups["Content"].insert(cal_i + 1, groups["Content"].pop(ci_i))
             d["NAV"] = OrderedDict((k, v) for k, v in groups.items() if v)
+            # a short, always-visible list of the pages people use every day; everything else lives behind "All tools"
+            _all = {h: lbl for items in d["NAV"].values() for lbl, h in items}
+            _ess = [url_for(x) for x in ("calendar_view", "moodboards")] + [url_for("m_list", key=k) for k in ("content_items", "tasks", "campaigns", "leads")] + [url_for("ai_studio")]
+            d["ESSENTIALS"] = [(_all[h], h) for h in _ess if h in _all]
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])
+                d["ESSENTIALS"] = []
         return d
 
     @app.after_request

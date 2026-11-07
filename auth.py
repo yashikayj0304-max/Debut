@@ -143,7 +143,7 @@ def signup():
         S.audit("signup", email, wid=wid, uid=uid)
         S.audit("dpdp_consent", f"{email} accepted Terms/Privacy at signup", wid=wid, uid=uid)
         send_verify(user)
-        flash("Welcome! Your workspace is ready.")
+        flash("You're in! Your workspace is ready 🎉")
         return redirect(url_for("dashboard"))
     return render_template("signup.html", inv=inv, inv_ws=inv_ws, token=token, form={}, industries=IND.CHOICES)
 
@@ -185,7 +185,7 @@ def login_pin():
     p = session.get("pending_pin")
     if not p or time.time() - p.get("ts", 0) > 600:
         session.pop("pending_pin", None)
-        flash("Please log in again.")
+        flash("Session timed out. Log in again to keep going.")
         return redirect(url_for("auth.login"))
     user = q("SELECT * FROM users WHERE id=?", (S.to_int(p.get("uid")) or 0,), one=True)
     if not user or not user["pin_hash"]:
@@ -207,7 +207,7 @@ def login_2fa():
     p = session.get("pending_2fa")
     if not p or time.time() - p.get("ts", 0) > 600:
         session.pop("pending_2fa", None)
-        flash("Please log in again.")
+        flash("Session timed out. Log in again to keep going.")
         return redirect(url_for("auth.login"))
     user = q("SELECT * FROM users WHERE id=?", (S.to_int(p.get("uid")) or 0,), one=True)
     if not user or not user["totp_on"]:
@@ -252,7 +252,7 @@ def invite(token):
         wid = accept_invite(token, g.user)
         if wid:
             session["ws"] = wid
-            flash("You've joined the workspace.")
+            flash("You're in! You've joined the workspace 🎉")
             return redirect(url_for("dashboard"))
         flash(f"This invite was sent to {inv['email']}. Log in with that email.")
         return redirect(url_for("dashboard"))
@@ -294,7 +294,7 @@ def reset(token):
             return render_template("reset.html"), 400
         ex("UPDATE users SET password_hash=? WHERE id=?", (generate_password_hash(pw), user["id"]))
         S.audit("password_reset", "", uid=user["id"], wid=None)
-        flash("Password updated. Please log in.")
+        flash("Password updated. Log in with the new one.")
         return redirect(url_for("auth.login"))
     return render_template("reset.html")
 

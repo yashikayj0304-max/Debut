@@ -190,14 +190,32 @@ def dashboard():
     return render_template("dashboard.html", upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
                            today_items=today_items, today_more=today_more,
-                           steps=steps, steps_done=all(s[1] for s in steps),
+                           steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
                            ind=IND.get(g.ws["industry"]), pulse=S.latest_pulse(w),
                            usage=dict(records=S.record_count(w), boards=cnt("boards"), credits=S.credits_used(w)) if g.plan_key == "free" else None)
 
 
+
+def _streak():
+    """Consecutive days (ending today or yesterday) on which this user did something in this workspace."""
+    import datetime as _dt
+    rows = q("SELECT created_at FROM audit_log WHERE workspace_id=? AND user_id=? ORDER BY id DESC LIMIT 800", (W(), g.user["id"]))
+    days = {str(r["created_at"])[:10] for r in rows}
+    d, n = S.today(), 0
+    if d.isoformat() not in days:
+        d -= _dt.timedelta(days=1)
+    while d.isoformat() in days:
+        n += 1
+        d -= _dt.timedelta(days=1)
+    return n
+
 # ----------------------------------------------------------------- generic CRUD
 GAP_BANNER_KEYS = {"brand_kit": {"brand_kit"}, "campaigns": {"campaigns"}, "content_items": {"content_items", "content_overdue"},
                     "tasks": {"tasks"}, "leads": {"leads"}}
+
+
+LIST_LAYOUT = {"leads": "people", "influencers": "people", "personas": "people", "creators": "people", "clients": "people", "pr_contacts": "people", "accounts": "people",
+               "content_items": "cards", "campaigns": "cards", "tasks": "checklist", "promotions": "cards", "events": "cards", "gtm_plans": "cards", "experiments": "cards", "content_orders": "cards"}
 
 
 @route("/m/<key>")
@@ -226,7 +244,10 @@ def m_list(key):
     rows = q(sql + f" ORDER BY {order} LIMIT {per + 1} OFFSET {(page - 1) * per}", args)
     types = {x[0]: (x[1], x[2]) for x in m["fields"]}
     cols = [(c, types[c][0], types[c][1]) for c in m["cols"] if c not in hidden]
-    return render_template("crud_list.html", key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner, bkeys={"campaigns": ("budget", "spent"), "promotions": ("budget", "spend")}.get(key))
+    dist = []
+    if ffield and ffield[0] not in hidden:
+        dist = [(r["v"], r["c"]) for r in q(f"SELECT {qi(ffield[0])} v, COUNT(*) c FROM {key} WHERE workspace_id=? AND {qi(ffield[0])} IS NOT NULL AND {qi(ffield[0])}<>'' GROUP BY {qi(ffield[0])} ORDER BY c DESC", (W(),))]
+    return render_template("crud_list.html", dist=dist, layout=LIST_LAYOUT.get(key), view=request.args.get("view", ""), key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner, bkeys={"campaigns": ("budget", "spent"), "promotions": ("budget", "spend")}.get(key))
 
 
 def _hidden(key):
@@ -246,7 +267,7 @@ def m_edit(key, rid):
     modal = request.args.get("modal") == "1"
     tpl = "crud_form_frag.html" if modal else "crud_form.html"
     comments = q("SELECT c.*, u.name AS uname FROM comments c LEFT JOIN users u ON u.id=c.user_id WHERE c.workspace_id=? AND c.module=? AND c.record_id=? ORDER BY c.id", (W(), key, rid))
-    return render_template(tpl, key=key, m=mod(key), row=row, defaults={}, nxt=safe_next(""), team_names=S.team_names(W()), comments=comments, hidden=_hidden(key), required=REQUIRED.get(key, set()), modal=modal)
+    return render_template(tpl, key=key, m=mod(key), row=row, defaults={}, nxt=safe_next(""), team_names=S.team_names(W()), comments=comments, reacts=reactions_for(key, rid), hidden=_hidden(key), required=REQUIRED.get(key, set()), modal=modal)
 
 
 def clean_fields(m, source, quiet=False, partial=False):
@@ -331,7 +352,7 @@ def m_save(key):
         data.pop(f, None)
     missing = [label for n, label, typ, opts in m["fields"] if n in REQUIRED.get(key, set()) and not (data.get(n) or "").strip()]
     if missing:
-        flash("Please fill in: " + ", ".join(missing) + ".")
+        flash("Almost! Still missing: " + ", ".join(missing) + ".")
         if rid:
             row = dict(old) if old else {}
             row.update(data)
@@ -365,7 +386,7 @@ def m_delete(key, rid):
     row_or_404(key, rid)
     ex(f"DELETE FROM {key} WHERE id=? AND workspace_id=?", (rid, W()))
     S.audit("delete", f"{key}#{rid}")
-    flash("Deleted.")
+    flash("Deleted. 🗑️")
     return redirect(safe_next(url_for("m_list", key=key)))
 
 
@@ -1084,6 +1105,124 @@ def updates_save():
     return redirect(url_for("updates"))
 
 
+# ----------------------------------------------------------------- kudos and reactions
+REACTIONS = ("👏", "🔥", "❤️", "🎉", "👀")
+KUDOS_EMOJI = ("👏", "🔥", "🌟", "🎉", "💪", "🙌")
+
+
+def reactions_for(key, rid):
+    """[(emoji, count, mine)] for one record, in a fixed order."""
+    rows = q("SELECT emoji, user_id FROM reactions WHERE workspace_id=? AND module=? AND record_id=?", (W(), key, rid))
+    out = []
+    for e in REACTIONS:
+        mine = any(r["user_id"] == g.user["id"] and r["emoji"] == e for r in rows)
+        n = sum(1 for r in rows if r["emoji"] == e)
+        out.append((e, n, mine))
+    return out
+
+
+@route("/m/<key>/<int:rid>/presence", methods=["POST"])
+def presence(key, rid):
+    """Heartbeat from an open record page; returns teammates who pinged in the last 40 seconds."""
+    import time as _t
+    mod(key)
+    row_or_404(key, rid)
+    now = int(_t.time())
+    ex("DELETE FROM presence WHERE workspace_id=? AND module=? AND record_id=? AND user_id=?", (W(), key, rid, g.user["id"]))
+    ex("INSERT INTO presence (workspace_id, module, record_id, user_id, seen_at) VALUES (?,?,?,?,?)", (W(), key, rid, g.user["id"], now))
+    rows = q("SELECT u.name, u.email FROM presence p JOIN users u ON u.id=p.user_id WHERE p.workspace_id=? AND p.module=? AND p.record_id=? AND p.user_id!=? AND p.seen_at>=?", (W(), key, rid, g.user["id"], now - 40))
+    return jsonify(here=[(r["name"] or r["email"]).split("@")[0] for r in rows])
+
+
+@route("/m/<key>/<int:rid>/react", methods=["POST"])
+def react(key, rid):
+    row_or_404(key, rid)
+    e = request.form.get("emoji", "")
+    back = url_for("m_edit", key=key, rid=rid)
+    if e not in REACTIONS:
+        return redirect(back)
+    have = q("SELECT id FROM reactions WHERE workspace_id=? AND module=? AND record_id=? AND user_id=? AND emoji=?", (W(), key, rid, g.user["id"], e), one=True)
+    if have:
+        ex("DELETE FROM reactions WHERE id=?", (have["id"],))
+    else:
+        ins("reactions", dict(workspace_id=W(), module=key, record_id=rid, user_id=g.user["id"], emoji=e))
+        row, m = row_or_404(key, rid), mod(key)
+        for f in ("assignee", "owner"):
+            if f in row.keys():
+                mem = S.find_member(W(), row[f])
+                if mem and mem["uid"] != g.user["id"]:
+                    S.notify(W(), mem["uid"], "reaction", f"{g.user['name'] or g.user['email']} reacted {e} to {_title(m, row)}", back)
+                break
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify(ok=True)
+    return redirect(back)
+
+
+@route("/kudos")
+def kudos():
+    mates = [m for m in S.members(W()) if m["uid"] != g.user["id"]]
+    wall = q("SELECT k.*, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 60", (W(),))
+    return render_template("kudos.html", mates=mates, wall=wall, emojis=KUDOS_EMOJI)
+
+
+@route("/kudos/send", methods=["POST"])
+def kudos_send():
+    to = S.to_int(request.form.get("to"), 0)
+    note = S.clean_text(request.form.get("note"), 200)
+    emoji = request.form.get("emoji", "")
+    emoji = emoji if emoji in KUDOS_EMOJI else KUDOS_EMOJI[0]
+    mem = next((m for m in S.members(W()) if m["uid"] == to), None)
+    if not mem or to == g.user["id"]:
+        flash("Pick a teammate to send kudos to.")
+        return redirect(url_for("kudos"))
+    if not note:
+        flash("Say what they nailed, even a few words.")
+        return redirect(url_for("kudos"))
+    ins("kudos", dict(workspace_id=W(), from_user=g.user["id"], to_user=to, emoji=emoji, note=note))
+    S.audit("kudos", f"to user {to}")
+    S.notify(W(), to, "kudos", f"{emoji} {g.user['name'] or g.user['email']} sent you kudos: {note[:100]}", url_for("kudos"))
+    flash("Kudos sent. Made their day 🎉")
+    return redirect(url_for("kudos"))
+
+
+# ----------------------------------------------------------------- shareable recap
+@route("/recap")
+def recap():
+    import datetime as _dt
+    w, today = W(), S.today()
+    since = (today - _dt.timedelta(days=30)).isoformat()
+    made = {}
+    for r in q("SELECT detail, created_at FROM audit_log WHERE workspace_id=? AND action='create' ORDER BY id DESC LIMIT 3000", (w,)):
+        if str(r["created_at"])[:10] >= since:
+            k = (r["detail"] or "").split("#")[0]
+            made[k] = made.get(k, 0) + 1
+    def c(sql, *a):
+        return q(sql, (w,) + a, one=True)["c"]
+    stats = [("📝", "Content made", made.get("content_items", 0)),
+             ("✅", "Tasks finished", c("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status='Done'")),
+             ("🧲", "Leads caught", made.get("leads", 0)),
+             ("📣", "Campaigns started", made.get("campaigns", 0))]
+    total = sum(made.values())
+    top = max(stats, key=lambda x: x[2])
+    vibes = {"Content made": "Content machine", "Tasks finished": "Getting-it-done energy", "Leads caught": "Lead magnet", "Campaigns started": "Campaign commander"}
+    vibe = vibes[top[1]] if top[2] else "Just getting started"
+    all_made = {}
+    for r in q("SELECT detail FROM audit_log WHERE workspace_id=? AND action='create' ORDER BY id DESC LIMIT 5000", (w,)):
+        k = (r["detail"] or "").split("#")[0]
+        all_made[k] = all_made.get(k, 0) + 1
+    st = _streak()
+    done = stats[1][2]
+    badges = [("🌱", "First post", "Make your first content item", all_made.get("content_items", 0) >= 1),
+              ("🚀", "Campaign live", "Start a campaign", all_made.get("campaigns", 0) >= 1),
+              ("🧲", "Lead catcher", "Catch 5 leads", all_made.get("leads", 0) >= 5),
+              ("✅", "Closer", "Finish 10 tasks", done >= 10),
+              ("📚", "Content machine", "Make 10 content items", all_made.get("content_items", 0) >= 10),
+              ("🔥", "On fire", "Hit a 7-day streak", st >= 7),
+              ("🎉", "Hype squad", "Send a kudos", bool(q("SELECT 1 x FROM kudos WHERE workspace_id=? AND from_user=? LIMIT 1", (w, g.user["id"])))),
+              ("🎨", "Made it yours", "Pick your vibe colours", bool(g.ws["brand_color"]))]
+    return render_template("recap.html", badges=badges, stats=stats, total=total, vibe=vibe, streak=_streak(), month=today.strftime("%B"), year=today.year)
+
+
 # ----------------------------------------------------------------- analytics & UTM
 @route("/analytics")
 def analytics():
@@ -1685,7 +1824,7 @@ def lead_form(slug):
         f = request.form
         if not f.get("website"):     # honeypot
             if not f.get("consent") or not (f.get("email") or f.get("phone")):
-                flash("Please add an email or phone number and tick the consent box.")
+                flash("Add an email or phone number and tick the consent box, then we are good.")
                 return render_template("lead_form.html", ws=ws, done=False, bare=True, hide_chrome=True, form=f), 400
             _add_lead(ws, f, "Website form", consent=True)
         done = True
@@ -1723,7 +1862,7 @@ def feedback():
     if request.method == "POST":
         msg, kind = S.clean_text(request.form.get("message"), 3000), request.form.get("kind", "idea")
         if not msg:
-            flash("Please write a message first.")
+            flash("Write a message first, then hit send.")
             return render_template("feedback.html", page=page, kinds=FEEDBACK_KINDS), 400
         kind = kind if kind in FEEDBACK_KINDS else "idea"
         fid = ins("feedback", dict(workspace_id=W(), user_id=g.user["id"], kind=kind, page=page, message=msg))
@@ -1845,7 +1984,7 @@ def portal_decide(iid):
         flash("This item is not waiting for your review.")
         return redirect(url_for("portal_item", iid=iid))
     if action == "changes" and not note:
-        flash("Please tell us what to change.")
+        flash("Tell us what to change and we will take it from there.")
         return redirect(url_for("portal_item", iid=iid))
     if note:
         ins("comments", dict(workspace_id=W(), module="content_items", record_id=iid, user_id=g.user["id"], body=note, client_visible=1))
@@ -1905,7 +2044,7 @@ def pulse_refresh():
         return redirect(url_for("pulse_page"))
     fresh = S.run_pulse(W(), g.ws["industry"], g.plan)
     S.audit("pulse_refresh", f"{sum(len(x['items']) for x in fresh['groups'])} items")
-    flash("Market Pulse refreshed." + (f" {len(fresh['errors'])} source(s) had a problem: see the notes at the bottom." if fresh["errors"] else ""))
+    flash("Market Pulse refreshed. Fresh headlines are in 📡" + (f" {len(fresh['errors'])} source(s) had a problem: see the notes at the bottom." if fresh["errors"] else ""))
     return redirect(url_for("pulse_page"))
 
 
@@ -1949,7 +2088,7 @@ def pulse_holidays():
     try:
         days = pulse.public_holidays(country, year)
     except Exception:
-        flash("Could not load holidays right now (the holiday service may not cover that country). Please try again later.")
+        flash("Could not fetch holidays right now. That country might not be covered, or try again in a bit.")
         return redirect(url_for("pulse_page"))
     have = {(r["name"], r["date"]) for r in q("SELECT name, date FROM key_dates WHERE workspace_id=?", (W(),))}
     n = 0

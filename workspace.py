@@ -136,7 +136,7 @@ def invite_csv():
         if r.get("email"):
             rows.append((r["email"], r.get("role") or request.form.get("default_role", "manager"), S.clean_text(r.get("client_name", ""), 120)))
     if not rows:
-        flash("No rows found. The first line must be: email, role, client_name.")
+        flash("No rows found. Start the first line with: email, role, client_name.")
         return redirect(url_for("ws.team"))
     return _finish_invites(rows[:200])
 
@@ -210,7 +210,7 @@ def account():
 @bp.route("/account/profile", methods=["POST"])
 def account_profile():
     ex("UPDATE users SET name=? WHERE id=?", (S.clean_text(request.form.get("name"), 80), g.user["id"]))
-    flash("Profile updated.")
+    flash("Profile updated ✨")
     return redirect(url_for("ws.account"))
 
 
@@ -224,7 +224,7 @@ def account_password():
     else:
         ex("UPDATE users SET password_hash=? WHERE id=?", (generate_password_hash(f["new"]), g.user["id"]))
         S.audit("password_change")
-        flash("Password changed.")
+        flash("Password changed. Nice and secure 🔒")
     return redirect(url_for("ws.account"))
 
 
@@ -232,7 +232,7 @@ def account_password():
 def account_verify():
     if not g.user["email_verified"]:
         send_verify(g.user)
-        flash("Verification email sent.")
+        flash("Verification email sent. Check your inbox 📬")
     # Stay on whatever page the "Resend link" button was clicked from (the banner shows on every
     # page) instead of forcing a jump to the Account page - the click should just confirm it was sent.
     return redirect(_safe_back(request.referrer, "dashboard"))
@@ -250,7 +250,7 @@ def account_pin():
         return redirect(url_for("ws.account"))
     pin = S.clean_text(f.get("pin"), 6)
     if not re.fullmatch(r"\d{4,6}", pin or ""):
-        flash("PIN must be 4-6 digits.")
+        flash("PIN needs to be 4 to 6 digits.")
         return redirect(url_for("ws.account"))
     ex("UPDATE users SET pin_hash=? WHERE id=?", (generate_password_hash(pin), g.user["id"]))
     S.audit("pin_set")
@@ -272,7 +272,7 @@ def account_logo():
     if old:
         S.delete_file(old)
     S.audit("logo_set")
-    flash("Logo updated.")
+    flash("Logo updated. Looking good ✨")
     return redirect(url_for("ws.account"))
 
 

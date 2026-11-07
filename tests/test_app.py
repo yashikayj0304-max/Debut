@@ -3572,3 +3572,26 @@ def test_next_step_and_first_win(app):
     r2 = c.post("/m/leads/save", data={"name": "Isha"}, follow_redirects=True).get_data(as_text=True)
     assert "First lead caught" not in r2
     assert "Invite a teammate" in c.get("/app").get_data(as_text=True).split("nx-t")[1][:80]
+
+
+def test_standalone_survey_collects_without_login_and_only_admin_reads(app, monkeypatch):
+    monkeypatch.setattr(C, "ADMIN_EMAILS", ["boss@x.com"])
+    anon = app.test_client()
+    page = anon.get("/survey")
+    assert page.status_code == 200 and b"window.claude=" in page.data and b"var A=false" in page.data
+    assert "noindex" in page.headers["X-Robots-Tag"]
+    assert anon.post("/survey/submit", json={"nps": 9, "what": "a planner"}).status_code == 200
+    assert anon.post("/survey/submit", data="not json", content_type="application/json").status_code == 400
+    assert anon.post("/survey/submit", json={}).status_code == 400
+    assert dbq(app, "SELECT COUNT(*) c FROM survey_responses", one=True)["c"] == 1
+    # nobody but the owner can read answers or open the results view
+    assert anon.get("/admin/survey/data").status_code in (302, 404) and anon.get("/admin/survey").status_code in (302, 404)
+    signup(app, "boss@x.com", ws="Boss")
+    dbx(app, "UPDATE users SET email_verified=1 WHERE email='boss@x.com'")
+    u = signup(app, "u@x.com")
+    assert u.get("/admin/survey/data").status_code == 404
+    boss = app.test_client()
+    boss.post("/login", data=dict(email="boss@x.com", password="Sup3rSecret!"))
+    rows = boss.get("/admin/survey/data").get_json()
+    assert len(rows) == 1 and rows[0]["nps"] == 9
+    assert b"var A=true" in boss.get("/admin/survey").data

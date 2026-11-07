@@ -87,15 +87,6 @@ document.querySelectorAll('form').forEach(function(f){if((f.method||'').toLowerC
   else{try{if(localStorage.getItem(KEY)===d.dataset.g)localStorage.setItem(KEY,"");}catch(e){}}
  });});
 })();
-// ---------- keep the sidebar scrolled to where you were, across page navigations (full page loads don't preserve scroll on their own) ----------
-(function(){
- var aside=document.querySelector("aside");if(!aside||{{ "true" if role == "client" else "false" }})return;
- try{var saved=sessionStorage.getItem("asideScroll");if(saved!==null)aside.scrollTop=parseInt(saved,10)||0;}catch(e){}
- var save=function(){try{sessionStorage.setItem("asideScroll",String(aside.scrollTop));}catch(e){}};
- aside.addEventListener("scroll",save,{passive:true});
- aside.addEventListener("click",function(e){if(e.target.closest("a"))save();});
- window.addEventListener("pagehide",save);
-})();
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}
 function switchWs(id){var f=document.createElement('form');f.method='post';f.action='/switch/'+id;var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);document.body.appendChild(f);f.submit();}
 async function api(url,body){var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':window.CSRF},body:JSON.stringify(body||{})});var d={};try{d=await r.json()}catch(e){}return {ok:r.ok,status:r.status,data:d};}
@@ -193,7 +184,23 @@ function _bindOverlayForm(body){
  });
 }
 if(window.history && 'scrollRestoration' in history){try{history.scrollRestoration='manual';}catch(e){}}
-window.addEventListener('load',function(){window.scrollTo(0,0);document.body.classList.remove('nav-open');});
+// scroll: new pages start at the top; Back/Forward and "saved/deleted/ticked on the same list page" return you to where you were
+(function(){
+ var K=function(){return "sc:"+location.pathname+location.search;};
+ function put(k,v){try{sessionStorage.setItem(k,v);}catch(e){}} function get(k){try{return sessionStorage.getItem(k);}catch(e){return null;}}
+ window.addEventListener('pagehide',function(){put(K(),String(Math.round(window.scrollY)));});
+ document.addEventListener('submit',function(e){var f=e.target;if(e.defaultPrevented)return;if((f.method||'').toLowerCase()==='post')put('scKeep',JSON.stringify({u:location.pathname+location.search,y:Math.round(window.scrollY),t:Date.now()}));},false);
+ window.addEventListener('load',function(){
+  document.body.classList.remove('nav-open');
+  var y=0,nav=(performance.getEntriesByType&&performance.getEntriesByType('navigation')[0])||{};
+  if(nav.type==='back_forward'){y=parseInt(get(K())||"0",10)||0;}
+  else{var k=null;try{k=JSON.parse(get('scKeep')||"null");}catch(e){}
+   if(k&&k.u===location.pathname+location.search&&Date.now()-k.t<15000)y=k.y||0;}
+  try{sessionStorage.removeItem('scKeep');}catch(e){}
+  if(location.hash&&!y)return;
+  window.scrollTo({top:y,behavior:'instant'});
+ });
+})();
 
 // ---------- first-time tour: a few spotlighted tips pointing at where things live ----------
 var TOUR_STEPS=[
@@ -266,6 +273,19 @@ function enablePush(){var m=document.getElementById("pushMsg");function say(t){i
     return fetch("/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":window.CSRF},body:JSON.stringify(sub)}).then(function(){say("You're in! We'll ping you.");var b=document.getElementById("pushBtn");if(b)b.hidden=true})})})}).catch(function(){say("Couldn't turn on push on this device.")})}
 (function(){var c=document.getElementById("pushCard");if(!c||!("serviceWorker" in navigator)||!("PushManager" in window))return;
  fetch("/push/key").then(function(r){return r.json()}).then(function(d){if(!d.key)return;navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription()}).then(function(s){if(!s||Notification.permission!=="granted")c.hidden=false})}).catch(function(){})})();
+// ---------- keep the sidebar scrolled to where you were across page loads. Runs AFTER the groups/All-tools panel have opened (otherwise the panel is still collapsed, the saved position gets clamped to 0 and the sidebar "slides up") ----------
+(function(){
+ var aside=document.querySelector("aside");if(!aside||{{ "true" if role == "client" else "false" }})return;
+ var ready=false,want=0;
+ try{var saved=sessionStorage.getItem("asideScroll");if(saved!==null)want=parseInt(saved,10)||0;}catch(e){}
+ function apply(){aside.scrollTop=want;}
+ apply();requestAnimationFrame(apply);
+ window.addEventListener("load",function(){apply();setTimeout(function(){apply();ready=true;},250);});
+ var save=function(){if(!ready)return;try{sessionStorage.setItem("asideScroll",String(aside.scrollTop));}catch(e){}};
+ aside.addEventListener("scroll",save,{passive:true});
+ aside.addEventListener("click",function(e){if(e.target.closest("a")){ready=true;try{sessionStorage.setItem("asideScroll",String(aside.scrollTop));}catch(x){}}});
+ window.addEventListener("pagehide",function(){if(ready)save();});
+})();
 /* instant (no-reload) tick-offs and reactions */
 function fd(f){var d=new FormData(f);d.set("csrf_token",window.CSRF);return d}
 document.addEventListener("submit",function(e){var f=e.target;

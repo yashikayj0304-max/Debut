@@ -1,5 +1,6 @@
 """Debut: go-to-market and marketing workspace (multi-tenant SaaS). Run locally: python app.py   Production: gunicorn wsgi:app"""
 import logging
+import os
 from flask import Flask, g, request, session, render_template, redirect, url_for, flash, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config as C
@@ -26,11 +27,11 @@ PUBLIC = {"board_public", "board_public_img", "landing", "pricing", "terms", "pr
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
 VIEWER_WRITE_OK = {"auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
-CLIENT_OK = {"dashboard", "portal", "portal_item", "portal_decide", "portal_comment", "notifications", "notifications_recent", "notifications_read", "notification_open", "feedback", "help_centre", "auth.logout", "auth.switch_ws",
+CLIENT_OK = {"push_key", "push_subscribe", "push_unsubscribe", "dashboard", "portal", "portal_item", "portal_decide", "portal_comment", "notifications", "notifications_recent", "notifications_read", "notification_open", "feedback", "help_centre", "auth.logout", "auth.switch_ws",
              "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify", "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.onboarded"}
 CREATOR_OK = {"dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_status", "calendar_view", "search", "moodboards", "board_view", "media", "ideas",
               "auth.logout", "auth.switch_ws", "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify",
-              "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "presence", "kudos", "kudos_send", "react", "presence", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
+              "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "presence", "push_key", "push_subscribe", "push_unsubscribe", "kudos", "kudos_send", "react", "presence", "push_key", "push_subscribe", "push_unsubscribe", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
 FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order_assign": "content_ops", "discover": "influencers", "outreach": "influencers",
               "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "marketing_health": "analytics", "ai_studio": "ai", "api_ai": "ai"}
 
@@ -134,6 +135,16 @@ def create_app(config=None, init=True, database_url=None):
         if request.path.startswith("/api/"):
             return jsonify(error="You don't have permission to do that."), 403
         return render_template("error.html", code=403, msg="You don't have permission to do that."), 403
+
+    @app.url_defaults
+    def _bust_static(endpoint, values):
+        """Append ?v=<file modified time> to static files so browsers never keep an old stylesheet after an update."""
+        fn = values.get("filename")
+        if endpoint == "static" and fn and "v" not in values:
+            try:
+                values["v"] = int(os.stat(os.path.join(app.static_folder, fn)).st_mtime)
+            except OSError:
+                pass
 
     @app.context_processor
     def ctx():

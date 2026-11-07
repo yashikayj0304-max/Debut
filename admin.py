@@ -100,3 +100,4 @@ def act(wid):
     S.audit("admin_" + str(action), f"ws#{wid}", wid=wid)
     flash("Done.")
     return redirect(url_for("admin.index"))
+

@@ -9,3 +9,4 @@ openpyxl>=3.1,<4
 python-pptx>=1.0,<2
 Pillow>=10,<14
 PyMuPDF>=1.24,<2
+pywebpush>=2.0

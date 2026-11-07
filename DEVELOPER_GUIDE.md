@@ -622,3 +622,9 @@ Third-party code bundled: Chart.js 4.5.1 (MIT) in `static/vendor/`, licence file
 ## Look and feel
 - `static/style.css` is the base theme; `static/polish.css` adds dark mode (`html[data-theme=dark]`, toggled by `toggleTheme()` in base.html, saved in localStorage as `theme`), the bolder landing hero, illustrated empty states (`.empty-state`), confetti (`confetti()`, fired by a flash containing 🎉 and by finishing set-up) and the pinned-pages sidebar (localStorage `pinnedPages`).
 - New surfaces must use CSS variables (`--card`, `--ink`, `--line`, ...) not hard-coded `#fff`, or add a dark override in polish.css.
+
+## Push notifications (phone pings)
+1. Run `python gen_vapid.py` once. It prints `VAPID_PUBLIC` and `VAPID_PRIVATE`.
+2. Add both as environment variables on Render (plus optional `VAPID_SUBJECT=mailto:you@yourdomain.com`) and redeploy.
+3. Users open Notifications and tap **Turn on push**. Every in-app notification (assigned, @mention, kudos, approvals) is then also sent as a phone/desktop push.
+Without the keys the button explains push isn't set up and nothing else changes. Dead subscriptions are removed automatically.

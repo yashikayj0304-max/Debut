@@ -187,7 +187,12 @@ def dashboard():
              ("Capture your first lead", cnt("leads") > 0, url_for("ws.integrations") if g.role in ("owner", "admin", "lead", "manager") else url_for("m_new", key="leads")),
              ("Invite a teammate", cnt("memberships") > 1, url_for("ws.team")),
              ("Verify your email", bool(g.user["email_verified"]), url_for("ws.account"))]
-    return render_template("dashboard.html", upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
+    wins = cnt("content_items") + cnt("campaigns") + cnt("leads")
+    pending = [x for x in steps if not x[1]]
+    if wins and cnt("memberships") <= 1 and g.role in ("owner", "admin"):
+        pending.sort(key=lambda x: 0 if x[0] == "Invite a teammate" else 1)
+    next_step = pending[0] if pending else None
+    return render_template("dashboard.html", next_step=next_step, upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
                            today_items=today_items, today_more=today_more,
                            steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
@@ -214,6 +219,9 @@ GAP_BANNER_KEYS = {"brand_kit": {"brand_kit"}, "campaigns": {"campaigns"}, "cont
                     "tasks": {"tasks"}, "leads": {"leads"}}
 
 
+FIRST_WINS = {"content_items": "First post planned! 🎉 That is how it starts. Next up: put a date on it so it lands on the calendar.",
+              "campaigns": "Your first campaign is live in Debut! 🎉 Add a budget and a goal so you can see how it performs.",
+              "leads": "First lead caught! 🎉 Follow up while they are warm."}
 LIST_LAYOUT = {"leads": "people", "influencers": "people", "personas": "people", "creators": "people", "clients": "people", "pr_contacts": "people", "accounts": "people",
                "content_items": "cards", "campaigns": "cards", "tasks": "checklist", "promotions": "cards", "events": "cards", "gtm_plans": "cards", "experiments": "cards", "content_orders": "cards"}
 
@@ -340,6 +348,7 @@ def changed_hooks(key, rid, m, new, old):
 @route("/m/<key>/save", methods=["POST"])
 def m_save(key):
     m = mod(key)
+    first_win = None
     raw_id = request.form.get("id")
     rid = S.to_int(raw_id)
     if raw_id and not rid:
@@ -375,7 +384,11 @@ def m_save(key):
         data["workspace_id"] = W()
         rid = ins(key, data)
         S.audit("create", f"{key}#{rid}")
+        first_win = FIRST_WINS.get(key) if q(f"SELECT COUNT(*) c FROM {key} WHERE workspace_id=?", (W(),), one=True)["c"] == 1 else None
     changed_hooks(key, rid, m, data, old)
+    if first_win:
+        flash(first_win)
+        return redirect(safe_next(url_for("m_list", key=key)))
     flash("Saved. 🎉" if str(data.get("status", "")).lower() in ("done", "published", "won", "completed", "approved") else "Saved.")
     return redirect(safe_next(url_for("m_list", key=key)))
 
@@ -1898,6 +1911,8 @@ def _sw_cache_version():
 
 
 SW_JS = """const V='%s';
+self.addEventListener('push',e=>{let d={};try{d=e.data.json()}catch(x){}e.waitUntil(self.registration.showNotification(d.title||'Debut',{body:d.body||'',data:{url:d.url||'/app'},icon:'/static/icons/apple-touch-icon.png',badge:'/static/icons/apple-touch-icon.png'}));});
+self.addEventListener('notificationclick',e=>{e.notification.close();const u=(e.notification.data&&e.notification.data.url)||'/app';e.waitUntil(clients.matchAll({type:'window'}).then(l=>{for(const c of l){if('focus' in c){c.navigate(u);return c.focus()}}return clients.openWindow(u)}));});
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(['/static/style.css','/offline'])));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(u.origin!==location.origin)return;
@@ -1910,6 +1925,30 @@ if(r.mode==='navigate'){e.respondWith(fetch(r).catch(()=>caches.match('/offline'
 def service_worker():
     """Only static assets and an offline page are cached: signed-in pages and data are never stored on the device."""
     return Response(SW_JS, mimetype="application/javascript", headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+
+
+@route("/push/key")
+def push_key():
+    return jsonify(key=C.VAPID_PUBLIC or "")
+
+
+@route("/push/subscribe", methods=["POST"])
+def push_subscribe():
+    d = request.get_json(silent=True) or {}
+    k = d.get("keys") or {}
+    ep, p256, au = str(d.get("endpoint", ""))[:600], str(k.get("p256dh", ""))[:200], str(k.get("auth", ""))[:100]
+    if not (ep.startswith("https://") and p256 and au):
+        abort(400)
+    ex("DELETE FROM push_subs WHERE endpoint=?", (ep,))
+    ins("push_subs", dict(user_id=g.user["id"], endpoint=ep, p256dh=p256, auth=au))
+    return jsonify(ok=True)
+
+
+@route("/push/unsubscribe", methods=["POST"])
+def push_unsubscribe():
+    ep = str((request.get_json(silent=True) or {}).get("endpoint", ""))
+    ex("DELETE FROM push_subs WHERE endpoint=? AND user_id=?", (ep, g.user["id"]))
+    return jsonify(ok=True)
 
 
 @route("/offline")

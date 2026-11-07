@@ -402,6 +402,38 @@ def notify(wid, uid, kind, message, link=""):
             ins("notifications", dict(workspace_id=wid, user_id=uid, kind=kind, message=message[:300], link=link[:300]))
         except Exception:
             log.exception("notify failed")
+        send_push(uid, message, link)
+
+
+def send_push(uid, message, link=""):
+    """Best-effort web push to every device the user turned push on for. Silent no-op when VAPID keys are not configured."""
+    if not (C.VAPID_PUBLIC and C.VAPID_PRIVATE):
+        return
+    import json as _j
+    import threading
+    subs = [dict(r) for r in q("SELECT id, endpoint, p256dh, auth FROM push_subs WHERE user_id=?", (uid,))]
+    if not subs:
+        return
+    payload = _j.dumps({"title": "Debut", "body": message[:140], "url": link or "/app"})
+
+    def run():
+        try:
+            from pywebpush import webpush, WebPushException
+        except Exception:
+            return
+        for sub in subs:
+            try:
+                webpush(subscription_info={"endpoint": sub["endpoint"], "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}}, data=payload,
+                        vapid_private_key=C.VAPID_PRIVATE, vapid_claims={"sub": C.VAPID_SUBJECT}, ttl=3600)
+            except WebPushException as e:
+                if getattr(e, "response", None) is not None and e.response.status_code in (404, 410):
+                    try:
+                        ex("DELETE FROM push_subs WHERE id=?", (sub["id"],))
+                    except Exception:
+                        pass
+            except Exception:
+                log.exception("push failed")
+    threading.Thread(target=run, daemon=True).start()
 
 
 def unread_count(uid, wid):

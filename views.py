@@ -355,7 +355,7 @@ def m_save(key):
         rid = ins(key, data)
         S.audit("create", f"{key}#{rid}")
     changed_hooks(key, rid, m, data, old)
-    flash("Saved.")
+    flash("Saved. 🎉" if str(data.get("status", "")).lower() in ("done", "published", "won", "completed", "approved") else "Saved.")
     return redirect(safe_next(url_for("m_list", key=key)))
 
 

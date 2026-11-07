@@ -106,7 +106,7 @@ The app reads env vars (and a local `.env` file, which is git-ignored). Full ann
 | `APP_ENV` | `production` → secure cookies, HSTS, ProxyFix, demo billing disabled |
 | `SECRET_KEY` | 64 hex chars: `python -c "import secrets;print(secrets.token_hex(32))"`. **The app refuses to start without it in production.** |
 | `DATABASE_URL` | `postgresql+psycopg2://user:pass@host:5432/db` (`postgres://` and `postgresql://` are auto-converted). If the provider requires TLS, append `?sslmode=require`. |
-| `APP_URL` | Public **https** URL, no trailing slash. Used in emails and calendar links. |
+| `APP_URL` | Public **https** URL, no trailing slash. Used in emails, calendar links, canonical and share-preview URLs. If left unset it falls back to `http://127.0.0.1:8001`, so verification/invite emails get broken links. On Render set it to your `https://....onrender.com` address. |
 | `ADMIN_EMAILS` | Comma-separated. A user with one of these emails gets `/admin` **once their email is verified** (so nobody can take admin by registering the owner's address first). |
 | `COMPANY_NAME`, `SUPPORT_EMAIL` | Legal pages and footer |
 
@@ -617,3 +617,8 @@ Third-party code bundled: Chart.js 4.5.1 (MIT) in `static/vendor/`, licence file
   `python -c "from playwright.sync_api import sync_playwright as p; b=p().start().chromium.launch(); pg=b.new_page(); pg.goto('http://127.0.0.1:8001/manual'); pg.pdf(path='static/guides/Debut-User-Manual.pdf', format='A4', print_background=True, margin={'top':'14mm','bottom':'14mm','left':'12mm','right':'12mm'})"`
   then copy it to `docs/Debut-User-Manual.pdf`.
 - UI notes: the top-bar search is a plain form (Ctrl/⌘+K focuses it; ✕ and Esc clear it); the UTM Builder opens as a pop-up from `/utm/new`; the ＋ Create menu and bottom bar are in `templates/base.html`; the secondary colour feeds CSS variable `--sec` (see `services.brand_shades`).
+
+
+## Look and feel
+- `static/style.css` is the base theme; `static/polish.css` adds dark mode (`html[data-theme=dark]`, toggled by `toggleTheme()` in base.html, saved in localStorage as `theme`), the bolder landing hero, illustrated empty states (`.empty-state`), confetti (`confetti()`, fired by a flash containing 🎉 and by finishing set-up) and the pinned-pages sidebar (localStorage `pinnedPages`).
+- New surfaces must use CSS variables (`--card`, `--ink`, `--line`, ...) not hard-coded `#fff`, or add a dark override in polish.css.

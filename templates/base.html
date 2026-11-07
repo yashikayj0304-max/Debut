@@ -15,7 +15,15 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 <a class="tb-home" href="{{ url_for('dashboard') }}" data-tour="dashboard" title="Home - back to your dashboard" aria-label="Home"><span class="tb-home-i">🏠</span><span class="tb-home-t">Home</span></a>
 <a class="tb-brand" href="{{ url_for('dashboard') }}">{% if ws['logo_url'] %}<img class="logo" src="{{ media(ws['logo_url']) }}" alt="">{% else %}<img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="">{% endif %}<span>{{ ws['name'] }}</span></a>
 <div class="tb-right">
-{% if role != 'client' %}<form class="tb-search" method="get" action="{{ url_for('search') }}"><input name="q" placeholder="Ask Debut — search everything…" data-tour="search"></form>{% endif %}
+{% if role != 'client' %}<form class="tb-search" method="get" action="{{ url_for('search') }}"><input name="q" placeholder="Search or jump to…" autocomplete="off" data-tour="search" onfocus="openPalette();this.blur()"><kbd class="tb-kbd">Ctrl K</kbd></form>{% endif %}
+{% if role not in ('viewer','client') %}<div class="dd"><button type="button" class="tb-create" data-tour="create" onclick="toggleDD(this)" aria-label="Create new"><span>＋</span><b>Create</b></button><div class="dd-menu create-menu">
+<a href="{{ url_for('m_new', key='content_items') }}">📝 <span>Content<small>post, reel, blog…</small></span></a>
+<a href="{{ url_for('m_new', key='tasks') }}">✅ <span>Task<small>to-do for you or a teammate</small></span></a>
+{% if role != 'creator' %}<a href="{{ url_for('m_new', key='campaigns') }}">📣 <span>Campaign<small>plan with budget</small></span></a>
+<a href="{{ url_for('m_new', key='leads') }}">🧲 <span>Lead<small>someone interested</small></span></a>
+<a href="{{ url_for('m_new', key='key_dates') }}">🗓️ <span>Key date<small>festival, sale, event</small></span></a>{% endif %}
+<a class="nopop" href="{{ url_for('moodboards') }}">🖼️ <span>Mood board<small>start a visual board</small></span></a>
+<a class="nopop" href="{{ url_for('ideas') }}">💡 <span>Idea<small>browse the Idea Bank</small></span></a></div></div>{% endif %}
 <a class="tb-ic tb-help" href="{{ url_for('help_centre') }}" data-tour="help" title="Help &amp; guides" aria-label="Help &amp; guides">❓</a>
 <div class="dd"><button type="button" class="tb-ic" data-tour="bell" onclick="toggleDD(this);loadNotifs()" aria-label="Notifications">🔔{% if unread %}<span class="dot">{{ unread if unread < 10 else '9+' }}</span>{% endif %}</button>
 <div class="dd-menu dd-wide" id="notifDD"><div class="muted" style="padding:10px">No notifications yet.</div></div></div>
@@ -24,6 +32,10 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 <a href="/feedback?from={{ request.path }}">💬 Send feedback</a>
 <form method="post" action="{{ url_for('auth.logout') }}"><button class="dd-item" type="submit">↪ Log out</button></form></div></div></div></div>
 <div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
+{% if role != 'client' %}<nav class="bnav" aria-label="Quick navigation"><a href="{{ url_for('dashboard') }}"><i>🏠</i>Home</a><a href="{{ url_for('calendar_view') }}"><i>📅</i>Calendar</a>
+{% if role not in ('viewer',) %}<a class="bn-plus" href="{{ url_for('m_new', key='content_items') }}" aria-label="New content"><i>＋</i></a>{% else %}<a href="{{ url_for('moodboards') }}"><i>🖼️</i>Boards</a>{% endif %}
+<a href="{{ url_for('m_list', key='tasks') }}"><i>✅</i>Tasks</a><a href="#" onclick="document.body.classList.toggle('nav-open');return false"><i>☰</i>Menu</a></nav>
+<dialog id="palette" class="palette"><div class="pal-box"><input id="palQ" placeholder="Type to jump anywhere or create something…" autocomplete="off" aria-label="Search commands"><div id="palList" class="pal-list" role="listbox"></div><div class="pal-foot"><span><kbd>↑↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div></div></dialog>{% endif %}
 <dialog id="overlayModal" class="overlay-modal"><div class="overlay-head"><button type="button" class="btn ghost sm" onclick="document.getElementById('overlayModal').close()">✕ Close</button></div><div id="overlayBody" class="overlay-body"><p class="muted" style="padding:20px">Loading…</p></div></dialog>
 <div class="appcols">
 <aside>
@@ -47,9 +59,9 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if user %}<a href="{{ url_for('dashboard') }}">Open app</a>{% else %}<a href="{{ url_for('auth.login') }}">Log in</a><a class="btn" href="{{ url_for('auth.signup') }}">Start free</a>{% endif %}</header>{% endif %}
 <main class="pubmain">
 {% endif %}
-{% for m in get_flashed_messages() %}<div class="flash">{{ m }}</div>{% endfor %}
+{% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
 {% block body %}{% endblock %}
-{% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
+{% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><a href="{{ url_for('manual') }}">User manual</a><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
 </main>{% if user and ws and not bare %}</div>{% endif %}
 <script>
 window.CSRF=document.querySelector('meta[name=csrf-token]').content;
@@ -110,6 +122,32 @@ function bullets(id){
  el.value=v.slice(0,s)+lines+v.slice(e);
  el.focus();
 }
+
+
+{% if role != 'client' %}
+// ---------- command palette (Ctrl/Cmd + K): jump to any page, create anything, or search everything ----------
+var PAL_ITEMS={{ pal_items|tojson }};
+function openPalette(){var d=document.getElementById('palette');if(!d)return;if(!d.open)d.showModal();var q=document.getElementById('palQ');q.value='';renderPal('');setTimeout(function(){q.focus();},30);}
+var palSel=0,palShown=[];
+function renderPal(t){var l=document.getElementById('palList');t=(t||'').toLowerCase().trim();
+ palShown=PAL_ITEMS.filter(function(i){return !t||(i.l+' '+i.g).toLowerCase().indexOf(t)>-1;}).slice(0,40);
+ if(t)palShown.push({l:'Search everything for “'+t+'”',g:'Search',h:'/search?q='+encodeURIComponent(t),i:'🔎'});
+ palSel=0;var last='';
+ l.innerHTML=palShown.map(function(i,n){var h=(i.g!==last)?'<div class="pal-g">'+i.g+'</div>':'';last=i.g;return h+'<a href="'+i.h+'" data-n="'+n+'" class="pal-i'+(n===0?' on':'')+(i.c?' pal-new':'')+'"><i>'+(i.i||'•')+'</i><span>'+i.l.replace(/</g,'&lt;')+'</span>'+(i.c?'<em>create</em>':'')+'</a>';}).join('')||'<p class="muted" style="padding:14px">No matches.</p>';}
+function palMove(d){var a=document.querySelectorAll('#palList .pal-i');if(!a.length)return;a[palSel]&&a[palSel].classList.remove('on');palSel=(palSel+d+a.length)%a.length;a[palSel].classList.add('on');a[palSel].scrollIntoView({block:'nearest'});}
+document.addEventListener('keydown',function(e){
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette();return;}
+ var d=document.getElementById('palette');if(!d||!d.open)return;
+ if(e.key==='ArrowDown'){e.preventDefault();palMove(1);}else if(e.key==='ArrowUp'){e.preventDefault();palMove(-1);}
+ else if(e.key==='Enter'){e.preventDefault();var a=document.querySelectorAll('#palList .pal-i')[palSel];if(a)a.click();}
+});
+document.addEventListener('input',function(e){if(e.target.id==='palQ')renderPal(e.target.value);});
+document.addEventListener('click',function(e){var d=document.getElementById('palette');if(d&&d.open){if(e.target===d)d.close();else if(e.target.closest&&e.target.closest('.pal-i'))setTimeout(function(){d.close();},0);}});
+{% endif %}
+// flash messages slide away on their own
+setTimeout(function(){document.querySelectorAll('.toasts .flash').forEach(function(f){f.classList.add('out');setTimeout(function(){f.remove();},400);});},6500);
+// greeting on the dashboard uses the viewer's own clock
+(function(){var g=document.getElementById('greet');if(!g)return;var h=new Date().getHours();g.textContent=h<5?'Burning the midnight oil':h<12?'Good morning':h<17?'Good afternoon':h<21?'Good evening':'Good night';})();
 // ---------- quick-add overlay: loads a form fragment via fetch and shows it in a pop-up dialog with a close (✕), instead of navigating away ----------
 function _overlaySep(href){ return href.indexOf('?') === -1 ? '?' : '&'; }
 function openOverlay(href, backTo){
@@ -122,6 +160,15 @@ function openOverlay(href, backTo){
  }).catch(function(){ body.innerHTML='<p class="muted" style="padding:20px">Could not load the form. <a href="'+href+'">Open it in a new page instead</a>.</p>'; });
  return false;
 }
+// every "+ New" / "Edit" link to a record form opens as a pop-up, everywhere in the app (lists, calendar, dashboard, team hub, search…)
+document.addEventListener('click',function(e){
+ if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+ var a=e.target.closest&&e.target.closest('a[href]'); if(!a||a.target==='_blank'||a.hasAttribute('download')||a.closest('#overlayBody a.nopop'))return;
+ var u; try{u=new URL(a.href,location.href);}catch(x){return;}
+ if(u.origin!==location.origin||!/^\/m\/[a-z_]+\/(new|\d+\/edit)$/.test(u.pathname))return;
+ if(/^\/m\/[a-z_]+\/\d+\/edit$/.test(location.pathname)||/^\/m\/[a-z_]+\/new$/.test(location.pathname))return;  // already on a full form page
+ e.preventDefault(); openOverlay(u.pathname+u.search,'');
+});
 function _bindOverlayForm(body){
  var form=body.querySelector('form');
  if(!form) return;
@@ -146,9 +193,10 @@ window.addEventListener('load',function(){window.scrollTo(0,0);document.body.cla
 var TOUR_STEPS=[
  {sel:"[data-tour=dashboard]",title:"🏠 Home",text:"Your home screen. The \'Today\' list at the top auto-builds itself each day from what\'s overdue plus what\'s due today, so you always know what to do next — plus what\'s publishing soon and quick links into every module."},
  {sel:"[data-tour=modules]",title:"Everything is grouped here",text:"Plans, content, campaigns and more are grouped by topic in this menu. Scroll down to see them all."},
- {sel:"[data-tour=search]",title:"Can\'t find something?",text:"Search looks across every module at once: tasks, content, contacts, everything."},
+ {sel:"[data-tour=create]",title:"＋ Create",text:"Add content, a task, a campaign, a lead or a key date from anywhere. It opens as a pop-up so you never lose your place."},
+ {sel:"[data-tour=search]",title:"Quick finder (Ctrl+K)",text:"Click here or press Ctrl+K (⌘+K on Mac) to jump to any page, create something or search every record."},
  {sel:"[data-tour=bell]",title:"Notifications",text:"You\'ll hear here when someone assigns you work, mentions you, or needs your approval."},
- {sel:"[data-tour=help]",title:"Help \u0026 guides",text:"Full guides and a quick \u2018where is everything\u2019 reference live here, any time you need them."},
+ {sel:"[data-tour=help]",title:"Help \u0026 user manual",text:"The user manual, guides and a quick \u2018where is everything\u2019 reference live here, any time you need them."},
  {sel:"[data-tour=feedback]",title:"Your profile menu",text:"Click your name for your profile, to send feedback (it goes straight to the team, with the page you were on attached) and to log out."}
 ];
 function dismissTour(){
@@ -184,5 +232,5 @@ function tourStep(i){
 }
 function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0);}
 {% if user and ws and not bare and not user['onboarded'] and role not in ('client',) %}window.addEventListener('load',function(){setTimeout(startTour,600);});{% endif %}
-</script>{% if C.GA_MEASUREMENT_ID and not (user and ws and not bare) %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ C.GA_MEASUREMENT_ID }}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config","{{ C.GA_MEASUREMENT_ID }}",{anonymize_ip:true});</script>{% endif %}
+</script><script src="{{ url_for('static', filename='pw.js') }}" defer></script>{% if C.GA_MEASUREMENT_ID and not (user and ws and not bare) %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ C.GA_MEASUREMENT_ID }}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config","{{ C.GA_MEASUREMENT_ID }}",{anonymize_ip:true});</script>{% endif %}
 {% block scripts %}{% endblock %}</body></html>

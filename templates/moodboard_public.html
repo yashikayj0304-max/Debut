@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}{{ b['name'] }} · mood board{% endblock %}{% block body %}
+<div class="pubboard">
+<div class="pb-head"><div><div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em">🖼️ Mood board{% if ws %} · {{ ws['name'] }}{% endif %}</div><h1>{{ b['name'] }}</h1>{% if b['description'] %}<p class="muted">{{ b['description'] }}</p>{% endif %}</div>
+<span class="pill">View only</span></div>
+<div class="mcanvas-wrap pb-wrap" id="pbWrap"><div class="mcanvas" id="pbCanvas" style="transform-origin:0 0">
+{% for i in items %}<div class="citem" style="left:{{ i['x'] }}px;top:{{ i['y'] }}px;width:{{ i['w'] }}px;height:{{ i['h'] }}px;z-index:{{ i['z'] }}"><div class="citem-body" style="cursor:default">
+{% if i['kind'] == 'image' %}<img src="{{ url_for('board_public_img', token=token, iid=i['id']) if not i['content'].startswith('http') else i['content'] }}" alt="{{ i['caption'] }}" loading="lazy" referrerpolicy="no-referrer">{% if i['caption'] %}<div class="citem-cap">{{ i['caption'] }}</div>{% endif %}
+{% elif i['kind'] == 'color' %}<div class="color" style="background:{{ i['content'] }};height:100%" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{ i['content'] }}')" title="Click to copy">{{ i['content'] }}<br>{{ i['caption'] }}</div>
+{% elif i['kind'] == 'note' %}<div class="citem-note">{{ i['content'] }}</div>
+{% else %}<div class="citem-note">🔗 <a href="{{ i['content'] }}" target="_blank" rel="noopener noreferrer nofollow">{{ i['caption'] or i['content']|truncate(40) }}</a></div>{% endif %}
+</div></div>{% endfor %}</div></div>
+{% if not items %}<div class="card"><b>This board is empty.</b></div>{% endif %}
+<p class="muted" style="text-align:center;margin-top:14px;font-size:12.5px">Shared with you from {{ C.APP_NAME }} · this page is read-only. Click a colour to copy its code.</p></div>
+{% endblock %}
+{% block scripts %}<script>
+(function(){var w=document.getElementById('pbWrap'),c=document.getElementById('pbCanvas');
+ function fixSwatchText(){document.querySelectorAll('.citem .color').forEach(function(e){var m=(e.style.background||'').match(/\d+/g);if(!m||m.length<3)return;var l=(0.299*m[0]+0.587*m[1]+0.114*m[2])/255;e.style.color=l>0.68?'#2b2442':'#fff';e.style.textShadow=l>0.68?'none':'0 1px 2px rgba(0,0,0,.35)';});}fixSwatchText();
+ var mx=0,my=0;c.querySelectorAll('.citem').forEach(function(e){mx=Math.max(mx,e.offsetLeft+e.offsetWidth);my=Math.max(my,e.offsetTop+e.offsetHeight);});
+ var CW=Math.max(600,mx+24),CH=Math.max(300,my+24);c.style.width=CW+'px';c.style.height=CH+'px';
+ function fit(){var s=Math.min(1.4,(w.clientWidth-2)/CW);c.style.transform='scale('+s+')';w.style.height=Math.ceil(CH*s)+2+'px';w.style.maxHeight='none';}
+ fit();addEventListener('resize',fit);})();
+</script>{% endblock %}

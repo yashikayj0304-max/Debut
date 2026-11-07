@@ -2,10 +2,22 @@
 <div class="head"><h1>🖼️ {{ b['name'] }}</h1><div>
 <button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').showModal()">❓ How to use</button>
 <form method="post" action="{{ url_for('board_arrange', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">🧹 Tidy up</button></form>
-<button type="button" class="btn ghost sm" onclick="document.getElementById('renameModal').showModal()">✏️ Rename</button> <form method="post" action="{{ url_for('board_duplicate', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">⧉ Duplicate</button></form> <form method="post" action="{{ url_for('board_save_colours', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm" title="Add every colour swatch on this board to your Brand Kit">🎨 Save colours to Brand Kit</button></form> <a class="btn ghost" href="{{ url_for('moodboards') }}">All boards</a>
+<button type="button" class="btn sm" onclick="document.getElementById('shareModal').showModal()">🔗 Share</button> <button type="button" class="btn ghost sm" onclick="document.getElementById('renameModal').showModal()">✏️ Rename</button> <form method="post" action="{{ url_for('board_duplicate', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">⧉ Duplicate</button></form> <form method="post" action="{{ url_for('board_save_colours', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm" title="Add every colour swatch on this board to your Brand Kit">🎨 Save colours to Brand Kit</button></form> <a class="btn ghost" href="{{ url_for('moodboards') }}">All boards</a>
 <form method="post" action="{{ url_for('board_delete', bid=b['id']) }}" style="display:inline" onsubmit="return confirm('Delete this whole board?')"><button class="btn danger">Delete board</button></form></div></div>
 <p class="muted">{{ b['description'] }} Drag any card to move it, drag the corner to resize, click to bring to front, <b>double-click a card to edit its text</b> (images get a 🔄 Replace button). Changes save as you go — just like a Miro board for your workspace.</p>
 
+<dialog id="shareModal" class="overlay-modal" style="max-width:560px"><div class="overlay-head"><button type="button" class="btn ghost sm" onclick="document.getElementById('shareModal').close()">✕ Close</button></div><div class="overlay-body">
+<div class="fhead"><span class="fico">🔗</span><div><h1>Share this board</h1><p class="fdesc">Send the board to teammates or to anyone outside — clients, agencies, creators.</p></div></div>
+<label style="font-weight:700;font-size:12.5px">Link for your team <span class="muted" style="font-weight:400">(they must be signed in to this workspace)</span></label>
+<div style="display:flex;gap:8px;margin:4px 0 14px"><input readonly id="teamLink" value="{{ C.APP_URL }}{{ url_for('board_view', bid=b['id']) }}" onclick="this.select()"><button type="button" class="btn ghost sm" onclick="copyLink('teamLink',this)">Copy</button></div>
+<label style="font-weight:700;font-size:12.5px">Public link <span class="muted" style="font-weight:400">(anyone with it can view — no login, no editing)</span></label>
+{% if b['share_token'] %}<div style="display:flex;gap:8px;margin:4px 0 8px"><input readonly id="pubLink" value="{{ C.APP_URL }}{{ url_for('board_public', token=b['share_token']) }}" onclick="this.select()"><button type="button" class="btn sm" onclick="copyLink('pubLink',this)">Copy</button></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost sm" href="{{ url_for('board_public', token=b['share_token']) }}" target="_blank" rel="noopener">Preview</a>
+<form method="post" action="{{ url_for('board_share', bid=b['id']) }}"><input type="hidden" name="do" value="reset"><button class="btn ghost sm" title="Makes a new link; the old one stops working">↻ New link</button></form>
+<form method="post" action="{{ url_for('board_share', bid=b['id']) }}"><input type="hidden" name="do" value="off"><button class="btn danger sm">Turn off</button></form></div>
+{% else %}<p class="muted" style="margin:4px 0 10px">Off right now — nobody outside your workspace can see this board.</p>
+<form method="post" action="{{ url_for('board_share', bid=b['id']) }}"><input type="hidden" name="do" value="on"><button class="btn">Create public link</button></form>{% endif %}
+</div></dialog>
 <dialog id="renameModal" class="overlay-modal" style="max-width:460px"><div class="overlay-body"><form method="post" action="{{ url_for('board_rename', bid=b['id']) }}" class="form"><label>Board name<input name="name" value="{{ b['name'] }}" required></label><label>Description<input name="description" value="{{ b['description'] }}"></label><button class="btn">Save</button> <button type="button" class="btn ghost" onclick="document.getElementById('renameModal').close()">Cancel</button></form></div></dialog>
 <dialog id="helpModal" class="overlay-modal" style="max-width:520px">
 <div class="overlay-head"><b style="margin-right:auto;padding-left:4px">❓ How mood boards work</b><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').close()">✕ Close</button></div>
@@ -60,6 +72,9 @@
 </div></div>
 {% endblock %}
 {% block scripts %}<script>
+function fixSwatchText(){document.querySelectorAll('.citem .color').forEach(function(e){var m=(e.style.background||'').match(/\d+/g);if(!m||m.length<3)return;var l=(0.299*m[0]+0.587*m[1]+0.114*m[2])/255;e.style.color=l>0.68?'#2b2442':'#fff';e.style.textShadow=l>0.68?'none':'0 1px 2px rgba(0,0,0,.35)';});}fixSwatchText();
+function copyLink(id,btn){var el=document.getElementById(id);el.select();try{navigator.clipboard.writeText(el.value);}catch(e){document.execCommand('copy');}var t=btn.textContent;btn.textContent='Copied ✓';setTimeout(function(){btn.textContent=t;},1500);}
+{% if request.args.get('share') %}document.addEventListener('DOMContentLoaded',function(){document.getElementById('shareModal').showModal();});{% endif %}
 function toggle(id){var el=document.getElementById(id);['mb-note','mb-color','mb-link','mb-image'].forEach(function(x){if(x!==id)document.getElementById(x).style.display='none';});el.style.display=el.style.display==='none'?'block':'none';}
 
 // ---------- show the how-to-use guide automatically the first time someone opens a board (not every time — just once per browser; the ❓ button always reopens it) ----------

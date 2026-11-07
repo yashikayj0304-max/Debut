@@ -2,17 +2,22 @@
 <div class="plan {{ 'cur' if cur == k }} {{ 'pop' if k == 'team' and cta != 'billing' }}"><h3>{{ p.name }}</h3><div class="muted">{{ p.blurb }}</div>
 {% if p.price == 0 %}<div class="price">₹0</div><div class="per">free forever</div>
 {% else %}<div class="price">₹{{ '{:,}'.format(p.price) }}</div><div class="per">per month {{ C.PRICE_NOTE }}</div>{% endif %}
-<ul><li>{{ p.seats }} team seat{{ 's' if p.seats > 1 }}</li><li>{{ p.ai_credits }} AI credits / month</li><li>Up to {{ '{:,}'.format(p.records) }} records</li>
-<li>{{ 'Unlimited' if p.boards >= 999 else p.boards }} mood boards</li>
-<li>Market Pulse: live news, trends &amp; videos for {{ p.watch }} topics</li>
+{% set cp = plans.get(cur) if (cta == 'billing' and cur in plans and cur != 'trial') else None %}
+{% macro num(label, v, cv, text) %}<li class="{{ 'hl' if cp and v != cv }}">{{ text }}{% if cp and v != cv %} <span class="dlt {{ 'up' if v > cv else 'down' }}">{{ '▲ more' if v > cv else '▼ less' }}</span>{% endif %}</li>{% endmacro %}
+{% macro feat(on, con, text) %}<li class="{{ 'n' if not on }} {{ 'hl' if cp and on != con }}">{{ text }}{% if cp and on != con %} <span class="dlt {{ 'up' if on else 'down' }}">{{ '▲ added' if on else '▼ not included' }}</span>{% endif %}</li>{% endmacro %}
+<ul>{{ num('seats', p.seats, cp.seats if cp else 0, p.seats ~ ' team seat' ~ ('s' if p.seats > 1 else '')) }}
+{{ num('credits', p.ai_credits, cp.ai_credits if cp else 0, p.ai_credits ~ ' AI credits / month') }}
+{{ num('records', p.records, cp.records if cp else 0, 'Up to ' ~ '{:,}'.format(p.records) ~ ' records') }}
+{{ num('boards', p.boards, cp.boards if cp else 0, ('Unlimited' if p.boards >= 999 else p.boards) ~ ' mood boards') }}
+{{ num('watch', p.watch, cp.watch if cp else 0, 'Market Pulse: live news, trends & videos for ' ~ p.watch ~ ' topics') }}
 <li>Calendar, GTM plans, personas, competitors, brand kit, launch checklist, tasks, campaigns, leads, references, news feed</li>
-<li class="{{ 'y' if 'influencers' in p.features else 'n' }}">{% if 'influencers' in p.features %}✓{% else %}✗{% endif %} Influencer discovery &amp; outreach</li>
-<li class="{{ 'y' if 'analytics' in p.features else 'n' }}">{% if 'analytics' in p.features %}✓{% else %}✗{% endif %} KPI tracking &amp; analytics</li>
-<li class="{{ 'y' if 'import' in p.features else 'n' }}">{% if 'import' in p.features %}✓{% else %}✗{% endif %} CSV import</li>
-<li class="{{ 'y' if 'content_ops' in p.features else 'n' }}">{% if 'content_ops' in p.features %}✓{% else %}✗{% endif %} Content Ops (creator network, orders, invoices)</li>
-<li class="{{ 'y' if p.clients else 'n' }}">{% if p.clients %}✓{% else %}✗{% endif %} Client portal{% if p.clients %}: {{ p.clients }} client seats{% endif %}</li>
-<li class="{{ 'y' if 'api' in p.features else 'n' }}">{% if 'api' in p.features %}✓{% else %}✗{% endif %} REST API &amp; integrations</li>
-<li class="{{ 'y' if 'group' in p.features else 'n' }}">{% if 'group' in p.features %}✓{% else %}✗{% endif %} Group mode: Team Lead role, team hub, approvals</li>
-<li class="{{ 'y' if 'promo_events' in p.features else 'n' }}">{% if 'promo_events' in p.features %}✓{% else %}✗{% endif %} Promotions &amp; events (online + offline)</li></ul>
+{{ feat('influencers' in p.features, 'influencers' in cp.features if cp else False, 'Influencer discovery & outreach') }}
+{{ feat('analytics' in p.features, 'analytics' in cp.features if cp else False, 'KPI tracking & analytics') }}
+{{ feat('import' in p.features, 'import' in cp.features if cp else False, 'CSV import') }}
+{{ feat('content_ops' in p.features, 'content_ops' in cp.features if cp else False, 'Content Ops (creator network, orders, invoices)') }}
+{{ feat(p.clients > 0, (cp.clients > 0) if cp else False, 'Client portal' ~ (': ' ~ p.clients ~ ' client seats' if p.clients else '')) }}
+{{ feat('api' in p.features, 'api' in cp.features if cp else False, 'REST API & integrations') }}
+{{ feat('group' in p.features, 'group' in cp.features if cp else False, 'Group mode: Team Lead role, team hub, approvals') }}
+{{ feat('promo_events' in p.features, 'promo_events' in cp.features if cp else False, 'Promotions & events (online + offline)') }}</ul>
 {% if cta == 'billing' %}{% if cur == k %}<span class="pill">Current plan</span>{% elif k != 'free' and can_buy %}<button class="btn" onclick="subscribe('{{ k }}')">{{ 'Switch to' if cur_paid else 'Choose' }} {{ p.name }}</button>{% endif %}
 {% else %}<a class="btn {{ 'ghost' if k == 'free' }}" href="{{ url_for('auth.signup') }}">{{ 'Start free' if k == 'free' else 'Get started' }}</a>{% endif %}</div>{% endfor %}</div>

@@ -1,11 +1,12 @@
 {% extends "base.html" %}{% block title %}Help &amp; guides{% endblock %}{% block body %}
 <div class="head"><h1>❓ Help &amp; guides</h1><div>{% if role != 'client' %}<button class="btn ghost" onclick="startTour()">🧭 Take the tour again</button>{% endif %} <a class="btn" href="/feedback?from=/help">💬 Ask us or send feedback</a></div></div>
+<div class="card" style="border:1px solid var(--pri3)"><b>📖 User manual</b><p class="muted">Start here. Step-by-step: signing up, finding your way around, roles and inviting a team, mood boards, plans, colours, security and troubleshooting.</p><a class="btn" href="{{ url_for('manual') }}">Read the manual</a> <a class="btn ghost" href="{{ url_for('static', filename='guides/Debut-User-Manual.pdf') }}" target="_blank">Download PDF</a></div>
 <div class="card"><b>🖼️ Visual tour of the app</b><p class="muted">Real screenshots of every screen and role: dashboards, calendar, Market Pulse, Team hub, the client portal, mobile and more.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Visual-Tour.pdf') }}" target="_blank">Open PDF</a></div>
 <div class="two"><div class="card"><b>📘 Guide for personal brands</b><p class="muted">Set up in 30 minutes, your first 7 days, AI drafts in your voice, opportunities, leads, KPIs and a weekly rhythm.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Guide-Personal-Branding.pdf') }}" target="_blank">Open PDF</a></div>
 <div class="card"><b>📗 Guide for agencies &amp; teams</b><p class="muted">Roles, the Team hub, approvals, delegation, agency operations, client work and a leader's weekly routine.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Guide-Agencies-and-Teams.pdf') }}" target="_blank">Open PDF</a></div></div>
 <div class="card"><b>🗺️ Where is everything?</b><p class="muted">A quick map from "I want to..." to the menu path.</p>
 <table style="box-shadow:none;margin-top:8px"><tr><th>I want to…</th><th>Go to</th></tr>
-<tr><td>See what to do right now, with nothing overdue missed</td><td>🏠 Home button (top left) 🏠 Dashboard &gt; the "Today" list at the topgt; the "Today" list at the top</td></tr>
+<tr><td>See what to do right now, with nothing overdue missed</td><td>🏠 Home button (top left) &gt; the "Today" list at the top</td></tr>
 <tr><td>Check how my marketing is doing &amp; what's left to fix</td><td>Growth &gt; Marketing Health</td></tr>
 <tr><td>Plan a launch or campaign strategy</td><td>Strategy &gt; GTM Plans</td></tr>
 <tr><td>See who I'm marketing to</td><td>Strategy &gt; Personas / ICP</td></tr>
@@ -26,10 +27,20 @@
 <tr><td>Connect a website form, webhook or the REST API</td><td>🔌 Integrations</td></tr>
 <tr><td>See what's needed to bring in real Instagram/Facebook/Google Ads numbers</td><td>⚙ Account &gt; Connected accounts</td></tr>
 <tr><td>Change plan or payment details</td><td>💳 Plan (Billing)</td></tr>
+<tr><td>Add anything fast (content, task, campaign, lead, key date)</td><td>＋ Create (top bar), or the big ＋ at the bottom on a phone</td></tr>
+<tr><td>Jump to any page or search everything</td><td>The search box, or Ctrl+K (⌘+K on Mac)</td></tr>
+<tr><td>Send a mood board to someone</td><td>Mood Boards &gt; open a board &gt; 🔗 Share</td></tr>
+<tr><td>Add many teammates at once</td><td>👥 Team &amp; roles &gt; paste emails, or upload the CSV template</td></tr>
+<tr><td>Choose my secondary colour</td><td>⚙ Account &gt; Secondary colour (or "Use auto")</td></tr>
 <tr><td>Turn on two-factor login or change my brand colour</td><td>⚙ Account</td></tr>
 </table></div>
 <div class="card"><b>Quick answers</b>
 <div class="news"><b>Where is everything?</b><div class="muted">🏠 Home (top left) goes to your dashboard. Side-panel headings open and close like dropdowns. Click your name (top right) for Profile, Send feedback and Log out; your role (Owner, Admin, Manager, Lead…) shows under it. ❓ opens these guides and 🔔 your notifications.</div></div>
+<div class="news"><b>How do I invite my team?</b><div class="muted">Team &amp; roles → type or paste as many emails as you like (commas, spaces or new lines) and pick one role for all of them. For different roles per person, download the CSV template, fill it in and upload it. Pending invites can be revoked — it shows in the Activity log.</div></div>
+<div class="news"><b>How do I send a mood board to someone?</b><div class="muted">Open the board → 🔗 Share. Copy the team link (sign-in needed) or create a public view-only link anyone can open. You can make a new link or turn it off any time.</div></div>
+<div class="news"><b>I already have a free account — what happens when my company adds me?</b><div class="muted">Your own free workspace stays exactly as it is. Accepting the company's invite adds you to the company workspace, where you get that workspace's plan and the role they gave you. Switch between them from the workspace name at the top left.</div></div>
+<div class="news"><b>What is the quick finder?</b><div class="muted">Press Ctrl+K (⌘+K on Mac) or click the search box. Type to jump to any page or to create something (“New task”). Choose “Search everything” to search all your records.</div></div>
+<div class="news"><b>What do the roles mean?</b><div class="muted">Owner and Admin run everything; Lead and Manager work day to day; Creators see only their own work (no prices); Viewers read only; Clients only see their portal. The full table is in the <a href="{{ url_for('manual') }}#team">user manual</a>.</div></div>
 <div class="news"><b>How do I start?</b><div class="muted">Follow the “Get started” checklist on your Home screen. Each step opens the right page.</div></div>
 <div class="news"><b>What should I actually do each day?</b><div class="muted">Click Home (top left) — the "Today" list at the top auto-builds itself from what's overdue plus what's due today, so you don't have to check every module by hand. For the fuller picture (brand consistency, posting consistency, campaign spend, leads) with a full checklist of gaps, see Marketing Health.</div></div>
 <div class="news"><b>Where did the "More tools" popup go?</b><div class="muted">It's gone for good — every module now shows directly in the sidebar. Pop-ups are kept only for things that genuinely depend on another panel, like "Need an idea?" inside a new Content Item.</div></div>

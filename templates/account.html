@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block body %}<div class="head"><h1>⚙ Account</h1></div>
 <div class="two"><div class="card"><b>Profile</b><form method="post" action="{{ url_for('ws.account_profile') }}"><label>Name<input name="name" value="{{ user['name'] }}"></label><p class="muted">{{ user['email'] }} {% if user['email_verified'] %}✓ verified{% else %}(not verified){% endif %}</p><button class="btn">Save</button></form></div>
-<div class="card"><b>Change password</b><form method="post" action="{{ url_for('ws.account_password') }}"><label>Current password<input type="password" name="current" required></label><label>New password<input type="password" name="new" minlength="8" required></label><p class="muted" style="margin-top:-6px">At least 8 characters, with one UPPERCASE letter and one special character (e.g. ! @ # $ %).</p><button class="btn">Update</button></form></div></div>
+<div class="card"><b>Change password</b><form method="post" action="{{ url_for('ws.account_password') }}"><label>Current password<input type="password" name="current" required></label><label>New password<input type="password" name="new" data-new autocomplete="new-password" minlength="8" required></label><p class="muted" style="margin-top:-6px">At least 8 characters, with one UPPERCASE letter and one special character (e.g. ! @ # $ %).</p><button class="btn">Update</button></form></div></div>
 <div class="two"><div class="card"><b>🔐 Two-factor login</b><p class="muted">{% if user['totp_on'] %}On. You'll enter a code from your authenticator app at login.{% else %}Add a second step at login using an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password).{% endif %}</p><a class="btn {{ 'ghost' if user['totp_on'] }}" href="{{ url_for('ws.twofa') }}">{{ 'Manage' if user['totp_on'] else 'Set up two-factor' }}</a></div>
 <div class="card"><b>🔢 PIN sign-in</b><p class="muted">{% if user['pin_hash'] %}On. You'll be asked for your PIN after your password at login &mdash; a lighter option than an authenticator app.{% else %}A quick 4-6 digit PIN as a second login step, for when an authenticator app is too much.{% endif %}</p>
 {% if user['pin_hash'] %}<form method="post" action="{{ url_for('ws.account_pin') }}"><input type="hidden" name="remove" value="1"><button class="btn ghost sm">Turn off PIN sign-in</button></form>
@@ -26,11 +26,12 @@
 </div></div>
 <div><label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px">Secondary <span class="muted" style="font-weight:400">(optional)</span></label>
 <div style="display:flex;align-items:center;gap:8px">
-<input type="color" id="sec-input" value="{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }}" {% if not ws['secondary_color'] %}disabled{% endif %} style="width:48px;height:38px;padding:2px" oninput="document.getElementById('sec-field').value=this.value;updatePreview()">
+<input type="color" id="sec-input" value="{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }}" style="width:48px;height:38px;padding:2px" oninput="document.getElementById('sec-field').value=this.value;document.getElementById('sec-swatch').style.background=this.value;document.getElementById('auto-btn').disabled=false;document.getElementById('sec-note').textContent='Your own colour';updatePreview()">
 <span id="sec-swatch" style="display:inline-block;width:60px;height:38px;border-radius:8px;background:{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }};border:1px solid var(--line)"></span>
 <input type="hidden" name="secondary" id="sec-field" value="{{ ws['secondary_color'] or '' }}">
-<button type="button" class="btn ghost sm" id="auto-btn" onclick="setAutoSecondary()" title="Clear so Debut picks a lighter shade of your primary colour automatically" {% if not ws['secondary_color'] %}disabled{% endif %}>Auto</button>
-<button type="button" class="btn ghost sm" id="custom-btn" onclick="setCustomSecondary()" {% if ws['secondary_color'] %}disabled{% endif %}>Custom&hellip;</button>
+<button type="button" class="btn ghost sm" id="auto-btn" onclick="setAutoSecondary()" title="Let Debut pick a lighter shade of your primary colour" {% if not ws['secondary_color'] %}disabled{% endif %}>Use auto</button>
+<button type="button" class="btn ghost sm" id="custom-btn" onclick="setCustomSecondary()" style="display:none">Custom</button>
+<span class="muted" id="sec-note" style="font-size:12px">{{ 'Your own colour' if ws['secondary_color'] else 'Auto — pick any colour to set your own' }}</span>
 </div></div>
 <div><label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px">Preview</label>
 <div id="combo-preview" style="width:140px;height:38px;border-radius:8px;border:1px solid var(--line);background:linear-gradient(90deg,{{ ws['brand_color'] or '#7c5cd6' }},{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }})"></div></div>
@@ -57,9 +58,8 @@ function updatePreview(){
 }
 function setAutoSecondary(){
  document.getElementById('sec-field').value='';
- document.getElementById('sec-input').disabled=true;
  document.getElementById('auto-btn').disabled=true;
- document.getElementById('custom-btn').disabled=false;
+ document.getElementById('sec-note').textContent='Auto — pick any colour to set your own';
  updatePreview();
 }
 function setCustomSecondary(){

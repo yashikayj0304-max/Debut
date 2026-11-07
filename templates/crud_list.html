@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block body %}{% set popup = key in ('tasks','kpis','key_dates','campaigns','promotions') %}{% set pop = ' onclick="return openOverlay(this.href,\'\')"'|safe if popup else '' %}
+{% extends "base.html" %}{% block body %}{% set popup = true %}{% set pop = ' onclick="return openOverlay(this.href,\'\')"'|safe if popup else '' %}
 <div class="head"><h1>{{ m.icon }} {{ m.title }}</h1><div>
 <a class="btn" href="{{ url_for('m_new', key=key) }}"{{ pop }}>+ New</a>
 {% if m.kanban %}<a class="btn ghost" href="{{ url_for('kanban', key=key) }}">Board view</a>{% endif %}

@@ -93,3 +93,21 @@ I'll fix it directly in the app and give you an updated zip — I can't watch yo
 
 - **`DEVELOPER_GUIDE.md`** (in the same zip) covers everything needed to put this on a real domain for other people to use — that's a separate, bigger step for later, not needed just to test it yourself.
 - The `docs/` folder has PDF guides for personal-brand users and for agencies/teams, plus a visual tour of every screen if you'd rather look before you click.
+
+
+---
+
+## 4. A 10-minute click-through (updated 7 Nov 2026)
+
+1. **Sign up** at `/signup` with a password like `Sup3rSecret!9`. Watch the strength bar and the 👁 icon. Read **What happens next** under the form and open the **user manual** link.
+2. On **Home** check the greeting banner and the Get started progress bar.
+3. Press **＋ Create > Task**, save it; it appears in the list without leaving the page. Press **Ctrl+K**, type “tas”, press Enter.
+4. **Account**: pick a primary and a secondary colour, press Apply. Buttons, the Create button, avatar and the banner follow your secondary colour. “Use auto” goes back to the automatic shade.
+5. **Mood Boards**: create one from a template, press 🔗 Share, copy the public link and open it in a private window.
+6. **Team & roles**: paste two emails, role Creator, invite. Because mail is in demo mode, the invite link is printed in the DEV banner (and in the server log). Open it in a private window to join as the creator: you only see content, tasks, orders, calendar and boards.
+7. Invite a **Client** (type the client name exactly as in your content’s Client field). Open the link: the client only sees the portal and can approve or comment.
+8. **Billing**: compare plans; changes versus your current plan are highlighted. No real payment is taken in demo mode.
+9. Resize the browser to phone width: a bottom bar appears (Home, Calendar, ＋, Tasks, Menu).
+10. Run the automated tests: `python -m pytest -q` (about 170 tests).
+
+Note: sign-up is limited to 10 per hour per network, so if you create many test accounts you may need to wait or restart the app.

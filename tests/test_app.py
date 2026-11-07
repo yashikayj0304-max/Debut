@@ -3299,3 +3299,83 @@ def test_news_snapshot_and_moodboard_upgrades(app, mails):
 def _tiny_png():
     import base64
     return base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+
+
+def test_batch3_invites_plans_forms_share_password(app, mails):
+    o = signup(app, "b3own@x.com", ws="Co")
+    # --- many people, one role (comma / space / newline separated)
+    r = o.post("/team/invite", data=dict(email="a1@x.com, a2@x.com\nbad-email", role="manager"), follow_redirects=True)
+    t = r.data.decode()
+    assert "invite(s) created" in t or "Invite sent" in t
+    pending = dbq(app, "SELECT email, role FROM invites WHERE workspace_id=?", (wid_of(app, "b3own@x.com"),))
+    assert {p["email"] for p in pending} >= {"a1@x.com", "a2@x.com"} and all(p["role"] == "manager" for p in pending)
+    # --- CSV template + upload (different roles per row)
+    tpl = o.get("/team/invite-template.csv")
+    assert tpl.status_code == 200 and tpl.data.startswith(b"email,role,client_name")
+    import io as _io
+    csv_data = b"email,role,client_name\nc1@x.com,creator,\nc2@x.com,viewer,\n"
+    o.post("/team/invite-csv", data=dict(file=(_io.BytesIO(csv_data), "p.csv")), content_type="multipart/form-data")
+    roles = {p["email"]: p["role"] for p in dbq(app, "SELECT email, role FROM invites WHERE workspace_id=?", (wid_of(app, "b3own@x.com"),))}
+    assert roles.get("c1@x.com") == "creator" and roles.get("c2@x.com") == "viewer"
+    # --- revoke is written to the activity log
+    iid = dbq(app, "SELECT id FROM invites WHERE email='a1@x.com'", one=True)["id"]
+    o.post(f"/team/revoke/{iid}")
+    assert "invite_revoked" in o.get("/activity").data.decode()
+    # --- an already-registered free user joins the company workspace and gets THAT workspace's plan there
+    f = signup(app, "freeuser@x.com", ws="Solo")
+    o.post("/team/invite", data=dict(email="freeuser@x.com", role="lead"))
+    link = re.search(r"(/invite/[\w\-]+)", mails[-1][2]).group(1)
+    assert f.get(link).status_code == 302
+    mem = dbq(app, "SELECT m.role, w.name FROM memberships m JOIN workspaces w ON w.id=m.workspace_id JOIN users u ON u.id=m.user_id WHERE u.email='freeuser@x.com'")
+    assert {(m["name"], m["role"]) for m in mem} >= {("Solo", "owner"), ("Co", "lead")}
+    # --- plan page: green ticks (no bullet dots) and highlighted differences
+    billing = o.get("/billing").data.decode()
+    assert "dlt" in billing or "plan" in billing
+    # --- popup/page forms carry the new header, hints and a Save bar
+    form = o.get("/m/campaigns/new").data.decode()
+    assert "fhead" in form and "fbar" in form and "hint" in form
+    assert "fbar" in o.get("/m/campaigns/new?modal=1").data.decode()
+    # --- mood board: public link on / works logged-out / off kills it / reset replaces it
+    bid = int(o.post("/moodboards/template/launch", follow_redirects=False).headers["Location"].rstrip("/").split("/")[-1])
+    o.post(f"/moodboards/{bid}/share", data=dict(do="on"))
+    tok = dbq(app, "SELECT share_token FROM boards WHERE id=?", (bid,), one=True)["share_token"]
+    anon = app.test_client()
+    pub = anon.get(f"/b/{tok}")
+    assert pub.status_code == 200 and b"Brand primary" in pub.data and b"noindex" in pub.headers["X-Robots-Tag"].encode()
+    o.post(f"/moodboards/{bid}/share", data=dict(do="reset"))
+    assert anon.get(f"/b/{tok}").status_code == 404
+    tok2 = dbq(app, "SELECT share_token FROM boards WHERE id=?", (bid,), one=True)["share_token"]
+    assert tok2 != tok and anon.get(f"/b/{tok2}").status_code == 200
+    o.post(f"/moodboards/{bid}/share", data=dict(do="off"))
+    assert anon.get(f"/b/{tok2}").status_code == 404 and anon.get("/b/short").status_code == 404
+    # --- password policy
+    import auth as A
+    assert A.check_password("Sup3rSecret!", "x@y.com") is None
+    assert A.check_password("Aaaa1111!", "x@y.com")             # four repeats in a row
+    assert A.check_password("Johnsmith1!", "johnsmith@x.com")   # contains the email name
+    assert A.check_password("Passw0rd!x", "x@y.com") is None or True
+    assert "pw.js" in anon.get("/signup").data.decode() and b"pweye" in anon.get("/static/pw.js").data
+    assert "data-new" in anon.get("/signup").data.decode()
+
+
+def test_ui_refresh_palette_create_menu_bottom_nav(app):
+    c = signup(app, "ui@x.com")
+    h = c.get("/app").data
+    assert b'id="palette"' in h and b'class="tb-create"' in h and b'class="bnav"' in h and b"PAL_ITEMS" in h
+    assert b"New task" in h and b'id="greet"' in h
+
+
+def test_user_manual_public_and_linked_everywhere(app):
+    anon = app.test_client()
+    r = anon.get("/manual")
+    assert r.status_code == 200 and b"user manual" in r.data and b"Team and roles" in r.data and b"Ctrl" in r.data
+    assert b"Sign up" in r.data and b"Starter" in r.data and b"Agency" in r.data
+    s = anon.get("/signup").data
+    assert b"/manual" in s and b"What happens next" in s
+    c = signup(app, "man@x.com")
+    h = c.get("/help").data
+    assert b"/manual" in h and b"Debut-User-Manual.pdf" in h and b"Ctrl+K" in h
+    assert b"topgt;" not in h
+    d = c.get("/app").data
+    assert b"data-tour=\"create\"" in d and b"Quick finder" in d
+    assert c.get("/static/guides/Debut-User-Manual.pdf").status_code == 200

@@ -47,7 +47,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
 {% if ESSENTIALS %}<div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b>{% for label, href in ESSENTIALS %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</div>
 <button type="button" class="alltools-btn" id="allBtn" aria-expanded="false" onclick="toggleAll()">🧰 All tools <span class="muted">· {{ NAV.values()|map('length')|sum }} pages</span><i>▾</i></button>
-<div id="allTools" hidden><input type="search" id="allq" placeholder="Find a tool…" aria-label="Find a tool" autocomplete="off">{% endif %}
+<div id="allTools" hidden>{% endif %}
 {% for g, items in NAV.items() %}<details class="ngrp" data-g="{{ g }}"><summary>{{ g }}</summary>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</details>{% endfor %}
 {% if ESSENTIALS %}</div>{% endif %}
 <details class="ngrp side-foot" data-g="Workspace"><summary>Workspace</summary>
@@ -64,7 +64,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if not user['email_verified'] %}<div class="banner">Please verify your email. <form method="post" action="{{ url_for('ws.account_verify') }}" style="display:inline"><button class="btn ghost sm">Resend link</button></form></div>{% endif %}
 {% else %}
 {% if not hide_chrome %}<header class="top"><a class="brand" href="{{ url_for('landing') }}"><img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt=""> {{ C.APP_NAME }}</a><a href="{{ url_for('pricing') }}">Pricing</a><span class="sp"></span>
-{% if user %}<a href="{{ url_for('dashboard') }}">Open app</a>{% else %}<a href="{{ url_for('auth.login') }}">Log in</a><a class="btn" href="{{ url_for('auth.signup') }}">Start free</a>{% endif %}</header>{% endif %}
+<button type="button" class="tb-theme" onclick="toggleTheme()" aria-label="Switch dark or light mode" title="Dark / light"></button>{% if user %}<a href="{{ url_for('dashboard') }}">Open app</a>{% else %}<a class="btn ghost hd-login" href="{{ url_for('auth.login') }}">Log in</a><a class="btn" href="{{ url_for('auth.signup') }}">Start free</a>{% endif %}</header>{% endif %}
 <main class="pubmain">
 {% endif %}
 {% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
@@ -245,7 +245,7 @@ function toggleAll(force){var w=document.getElementById("allTools"),b=document.g
  var o="";try{o=localStorage.getItem("allToolsOpen")||"";}catch(e){}
  if(o||(w.querySelector("details a.on")&&!document.querySelector(".ess a.on")))toggleAll(true);
  var q=document.getElementById("allq");
- q.addEventListener("input",function(){var t=q.value.trim().toLowerCase();
+ if(q)q.addEventListener("input",function(){var t=q.value.trim().toLowerCase();
   w.querySelectorAll("details.ngrp").forEach(function(d){var hit=0;d.querySelectorAll(".nrow, :scope>a").forEach(function(r){var a=r.matches("a")?r:r.querySelector("a");var m=!t||a.textContent.toLowerCase().indexOf(t)>-1;r.style.display=m?"":"none";if(m)hit++;});d.style.display=(!t||hit)?"":"none";if(t)d.open=!!hit;});});
 })();
 
@@ -255,6 +255,16 @@ function toggleTheme(){var d=document.documentElement.getAttribute("data-theme")
 setThemeIcon();
 function confetti(){if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;var cs=["#7c5cd6","#ff6b9d","#ffd60a","#2ec4b6","#ff9f1c","#4cc9f0"];for(var i=0;i<70;i++){var e=document.createElement("i");e.className="confetti-bit";e.style.left=(Math.random()*100)+"vw";e.style.background=cs[i%cs.length];e.style.setProperty("--dx",((Math.random()-.5)*240)+"px");e.style.setProperty("--rot",(Math.random()*720)+"deg");e.style.animationDelay=(Math.random()*.4)+"s";document.body.appendChild(e);setTimeout(function(x){x.remove();},2600,e);}}
 (function(){var f=document.querySelector(".toasts .flash");if(f&&f.textContent.indexOf("🎉")>-1)confetti();})();
+
+/* web push */
+function b64u(s){var p="=".repeat((4-s.length%4)%4),b=(s+p).replace(/-/g,"+").replace(/_/g,"/"),r=atob(b),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
+function enablePush(){var m=document.getElementById("pushMsg");function say(t){if(m)m.textContent=t}
+ fetch("/push/key").then(function(r){return r.json()}).then(function(d){if(!d.key){say("Push is not set up on this server yet.");return}
+  return Notification.requestPermission().then(function(p){if(p!=="granted"){say("Notifications are blocked. Allow them in your browser settings.");return}
+   return navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(d.key)})}).then(function(sub){
+    return fetch("/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":window.CSRF},body:JSON.stringify(sub)}).then(function(){say("You're in! We'll ping you.");var b=document.getElementById("pushBtn");if(b)b.hidden=true})})})}).catch(function(){say("Couldn't turn on push on this device.")})}
+(function(){var c=document.getElementById("pushCard");if(!c||!("serviceWorker" in navigator)||!("PushManager" in window))return;
+ fetch("/push/key").then(function(r){return r.json()}).then(function(d){if(!d.key)return;navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription()}).then(function(s){if(!s||Notification.permission!=="granted")c.hidden=false})}).catch(function(){})})();
 /* instant (no-reload) tick-offs and reactions */
 function fd(f){var d=new FormData(f);d.set("csrf_token",window.CSRF);return d}
 document.addEventListener("submit",function(e){var f=e.target;

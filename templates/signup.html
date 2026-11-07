@@ -5,7 +5,7 @@
 <label>Your name<input name="name" value="{{ form.get('name','') }}" required autofocus></label>
 <label>Work email<input type="email" name="email" value="{{ inv['email'] if inv else form.get('email','') }}" {{ 'readonly' if inv }} required></label>
 {% if not inv %}<label>Workspace / company name<input name="workspace" value="{{ form.get('workspace','') }}" placeholder="e.g. Acme Foods Marketing" maxlength="80"></label>
-<p class="muted" style="margin-top:-8px">Up to 80 characters. This is what your team will see at the top of the app and (once you invite teammates) on their sign-in screen too.</p>
+<p class="muted" style="margin-top:-8px;font-size:12.5px">Your team sees this name at the top of the app and on their sign-in screen.</p>
 <label>Your industry<select name="industry">{% for k, l in industries %}<option value="{{ k }}" {% if form.get('industry') == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
 <label style="font-weight:400"><input type="checkbox" name="kit" value="1" style="width:auto" checked> Load my industry starter kit (personas, launch checklist, key dates and news feeds tailored to my industry)</label>{% endif %}
 <label>Password<input type="password" name="password" minlength="8" required data-new autocomplete="new-password"></label>

@@ -3441,7 +3441,7 @@ def test_landing_feature_overviews_clickable(app):
 def test_short_sidebar_empty_art_and_status_strip(app, mails):
     o = signup(app, "shortnav@x.com")
     html = o.get("/app").data.decode()
-    assert 'class="ess"' in html and "All tools" in html and 'id="allq"' in html
+    assert 'class="ess"' in html and "All tools" in html and 'id="allq"' not in html
     assert "/m/leads" in html and "/m/utm_links" not in html  # every real page is still in the page, just tucked behind All tools
     empty = o.get("/m/leads").data.decode()
     assert "<svg" in empty and "empty-state" in empty
@@ -3539,3 +3539,36 @@ def test_vibe_presets_and_trophies(app):
     assert "Pick your vibe" not in c.get("/app").get_data(as_text=True)
     rc = c.get("/recap").get_data(as_text=True)
     assert "Trophy shelf" in rc and "Made it yours" in rc
+
+
+def test_push_endpoints_and_noop(app, monkeypatch):
+    import config as C, services as S, pywebpush, threading
+    c = signup(app, "push@x.com", ws="Push Co")
+    assert c.get("/push/key").get_json()["key"] == ""
+    assert "Turn on push" in c.get("/notifications").get_data(as_text=True)
+    sub = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "k", "auth": "a"}}
+    assert c.post("/push/subscribe", json=sub).get_json()["ok"]
+    assert c.post("/push/subscribe", json={"endpoint": "http://bad", "keys": {}}).status_code == 400
+    sent = []
+    monkeypatch.setattr(C, "VAPID_PUBLIC", "x"); monkeypatch.setattr(C, "VAPID_PRIVATE", "y")
+    monkeypatch.setattr(pywebpush, "webpush", lambda **kw: sent.append(kw["data"]))
+    with app.app_context():
+        from db import q
+        uid = q("SELECT id FROM users WHERE email=?", ("push@x.com",), one=True)["id"]
+        S.send_push(uid, "Isha assigned you a task", "/m/tasks")
+    for t in threading.enumerate():
+        if t is not threading.current_thread() and t.daemon:
+            t.join(2)
+    assert sent and "Isha assigned you a task" in sent[0]
+    assert c.post("/push/unsubscribe", json={"endpoint": sub["endpoint"]}).get_json()["ok"]
+
+
+def test_next_step_and_first_win(app):
+    c = signup(app, "nx@x.com", ws="Nx Co")
+    d = c.get("/app").get_data(as_text=True)
+    assert "Do this now" in d and "See the rest" in d and "Get started" not in d
+    r = c.post("/m/leads/save", data={"name": "Aarav"}, follow_redirects=True).get_data(as_text=True)
+    assert "First lead caught" in r
+    r2 = c.post("/m/leads/save", data={"name": "Isha"}, follow_redirects=True).get_data(as_text=True)
+    assert "First lead caught" not in r2
+    assert "Invite a teammate" in c.get("/app").get_data(as_text=True).split("nx-t")[1][:80]

@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% set meta_desc = C.APP_NAME ~ ": plan, launch and grow your brand. Go-to-market plans, content calendar, mood boards, AI drafting, team approvals and client reports for brands, agencies, founders and personal brands in India. Free plan available." %}{% block title %}{{ C.APP_NAME }}: plan, launch and grow your brand{% endblock %}{% block body %}
-<section class="hero"><h1>Every great brand starts with a debut.<br>Plan it, launch it, grow it.</h1>
+<section class="hero"><div class="chips"><span>📅 Content calendar</span><span>🖼️ Mood boards</span><span>🤖 AI drafts</span><span>📈 KPIs</span><span>🚀 Launch plans</span></div><h1>Every great brand starts with a debut.<br>Plan it, launch it, grow it.</h1>
 <p>Go-to-market plans, content calendar, mood boards, creator marketplace, influencer discovery &amp; outreach, promotions, events and AI drafting. Built for brands, agencies, founders and personal brands in India.</p>
 <a class="btn" href="{{ url_for('auth.signup') }}" style="padding:11px 24px;font-size:15px">Start free</a> <a class="btn ghost" href="{{ url_for('pricing') }}" style="padding:11px 24px;font-size:15px">See pricing</a>
 <p class="tag" style="margin-top:10px">Free plan forever. Every new workspace also gets {{ C.TRIAL_DAYS }} days of all features. No credit card.</p></section>

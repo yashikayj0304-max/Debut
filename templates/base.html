@@ -5,7 +5,8 @@
 <meta property="og:type" content="website"><meta property="og:site_name" content="{{ C.APP_NAME }}"><meta property="og:title" content="{{ _t }}"><meta property="og:description" content="{{ _d }}"><meta property="og:url" content="{{ C.APP_URL }}{{ request.path }}"><meta property="og:image" content="{{ C.APP_URL }}{{ url_for('static', filename='icons/icon-512.png') }}"><meta name="twitter:card" content="summary">
 {% if user and ws and not bare %}<meta name="robots" content="noindex,nofollow">{% endif %}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5cd6'/%3E%3Cpath d='M9 21l5-10 4 6 5-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"><title>{% block title %}{{ C.APP_NAME }}{% endblock %}</title>
 <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script>(function(){try{var t=localStorage.getItem("theme");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}">
 {% if brand %}<style>:root{--pri:{{ brand.pri }};--pri-d:{{ brand.pri_d }};--pri2:{{ brand.pri2 }};--pri3:{{ brand.pri3 }};--bg:{{ brand.bg }};--bg2:{{ brand.bg2 }};--accent:{{ brand.accent }};--sec:{{ brand.sec }};--sec-d:{{ brand.sec_d }};--sec-g:{{ brand.sec_g }};--on:{{ brand.on }}}
 aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{% endif %}</head>
 <body class="{{ 'app' if (user and ws and not bare) else 'pub' }}">
@@ -24,11 +25,13 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 <a href="{{ url_for('m_new', key='key_dates') }}">🗓️ <span>Key date<small>festival, sale, event</small></span></a>{% endif %}
 <a class="nopop" href="{{ url_for('moodboards') }}">🖼️ <span>Mood board<small>start a visual board</small></span></a>
 <a class="nopop" href="{{ url_for('ideas') }}">💡 <span>Idea<small>browse the Idea Bank</small></span></a></div></div>{% endif %}
+<button type="button" class="tb-ic tb-theme" onclick="toggleTheme()" title="Light / dark mode" aria-label="Switch light or dark mode">🌙</button>
 <a class="tb-ic tb-help" href="{{ url_for('help_centre') }}" data-tour="help" title="Help &amp; guides" aria-label="Help &amp; guides">❓</a>
 <div class="dd"><button type="button" class="tb-ic" data-tour="bell" onclick="toggleDD(this);loadNotifs()" aria-label="Notifications">🔔{% if unread %}<span class="dot">{{ unread if unread < 10 else '9+' }}</span>{% endif %}</button>
 <div class="dd-menu dd-wide" id="notifDD"><div class="muted" style="padding:10px">No notifications yet.</div></div></div>
 <div class="dd"><button type="button" class="tb-profile" data-tour="feedback" onclick="toggleDD(this)" aria-label="Your profile menu"><span class="tb-av">{{ (user['name'] or user['email'])[:1]|upper }}</span><span class="tb-who"><span class="tb-name">{{ user['name'] or user['email'] }}</span><span class="tb-role">{{ role }}</span></span><span class="tb-caret">▾</span></button><div class="dd-menu">
 <a href="{{ url_for('ws.account') }}">👤 Profile</a>
+<button type="button" class="dd-item dd-theme" onclick="toggleTheme()">🌙 Dark / light mode</button>
 <a href="/feedback?from={{ request.path }}">💬 Send feedback</a>
 <form method="post" action="{{ url_for('auth.logout') }}"><button class="dd-item" type="submit">↪ Log out</button></form></div></div></div></div>
 <div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
@@ -61,7 +64,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% endif %}
 {% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
 {% block body %}{% endblock %}
-{% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><a href="{{ url_for('manual') }}">User manual</a><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
+{% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><button type="button" class="theme-link" onclick="toggleTheme()">🌙 Dark / light</button><a href="{{ url_for('manual') }}">User manual</a><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
 </main>{% if user and ws and not bare %}</div>{% endif %}
 <script>
 window.CSRF=document.querySelector('meta[name=csrf-token]').content;
@@ -229,5 +232,31 @@ function tourStep(i){
 }
 function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0);}
 {% if user and ws and not bare and not user['onboarded'] and role not in ('client',) %}window.addEventListener('load',function(){setTimeout(startTour,600);});{% endif %}
+
+// ---------- dark mode, pinned pages, confetti ----------
+function setThemeIcon(){var d=document.documentElement.getAttribute("data-theme")==="dark";document.querySelectorAll(".tb-theme").forEach(function(b){b.textContent=d?"☀️":"🌙";});var m=document.querySelector("meta[name=color-scheme]");}
+function toggleTheme(){var d=document.documentElement.getAttribute("data-theme")==="dark";if(d)document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme","dark");try{localStorage.setItem("theme",d?"light":"dark");}catch(e){}setThemeIcon();}
+setThemeIcon();
+function confetti(){if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;var cs=["#7c5cd6","#ff6b9d","#ffd60a","#2ec4b6","#ff9f1c","#4cc9f0"];for(var i=0;i<70;i++){var e=document.createElement("i");e.className="confetti-bit";e.style.left=(Math.random()*100)+"vw";e.style.background=cs[i%cs.length];e.style.setProperty("--dx",((Math.random()-.5)*240)+"px");e.style.setProperty("--rot",(Math.random()*720)+"deg");e.style.animationDelay=(Math.random()*.4)+"s";document.body.appendChild(e);setTimeout(function(x){x.remove();},2600,e);}}
+(function(){var f=document.querySelector(".toasts .flash");if(f&&f.textContent.indexOf("🎉")>-1)confetti();})();
+(function(){
+ var aside=document.querySelector("aside");if(!aside)return;
+ var KEY="pinnedPages",pins=[];try{pins=JSON.parse(localStorage.getItem(KEY)||"[]");}catch(e){}
+ function save(){try{localStorage.setItem(KEY,JSON.stringify(pins));}catch(e){}}
+ var first=aside.querySelector("details.ngrp"),box=document.createElement("div");box.className="pinned";box.id="pinnedBox";aside.insertBefore(box,first);
+ var cur=location.pathname;
+ function draw(){
+  box.innerHTML="";var any=0;
+  pins.forEach(function(h){var src=aside.querySelector('details.ngrp a[href="'+h+'"]');if(!src)return;any++;
+   if(any===1){var t=document.createElement("b");t.textContent="⭐ Pinned";box.appendChild(t);}
+   var r=document.createElement("div");r.className="nrow";var a=document.createElement("a");a.href=h;a.textContent=src.textContent;if(src.classList.contains("on"))a.className="on";r.appendChild(a);
+   var b=document.createElement("button");b.type="button";b.className="pin-btn on";b.title="Unpin";b.textContent="★";b.onclick=function(){toggle(h);};r.appendChild(b);box.appendChild(r);});
+  box.style.display=any?"":"none";
+  aside.querySelectorAll("details.ngrp .nrow").forEach(function(r){var a=r.querySelector("a"),b=r.querySelector(".pin-btn"),h=a.getAttribute("href"),p=pins.indexOf(h)>-1;b.textContent=p?"★":"☆";b.classList.toggle("on",p);b.title=p?"Unpin":"Pin to top";});
+ }
+ function toggle(h){var i=pins.indexOf(h);if(i>-1)pins.splice(i,1);else pins.push(h);save();draw();}
+ aside.querySelectorAll("details.ngrp:not(.side-foot)>a").forEach(function(a){var r=document.createElement("div");r.className="nrow";a.parentNode.insertBefore(r,a);r.appendChild(a);var b=document.createElement("button");b.type="button";b.className="pin-btn";b.textContent="☆";b.setAttribute("aria-label","Pin this page");b.onclick=function(e){e.preventDefault();toggle(a.getAttribute("href"));};r.appendChild(b);});
+ draw();
+})();
 </script><script src="{{ url_for('static', filename='pw.js') }}" defer></script>{% if C.GA_MEASUREMENT_ID and not (user and ws and not bare) %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ C.GA_MEASUREMENT_ID }}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config","{{ C.GA_MEASUREMENT_ID }}",{anonymize_ip:true});</script>{% endif %}
 {% block scripts %}{% endblock %}</body></html>

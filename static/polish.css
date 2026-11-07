@@ -1,0 +1,122 @@
+/* Debut polish layer: dark mode, bolder hero, empty states, small moments */
+
+/* ---------- dark mode ---------- */
+html[data-theme=dark]{
+  color-scheme:dark;
+  --bg:#110e1c;--bg2:#1a1628;--card:#1d1930;--ink:#ece8f8;--mut:#a39bc0;--line:#322b4f;
+  --pri-d:color-mix(in srgb,var(--pri) 45%,#fff);--sec-d:color-mix(in srgb,var(--sec) 45%,#fff);
+  --pri2:color-mix(in srgb,var(--pri) 20%,#1d1930);--pri3:color-mix(in srgb,var(--pri) 34%,#1d1930);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);--shadow-lg:0 12px 34px rgba(0,0,0,.5);
+  --ok:#5fcfa4;--warn:#e6b45a;--bad:#ff7d93}
+html[data-theme=dark] body{background:var(--bg)}
+html[data-theme=dark] aside{background:linear-gradient(180deg,#171326 0%,#120f1f 100%)}
+html[data-theme=dark] aside h4,html[data-theme=dark] .ngrp>summary,html[data-theme=dark] .more-tools-modal .mt-group h4{color:#a39bc0}
+html[data-theme=dark] .topbar{background:rgba(17,14,28,.85)}
+html[data-theme=dark] .tb-search input,html[data-theme=dark] .tb-profile,html[data-theme=dark] .dd-menu,
+html[data-theme=dark] aside form.srch input,html[data-theme=dark] .btn.ghost,html[data-theme=dark] .btn.danger,
+html[data-theme=dark] input,html[data-theme=dark] select,html[data-theme=dark] textarea,
+html[data-theme=dark] .flash,html[data-theme=dark] .cal td,html[data-theme=dark] .kcard,html[data-theme=dark] .mi,
+html[data-theme=dark] #out,html[data-theme=dark] .plan,html[data-theme=dark] .citem,html[data-theme=dark] .citem-editform,
+html[data-theme=dark] .overlay-modal,html[data-theme=dark] .overlay-body,html[data-theme=dark] dialog{background:var(--card);color:var(--ink)}
+html[data-theme=dark] select{background-color:var(--card)}
+html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeholder{color:#7f78a0}
+html[data-theme=dark] .btn.ghost{border-color:var(--pri3);color:var(--pri-d)}
+html[data-theme=dark] table tbody tr:hover,html[data-theme=dark] tbody tr:hover td,html[data-theme=dark] table tr:hover td{background:var(--pri2)}
+html[data-theme=dark] table th{background:var(--bg2)}
+html[data-theme=dark] .col{background:linear-gradient(180deg,var(--pri2),var(--bg2))}
+html[data-theme=dark] .col.dragover{background:linear-gradient(180deg,var(--pri3),var(--pri2))}
+html[data-theme=dark] .banner{background:#2d2514;color:#f1d58b;border-color:#5a4720}
+html[data-theme=dark] .banner.bad{background:#32151e;color:#ffb3c1;border-color:#6a2a3b}
+html[data-theme=dark] .bbar,html[data-theme=dark] .pwbar{background:#2a2442}
+html[data-theme=dark] .plan li.hl{background:#2f2711;box-shadow:inset 0 0 0 1px #5a4720}
+html[data-theme=dark] .plan li.hl.n{background:#331821;box-shadow:inset 0 0 0 1px #6a2a3b}
+html[data-theme=dark] .plan li.hl .kn{background:#5a4720;color:#ffe9a3}
+html[data-theme=dark] .create-menu small{color:#a39bc0}
+html[data-theme=dark] .hero{background:linear-gradient(135deg,#1b1530 0%,#120e20 55%,#201638 100%)}
+html[data-theme=dark] .hero h1,html[data-theme=dark] .hero h1 em{background:linear-gradient(90deg,#fff,var(--pri-d) 55%,var(--sec-d));-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-theme=dark] .badge{background:var(--pri2);color:var(--pri-d)}
+html[data-theme=dark] .cal td.out{opacity:.45}
+html[data-theme=dark] .bnav{background:rgba(17,14,28,.94);border-top-color:var(--line)}
+html[data-theme=dark] .tb-clear{background:var(--pri2);color:var(--ink)}
+html[data-theme=dark] .tb-kbd{background:var(--pri2);color:var(--pri-d)}
+html[data-theme=dark] img{opacity:.92}
+html[data-theme=dark] .logo{opacity:1}
+html[data-theme=dark] code,html[data-theme=dark] pre{background:#241e3b;color:#e6e0ff}
+html[data-theme=dark] hr{border-color:var(--line)}
+html[data-theme=dark] ::selection{background:var(--pri3)}
+html[data-theme=dark] [style*="background:#fff"],html[data-theme=dark] [style*="background: #fff"],
+html[data-theme=dark] [style*="background:white"]{background:var(--card)!important;color:var(--ink)!important}
+html[data-theme=dark] [style*="background:#f"],html[data-theme=dark] [style*="background: #f"]{background:var(--bg2)!important;color:var(--ink)!important}
+html[data-theme=dark] [style*="color:#2"],html[data-theme=dark] [style*="color:#3"],html[data-theme=dark] [style*="color:#4"]{color:var(--ink)!important}
+
+/* theme toggle */
+.tb-theme{font-size:16px}
+.foot .theme-link{background:none;border:0;color:var(--mut);cursor:pointer;font:inherit;margin:0 10px;padding:0}
+.foot .theme-link:hover{color:var(--pri-d)}
+
+/* ---------- bolder landing hero ---------- */
+.hero{position:relative;overflow:hidden;padding:84px 24px 60px;border-radius:32px}
+.hero::before,.hero::after{content:"";position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;z-index:0;pointer-events:none}
+.hero::before{width:320px;height:320px;left:-80px;top:-90px;background:var(--sec,#a48be6)}
+.hero::after{width:380px;height:380px;right:-110px;bottom:-140px;background:var(--pri,#7c5cd6);opacity:.4}
+.hero>*{position:relative;z-index:1}
+.hero h1{font-size:clamp(34px,6vw,64px);line-height:1.04;letter-spacing:-.04em;font-weight:800;margin-bottom:18px}
+.hero p{font-size:18px}
+.hero .btn{padding:13px 28px!important;font-size:16px!important;border-radius:999px}
+.hero .btn:not(.ghost){box-shadow:0 10px 28px rgba(124,92,214,.4)}
+.hero .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 22px}
+.hero .chips span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;color:var(--ink);box-shadow:var(--shadow);transform:rotate(-2deg)}
+.hero .chips span:nth-child(even){transform:rotate(2deg)}
+.feat .card b{font-size:16px}
+.feat .card:hover{transform:translateY(-4px) rotate(-.4deg)}
+
+/* ---------- dashboard banner ---------- */
+.dhero{position:relative;overflow:hidden;padding:26px 28px}
+.dhero h2{font-size:clamp(24px,3.4vw,32px);letter-spacing:-.025em}
+.dhero::after{content:"";position:absolute;right:-60px;top:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.16);pointer-events:none}
+.tile b{font-size:32px}
+
+/* ---------- empty states ---------- */
+.empty-state{text-align:center;padding:38px 20px}
+.empty-state .big{display:inline-flex;align-items:center;justify-content:center;width:76px;height:76px;border-radius:24px;font-size:38px;background:linear-gradient(135deg,var(--pri2),var(--pri3));margin-bottom:12px;transform:rotate(-6deg);box-shadow:var(--shadow)}
+.empty-state h3{margin:6px 0 4px;font-size:18px;letter-spacing:-.01em}
+.empty-state p{max-width:44ch;margin:0 auto 16px;color:var(--mut)}
+td.empty-cell{padding:0!important}
+
+/* ---------- small moments ---------- */
+.btn,.tb-create,.tile,.card,.badge{transition:transform .15s ease,box-shadow .2s ease,background .15s}
+.btn:active,.tb-create:active{transform:scale(.96)}
+.tile:hover{transform:translateY(-3px)}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.flash{animation:pop .28s ease-out}
+.confetti-bit{position:fixed;top:-12px;width:9px;height:14px;z-index:9999;pointer-events:none;border-radius:2px;animation:confetti-fall 1.9s cubic-bezier(.3,.6,.4,1) forwards}
+@keyframes confetti-fall{to{transform:translate(var(--dx),105vh) rotate(var(--rot));opacity:.9}}
+@media(prefers-reduced-motion:reduce){.confetti-bit{display:none}.flash{animation:none}*{transition:none!important}}
+
+/* ---------- pinned sidebar ---------- */
+.pinned{margin:4px 0 10px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+.pinned>b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);padding:6px 10px 3px;font-weight:700}
+.ngrp .nrow{position:relative;margin-left:6px}.ngrp .nrow>a{margin:0}.pinned .nrow{position:relative}.pinned .nrow>a{margin:0}
+.pin-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:12px;opacity:0;padding:2px 5px;border-radius:6px;color:var(--mut)}
+aside a:hover .pin-btn,.pin-btn:focus-visible,.pin-btn.on{opacity:1}
+@media(hover:none){.pin-btn{opacity:.6}}
+table tr:hover td.empty-cell,html[data-theme=dark] table tr:hover td.empty-cell{background:transparent}
+.hero h1{font-size:clamp(32px,5vw,54px)}
+
+/* dark: forms, popup, gradients that were hard-coded white */
+html[data-theme=dark] form.nice input:not([type=checkbox]):not([type=color]),html[data-theme=dark] form.nice select,html[data-theme=dark] form.nice textarea,
+html[data-theme=dark] form.nice input:focus,html[data-theme=dark] form.nice select:focus,html[data-theme=dark] form.nice textarea:focus{background:var(--bg2);color:var(--ink);border-color:var(--line)}
+html[data-theme=dark] .fbar{background:linear-gradient(0deg,var(--card) 70%,color-mix(in srgb,var(--card) 85%,transparent));border-top-color:var(--line)}
+html[data-theme=dark] .fhead{background:linear-gradient(120deg,var(--pri3),var(--card) 85%);border-color:var(--line)}
+html[data-theme=dark] .fhead h1,html[data-theme=dark] .fhead p{color:var(--ink)}
+html[data-theme=dark] .plan.pop{background:linear-gradient(180deg,var(--pri2),var(--card) 45%)}
+html[data-theme=dark] .btn.dark,html[data-theme=dark] .fbar .btn.ghost{background:var(--bg2);color:var(--ink);border-color:var(--line)}
+html[data-theme=dark] .overlay-modal::backdrop,html[data-theme=dark] dialog::backdrop{background:rgba(0,0,0,.6)}
+html[data-theme=dark] .cal td.past,html[data-theme=dark] .cal td.out{background:var(--bg2)}
+html[data-theme=dark] .cal tr:first-child td{background:var(--card)}
+html[data-theme=dark] input[type=date],html[data-theme=dark] input[type=datetime-local]{color-scheme:dark}
+.cal tbody tr:hover td,html[data-theme=dark] .cal tr:hover td{background:var(--card)}
+.cal tr:hover td.today,html[data-theme=dark] .cal tr:hover td.today{background:var(--pri2)}
+
+.dd-theme{display:none}
+@media(max-width:700px){.tb-theme{display:none}.dd-theme{display:block}}

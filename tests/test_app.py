@@ -3416,3 +3416,16 @@ def test_hex_shades_text_always_readable():
         assert services.contrast(s["pri_d"], "#ffffff") >= 4.5
         assert services.contrast(s["sec_d"], "#ffffff") >= 4.5
         assert services.contrast(s["on"], s["sec_g"]) >= 4.5
+
+
+def test_dark_mode_pinned_and_empty_state_present(app, mails):
+    o = signup(app, "darkmode@x.com")
+    html = o.get("/app").data.decode()
+    assert "polish.css" in html and "toggleTheme" in html and "pinnedPages" in html and 'data-theme' in html
+    empty = o.get("/m/tasks").data.decode()
+    assert "empty-state" in empty and "Nothing here yet" in empty
+    css = o.get("/static/polish.css").data.decode()
+    assert "html[data-theme=dark]" in css
+    anon = app.test_client().get("/").data.decode()
+    assert "Dark / light" in anon and "chips" in anon
+    assert "🎉" in o.post("/m/tasks/save", data=dict(title="Ship it", status="Done"), follow_redirects=True).data.decode()

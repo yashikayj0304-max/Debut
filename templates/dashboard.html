@@ -1,10 +1,10 @@
 {% extends "base.html" %}{% block body %}
-<div class="dhero"><h2><span id="greet">Welcome</span>, {{ user['name'].split(' ')[0] if user and user['name'] else 'there' }} 👋</h2><p>{{ ws['name'] }} · your Marketing Command Centre</p>
-{% if steps is defined and steps and role != 'creator' %}{% set _d = steps|selectattr(1)|list|length %}<div class="prog" title="{{ _d }} of {{ steps|length }} set-up steps done"><b style="width:{{ (100*_d/steps|length)|round|int }}%"></b></div><p style="font-size:12px;margin-top:6px">Set-up {{ _d }}/{{ steps|length }} complete</p>{% endif %}</div>
+<div class="dhero"><h2><span id="greet">Welcome</span>, {{ user['name'].split(' ')[0] if user and user['name'] else 'there' }} 👋</h2><p>{{ ws['name'] }} · your Marketing Command Centre ✨</p>
+{% if steps is defined and steps and role != 'creator' %}{% set _d = steps|selectattr(1)|list|length %}<div class="prog" title="{{ _d }} of {{ steps|length }} set-up steps done"><b style="width:{{ (100*_d/steps|length)|round|int }}%"></b></div><p style="font-size:12px;margin-top:6px">{% if _d == steps|length %}You're all set 🎉{% else %}Let's get you set up: {{ _d }}/{{ steps|length }} done{% endif %}</p>{% endif %}</div>
 {% if role != 'creator' %}<div class="card" style="border:1px solid var(--pri3)"><b>📋 Today</b> <span class="muted">— carried over from before, plus what's due today</span>
 {% if today_items %}{% for it in today_items %}<div style="padding:4px 0"><a href="{{ it.href }}">{{ it.icon }} {{ it.text }}</a></div>{% endfor %}
 {% if today_more %}<p class="muted" style="margin-top:6px"><a href="{{ url_for('marketing_health') }}">+{{ today_more }} more → see Marketing Health</a></p>{% endif %}
-{% else %}<p class="muted">✅ You're all caught up — nothing urgent today.</p>{% endif %}</div>{% endif %}
+{% else %}<p class="muted">✅ You're all caught up. Nothing urgent today, go make something great.</p>{% endif %}</div>{% endif %}
 {% if ind and ws['industry'] != 'general' %}<div class="card"><b>{{ ind['icon'] }} {{ ind['label'] }} playbook</b> <span class="muted">— KPIs to watch:</span>
 <div style="margin:8px 0">{% for k in ind['kpis'][:6] %}<span class="badge" style="margin:2px">{{ k[0] }}</span>{% endfor %}</div><a class="btn sm" href="{{ url_for('ideas') }}">Open Idea Bank</a></div>
 {% elif ind and role in ('owner','admin') %}<div class="card"><b>🧭 Choose your industry</b> <span class="muted">to get a tailored checklist, key dates, KPI scorecard, personas and content ideas.</span> <a class="btn sm" href="{{ url_for('ws.account') }}">Choose industry</a></div>{% endif %}
@@ -26,4 +26,5 @@
 {% if role != 'creator' %}<div class="card"><b>🧲 Lead funnel</b><p>{% for r in leads %}<span class="badge">{{ r['stage'] }}: {{ r['c'] }}</span> {% else %}<span class="muted">No leads logged</span>{% endfor %}</p></div>{% endif %}
 </div>
 <div class="card"><b>🔗 Latest references</b>{% for r in refs %}<div style="padding:4px 0"><a href="{{ r['url'] }}" target="_blank" rel="noopener">{{ r['title'] }}</a> <span class="muted">{{ r['category'] }}</span></div>{% else %}<p class="muted">None yet.</p>{% endfor %}</div>
+{% if steps_done and role != 'creator' %}<script>try{if(!localStorage.getItem("setupDone")){localStorage.setItem("setupDone","1");setTimeout(confetti,500);}}catch(e){}</script>{% endif %}
 {% endblock %}

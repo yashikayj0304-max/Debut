@@ -115,3 +115,140 @@ dialog{border:var(--bw) solid var(--out);box-shadow:var(--hard-lg)}
 @media(max-width:800px){.recap-wrap{grid-template-columns:1fr}}
 .recap-card{border:var(--bw) solid var(--out);border-radius:28px;box-shadow:var(--hard-lg);overflow:hidden;background:var(--pri);color:var(--on,#fff)}
 .recap-card svg{display:block;width:100%;height:auto}
+
+/* ===== calm pass: keep the sticker look for primary actions only, quiet everything else ===== */
+:root{--bw:1.5px;--soft:color-mix(in srgb,var(--out) 28%,transparent)}
+html[data-theme=dark]{--soft:color-mix(in srgb,var(--out) 70%,transparent)}
+/* secondary buttons: plain outline, regular weight, no shadow */
+.btn{font-weight:600}
+.btn.ghost,.btn.sm.ghost,.btn.danger{border:1.5px solid var(--soft)!important;box-shadow:none!important;font-weight:500}
+.btn.ghost:hover,.btn.danger:hover{border-color:var(--out)!important;box-shadow:none!important;transform:none;background:var(--pri2)}
+/* primary keeps the sticker, a little lighter */
+.btn:not(.ghost):not(.danger){font-weight:700;box-shadow:2px 2px 0 var(--out)!important}
+/* top bar icons: flat */
+.tb-ic,.tb-profile{border:1.5px solid var(--soft);box-shadow:none}
+.tb-create{box-shadow:2px 2px 0 var(--out)}
+/* cards, tables, inputs: thin soft outline, tiny shadow */
+.card,.plan,.tile,.authbox,table{border:1.5px solid var(--soft)!important;box-shadow:0 1px 0 var(--soft)!important}
+.card:hover,.tile:hover{box-shadow:0 2px 0 var(--soft)!important;transform:none!important}
+.citemcard,.trow,.kcard,.kan .col,.ag-day,.kcard-k{border-color:var(--soft)!important;box-shadow:0 1px 0 var(--soft)!important}
+.citemcard:hover{box-shadow:0 3px 0 var(--soft)!important;transform:translateY(-2px)}
+input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),select,textarea{border:1.5px solid var(--soft)!important}
+input:focus,select:focus,textarea:focus{border-color:var(--pri)!important;box-shadow:0 0 0 3px var(--pri2)!important}
+th{font-weight:600}
+/* sidebar: light text, soft active state */
+aside a{font-weight:500}
+aside a.on{border:0;box-shadow:none;font-weight:600}
+.ngrp>summary,aside h4{font-weight:600}
+#allBtn{border:1.5px solid var(--soft)!important;box-shadow:none!important;font-weight:500}
+/* fewer underlines: links look like links only on hover (or inside running text) */
+main a:not(.btn):not(.chip){text-decoration:none}
+main a:not(.btn):not(.chip):hover{text-decoration:underline}
+main p a,main small a,main li a.inline{text-decoration:underline;text-underline-offset:2px}
+/* badges and pills: lighter */
+.badge,.pill,.tag{font-weight:600}
+.sticker,.sticker-badge{font-weight:700}
+
+/* ---------- calm pass: less shouty, same personality ---------- */
+:root{--bw:1.5px;--hard:2px 2px 0 var(--out);--hard-sm:1.5px 1.5px 0 var(--out);--hard-lg:3px 3px 0 var(--out)}
+html[data-theme=dark]{--hard:2px 2px 0 #05030c;--hard-sm:1.5px 1.5px 0 #05030c;--hard-lg:3px 3px 0 #05030c}
+h1{font-weight:700}h2,h3,th,.cc-t,.trow .tt b,.ngrp>summary,.ess-h{font-weight:600}
+.btn,.btn:not(.ghost):not(.danger),.dist-chip,.streak,.badge,.pill,.tag,.react b,.vibe span,.mchip{font-weight:600}
+.btn.ghost,.btn.sm.ghost{font-weight:500}
+b,strong{font-weight:600}
+.card b:first-child,.head h1{font-weight:700}
+.citemcard:hover,.card:hover,.tile:hover{box-shadow:var(--hard)!important;transform:translateY(-1px)}
+.trow,.kcard-k,.citemcard,.kan .col,.kan .kcard,.ag-day,.vibe,.here,.cal td.today{box-shadow:var(--hard)}
+.nextcard{display:grid;gap:6px}.nx-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.nx-t{font:600 19px var(--font-d)}
+.nx-more{margin-top:4px;font-size:13px}.nx-more summary{cursor:pointer;color:var(--mut)}
+
+/* ---- v11 layout tidy: nothing overlaps, everything aligned ---- */
+main{margin-inline:auto;width:100%}
+.dhero{padding-right:150px}
+.dhero .prog,.dhero .prog+p{max-width:calc(100% - 4px)}
+.dhero .dh-actions{margin-top:14px;padding-right:0}
+@media(max-width:800px){.dhero{padding-right:24px}}
+.toasts .flash{overflow-wrap:anywhere;word-break:break-word}
+aside .who,aside .role-pill{margin-bottom:8px}
+
+/* titled dialogs: header bar on its own row, never over the content */
+.overlay-head:has(>b){position:static;display:flex;align-items:center;gap:12px;padding:12px 14px 12px 20px;border-bottom:var(--bw) solid var(--out);background:var(--pri2)}
+.overlay-head:has(>b)>b{margin:0!important;padding:0!important;font:800 18px/1.2 var(--font-d);letter-spacing:-.02em;margin-right:auto!important}
+.overlay-head:has(>b)+.overlay-body,.overlay-head:has(>b)~.overlay-body{padding-top:16px}
+.overlay-body ul,.overlay-body ol{margin:0;padding-left:20px;display:grid;gap:10px;line-height:1.55}
+.overlay-body li::marker{color:var(--pri)}
+
+/* forms inside pop-ups: no inner box, so labels never touch a line */
+.overlay-body form.card,.overlay-body form.nice{border:0!important;box-shadow:none!important;background:transparent!important;border-radius:0;padding:4px 2px 2px!important}
+.overlay-body form.nice{row-gap:14px}
+.overlay-head:not(:has(>b)){right:22px;top:20px}
+@media(max-width:700px){.overlay-head:not(:has(>b)){right:20px;top:18px}}
+@media(max-width:700px){.overlay-head:not(:has(>b))~.overlay-body{padding-top:48px}.overlay-head:not(:has(>b)){top:12px}}
+
+/* ---- v11 calendar: a real grid, aligned, lively ---- */
+.cal-bar{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;margin:6px 0 14px}
+.cal-bar .filters{margin:0}.cal-bar select{min-width:160px}
+.cal-hint{color:var(--mut);font-size:13px;flex:1;min-width:200px}.kd-key{color:#e8890c;font-weight:700}
+.cal-sync{position:relative}.cal-sync summary{list-style:none;cursor:pointer;font:600 13px var(--font-b,inherit);padding:8px 14px;border:var(--bw) solid var(--out);border-radius:999px;background:var(--card);box-shadow:var(--hard-sm)}
+.cal-sync summary::-webkit-details-marker{display:none}.cal-sync[open] summary{background:var(--pri2)}
+.cal-sync-in{position:absolute;right:0;top:calc(100% + 8px);z-index:8;width:min(460px,86vw);background:var(--card);border:var(--bw) solid var(--out);border-radius:16px;box-shadow:var(--hard);padding:14px}
+.cal-sync-in p{margin:0 0 10px;font-size:13px}.cal-sync-row{display:flex;gap:8px;align-items:center}.cal-sync-row input{flex:1;min-width:0;font-size:12px}.cal-sync-row form{margin:0}
+table.cal{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;border:var(--bw) solid var(--out);border-radius:20px;overflow:hidden;box-shadow:var(--hard);background:var(--card)}
+.cal th{text-align:left;padding:10px 12px;font:700 12px/1 var(--font-d,inherit);letter-spacing:.04em;color:var(--ink);background:var(--pri2);border-bottom:var(--bw) solid var(--out);border-right:1px solid var(--line)}
+.cal th:nth-child(n+6){color:var(--pri)}
+.cal td{height:126px;padding:8px 8px 6px;vertical-align:top;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--card);position:relative}
+.cal th:last-child,.cal td:last-child{border-right:0}.cal tr:last-child td{border-bottom:0}
+.cal td:nth-child(n+6){background:color-mix(in srgb,var(--pri) 5%,var(--card))}
+.cal td.out{opacity:1;background:color-mix(in srgb,var(--mut) 7%,var(--card))}.cal td.out .d>span:first-child{color:var(--mut);font-weight:500}
+.cal .d{display:flex;justify-content:space-between;align-items:center;min-height:26px;margin-bottom:4px}
+.cal .d>span:first-child{font:700 13px/1 var(--font-d,inherit);color:var(--ink);min-width:24px;height:24px;display:inline-grid;place-items:center;border-radius:99px}
+.cal td.today{box-shadow:inset 0 0 0 2.5px var(--pri)!important;background:var(--pri2)}
+.cal td.today .d>span:first-child{background:var(--pri);color:var(--on,#fff)}
+.cal .daylinks{display:flex;gap:2px;align-items:center}.cal .daylinks a{width:22px;height:22px;display:grid;place-items:center;border-radius:8px;opacity:0;font-size:13px;text-decoration:none}
+.cal .daylinks a:last-child{background:var(--pri2);color:var(--pri);font-weight:800}
+.cal td:hover .daylinks a,.cal td:focus-within .daylinks a,.cal td.today .daylinks a:last-child{opacity:1}
+.cal .chip{display:block;margin:4px 0 0;padding:4px 8px;border:1.5px solid var(--out)!important;border-left:6px solid var(--pri)!important;border-radius:9px;background:var(--card);color:var(--ink);font:600 12px/1.25 inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:var(--hard-sm)!important;transform:none!important;text-decoration:none}
+.cal .chip.Published{border-left-color:#16a34a!important}.cal .chip.Review{border-left-color:#f59e0b!important}.cal .chip.Idea{border-left-color:#ec4899!important}.cal .chip.Draft{border-left-color:var(--mut)!important}
+.cal .kd{font-size:11px;font-weight:600;margin:2px 0 0;color:#e8890c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:820px){.cal-sync-in{right:auto;left:0}.cal-hint{display:none}}
+/* a little life in the background so dark and light never feel flat */
+body{background-image:radial-gradient(900px 520px at 88% -8%,color-mix(in srgb,var(--pri) 20%,transparent),transparent 62%),radial-gradient(700px 420px at -4% 104%,color-mix(in srgb,#ff8fb1 12%,transparent),transparent 60%);background-attachment:fixed}
+@media print{body{background-image:none}}
+
+/* v12 calendar life: chips tinted by channel, calmer weekends, stronger today */
+.cal .chip{background:color-mix(in srgb,var(--cc,var(--pri)) 16%,var(--card))!important;display:flex;align-items:center;gap:6px}
+.cal .chip .cdot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--cc,var(--pri));box-shadow:0 0 0 2px color-mix(in srgb,var(--cc,var(--pri)) 30%,transparent)}
+.cal th{background:linear-gradient(180deg,var(--pri2),color-mix(in srgb,var(--pri) 10%,var(--card)))}
+.cal td.today{background:linear-gradient(180deg,color-mix(in srgb,var(--pri) 22%,var(--card)),var(--card) 70%)}
+.cal td:hover{background:color-mix(in srgb,var(--pri) 7%,var(--card))}
+html[data-theme=dark] .cal td{background:color-mix(in srgb,var(--pri) 3%,var(--card))}
+
+/* ---- v12 vibrancy: less flat, more colour, same structure ---- */
+/* semantic chips: colour carries meaning */
+.badge.b-high,.badge.b-urgent,.badge.b-hot,.badge.b-lost{background:#ffe0e8;color:#9b1c3a;border-color:#e11d48}
+.badge.b-medium,.badge.b-in-progress,.badge.b-review,.badge.b-warm,.badge.b-scheduled{background:#fff0cc;color:#8a5200;border-color:#f59e0b}
+.badge.b-low,.badge.b-done,.badge.b-published,.badge.b-won,.badge.b-live,.badge.b-active{background:#d9f7ef;color:#0b6b5c;border-color:#0d9488}
+.badge.b-to-do,.badge.b-new,.badge.b-draft,.badge.b-idea,.badge.b-planned{background:var(--pri2);color:var(--pri);border-color:var(--pri)}
+html[data-theme=dark] .badge.b-high,html[data-theme=dark] .badge.b-urgent,html[data-theme=dark] .badge.b-hot,html[data-theme=dark] .badge.b-lost{background:#4a1427;color:#ff9fb6;border-color:#e11d48}
+html[data-theme=dark] .badge.b-medium,html[data-theme=dark] .badge.b-in-progress,html[data-theme=dark] .badge.b-review,html[data-theme=dark] .badge.b-warm,html[data-theme=dark] .badge.b-scheduled{background:#43300a;color:#ffd27a;border-color:#f59e0b}
+html[data-theme=dark] .badge.b-low,html[data-theme=dark] .badge.b-done,html[data-theme=dark] .badge.b-published,html[data-theme=dark] .badge.b-won,html[data-theme=dark] .badge.b-live,html[data-theme=dark] .badge.b-active{background:#0b3a35;color:#7ff0d6;border-color:#14b8a6}
+/* the task list uses the full width */
+.todo{max-width:none}
+/* friendly banner instead of an olive warning */
+.banner{background:linear-gradient(90deg,color-mix(in srgb,var(--pri) 14%,var(--card)),color-mix(in srgb,#ff8fb1 12%,var(--card)));color:var(--ink);border:1.5px solid color-mix(in srgb,var(--pri) 45%,transparent)}
+html[data-theme=dark] .banner{background:linear-gradient(90deg,#2a2150,#3a1f45);color:var(--ink);border-color:#6a55c4}
+.banner.bad,html[data-theme=dark] .banner.bad{background:#32151e;color:#ffb3c1;border-color:#6a2a3b}
+/* dark mode: depth instead of flat navy */
+html[data-theme=dark] body{background:radial-gradient(900px 500px at 8% -10%,rgba(124,92,214,.22),transparent 60%),radial-gradient(800px 500px at 100% 110%,rgba(255,143,177,.12),transparent 60%),var(--bg);background-attachment:fixed}
+html[data-theme=dark] .card,html[data-theme=dark] .tile,html[data-theme=dark] .trow,html[data-theme=dark] .citemcard,html[data-theme=dark] .kcard-k,html[data-theme=dark] .ag-day{background:linear-gradient(180deg,color-mix(in srgb,var(--pri) 9%,var(--card)),var(--card));border-color:color-mix(in srgb,var(--pri) 38%,#2a2347)!important;box-shadow:0 8px 24px rgba(0,0,0,.28)!important}
+html[data-theme=dark] .trow:hover,html[data-theme=dark] .card:hover,html[data-theme=dark] .tile:hover{box-shadow:0 10px 30px rgba(124,92,214,.28)!important}
+html[data-theme=dark]{--mut:#b4acd3}
+/* tasks: tick circle and done colour pop */
+.trow .tick{border-color:var(--pri)}.trow.done .tick{background:#0d9488;border-color:#0d9488}
+/* calendar: legend and month summary */
+.cal-legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 10px;color:var(--mut);font-size:12.5px}
+.cal-legend span{display:inline-flex;align-items:center;gap:6px}.cal-legend i{width:9px;height:9px;border-radius:50%;background:var(--cc)}
+.cal-legend b{color:var(--ink);font-weight:700;margin-left:auto}
+html[data-theme=dark] .cal td{background:color-mix(in srgb,var(--card) 92%,#000)}
+html[data-theme=dark] .cal td:nth-child(n+6){background:color-mix(in srgb,var(--pri) 8%,var(--card))}
+.cal td.out .d>span:first-child{opacity:.55}

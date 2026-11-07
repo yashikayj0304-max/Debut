@@ -137,7 +137,7 @@ def create_app(config=None, init=True, database_url=None):
 
     @app.context_processor
     def ctx():
-        d = dict(HINTS=M_HINTS, C=C, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, pal_items=[], support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None)
+        d = dict(HINTS=M_HINTS, C=C, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None)
         if g.get("user") and g.get("ws"):
             d["trial_left"] = S.trial_days_left(g.ws)
             d["plan_key"] = g.plan_key
@@ -176,19 +176,6 @@ def create_app(config=None, init=True, database_url=None):
             d["NAV"] = OrderedDict((k, v) for k, v in groups.items() if v)
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])
-            else:
-                pal = [{"l": "New content", "g": "Create", "h": url_for("m_new", key="content_items"), "i": "📝", "c": 1},
-                       {"l": "New task", "g": "Create", "h": url_for("m_new", key="tasks"), "i": "✅", "c": 1}]
-                if g.role not in ("creator", "viewer"):
-                    pal += [{"l": "New " + lbl, "g": "Create", "h": url_for("m_new", key=k), "i": ic, "c": 1} for lbl, k, ic in (("campaign", "campaigns", "📣"), ("lead", "leads", "🧲"), ("key date", "key_dates", "🗓️"))]
-                if g.role == "viewer":
-                    pal = []
-                for grp, items in d["NAV"].items():
-                    for label, href in items:
-                        ic, _, nm = label.partition(" ")
-                        pal.append({"l": nm.replace(" 🔒", ""), "g": grp, "h": href, "i": ic})
-                pal += [{"l": "Account & profile", "g": "Settings", "h": url_for("ws.account"), "i": "👤"}, {"l": "Help & guide", "g": "Settings", "h": url_for("help_centre"), "i": "❓"}]
-                d["pal_items"] = pal
         return d
 
     @app.after_request

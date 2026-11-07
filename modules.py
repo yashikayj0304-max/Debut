@@ -147,7 +147,7 @@ MODULES = OrderedDict([
         fields=[F("name", "Name"), F("outlet", "Outlet"), F("beat", "Beat"), F("email", "Email"), F("last_contacted", "Last contacted", "date"),
                 F("status", "Status", "select", ["Cold", "Pitched", "Responded", "Covered", "Do not contact"]), F("notes", "Notes", "textarea")],
         cols=["name", "outlet", "beat", "last_contacted", "status"], filter="status")),
-    ("experiments", dict(title="Experiments", icon="🧪", group="Campaigns", desc="A/B tests and growth experiments.",
+    ("experiments", dict(title="Experiments", icon="🧪", group="Campaigns", desc="Test one change at a time to learn what works. Write what you believe, change ONE thing, measure ONE number, then record what happened.",
         fields=[F("hypothesis", "Hypothesis"), F("channel", "Channel", "select", CHANNELS), F("metric", "Success metric"), F("variant_a", "Variant A", "textarea"),
                 F("variant_b", "Variant B", "textarea"), F("status", "Status", "select", ["Idea", "Running", "Concluded"]), F("result", "Result / decision", "textarea")],
         cols=["hypothesis", "channel", "metric", "status"], filter="status")),
@@ -356,6 +356,10 @@ HIDDEN_TASKS = {"pulse_brief"}
 
 # Short help shown under a field in every New/Edit form (pop-up or full page)
 HINTS = {
+    "hypothesis": "One sentence: \"If we [change], then [result], because [reason]\". e.g. If we add a price in the reel caption, saves will go up 20%, because people can decide faster.",
+    "variant_a": "The current version (the control). e.g. Caption without price.",
+    "variant_b": "The one thing you change. Keep everything else the same. e.g. Same caption with the price.",
+    "result": "Fill this after the test: what happened (numbers) and what you will do next (keep, drop or test again).",
     "budget": "Total amount you plan to spend (₹). We warn you in red when under 10% is left.",
     "spent": "Update this as you spend — it drives the 'Budget used' bar.",
     "spend": "Update this as you spend — it drives the 'Budget used' bar.",

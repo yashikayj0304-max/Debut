@@ -1151,6 +1151,13 @@ def marketing_health():
                            gaps=gaps, smtp_on=bool(C.SMTP_HOST))
 
 
+@route("/utm/new")
+def utm_new():
+    modal = request.args.get("modal") == "1"
+    return render_template("utm_form_frag.html" if modal else "utm_form.html", modal=modal,
+                           camps=[r["name"] for r in q("SELECT name FROM campaigns WHERE workspace_id=?", (W(),))])
+
+
 @route("/utm")
 def utm():
     return render_template("utm.html", rows=q("SELECT * FROM utm_links WHERE workspace_id=? ORDER BY id DESC LIMIT 50", (W(),)),

@@ -503,20 +503,71 @@ def _mix(hexcolor, target, amt):
     return "#%02x%02x%02x" % (mix(r, tr), mix(g, tg), mix(b, tb))
 
 
+def _rgb(h):
+    return int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
+
+
+def _lum(h):
+    f = lambda v: v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (f(c / 255) for c in _rgb(h))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a, b):
+    la, lb = _lum(a), _lum(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+DARK_INK = "#1b1433"
+
+
+def _darken_until(hexcolor, bg="#ffffff", need=4.5):
+    """Darken a colour step by step until it is readable as text on bg."""
+    c = hexcolor
+    for _ in range(12):
+        if contrast(c, bg) >= need:
+            break
+        c = _mix(c, (0, 0, 0), 0.15)
+    return c
+
+
+def _text_on(c1, c2):
+    """White or dark text, whichever reads on BOTH ends of a gradient; None if neither does."""
+    for ink in ("#ffffff", DARK_INK):
+        if min(contrast(ink, c1), contrast(ink, c2)) >= 3.4:
+            return ink
+    return None
+
+
 def hex_shades(hexcolor, secondary=None):
     """A small palette derived from a primary brand colour (a darker shade for text/hover, light tints that drive
     the app's actual background) plus a secondary accent colour - either the one given, or, if none was set, a
     light tint of the primary, so the theme still looks coherent out of the box.
     bg/bg2 are what the page background actually uses (so the primary colour visibly sets the background, not
     just a sidebar gradient); accent is where the secondary colour actually gets used (input focus rings, tile
-    accents, chip borders) - when no secondary is set it falls back to a primary tint so the look stays coherent."""
+    accents, chip borders) - when no secondary is set it falls back to a primary tint so the look stays coherent.
+    Whatever colours are chosen, text stays readable: pri_d / sec_d (used for text) are darkened until they read on
+    white, `on` is the text colour for gradient buttons/banners (white or dark), and sec_g is the secondary colour
+    nudged toward the primary only when the two are too far apart for one text colour to read across both."""
     if not hexcolor or not HEX_RE.match(hexcolor):
         return None
+    hexcolor = hexcolor.lower()
     primary_tint_fallback = _mix(hexcolor, (255, 255, 255), 0.35)
-    sec = secondary if secondary and HEX_RE.match(secondary) else primary_tint_fallback
-    return dict(pri=hexcolor, pri_d=_mix(hexcolor, (0, 0, 0), 0.22), pri2=_mix(hexcolor, (255, 255, 255), 0.92),
+    sec = secondary.lower() if secondary and HEX_RE.match(secondary) else primary_tint_fallback
+    on = _text_on(hexcolor, sec)
+    sec_g = sec
+    t = 0.0
+    while on is None and t < 1.0:
+        t = round(t + 0.1, 1)
+        sec_g = _mix(sec, _rgb(hexcolor), t)
+        on = _text_on(hexcolor, sec_g)
+    if on is None:
+        on = "#ffffff" if contrast("#ffffff", hexcolor) >= contrast(DARK_INK, hexcolor) else DARK_INK
+    return dict(pri=hexcolor, pri_d=_darken_until(_mix(hexcolor, (0, 0, 0), 0.22)), pri2=_mix(hexcolor, (255, 255, 255), 0.92),
                 pri3=_mix(hexcolor, (255, 255, 255), 0.82), bg=_mix(hexcolor, (255, 255, 255), 0.95),
-                bg2=_mix(hexcolor, (255, 255, 255), 0.88), accent=sec, sec=sec, sec_d=_mix(sec, (0, 0, 0), 0.22))
+                bg2=_mix(hexcolor, (255, 255, 255), 0.88), accent=sec, sec=sec, sec_d=_darken_until(_mix(sec, (0, 0, 0), 0.22)),
+                on=on, sec_g=sec_g)
 
 
 def brand_shades(ws):

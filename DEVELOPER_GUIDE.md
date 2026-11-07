@@ -616,4 +616,4 @@ Third-party code bundled: Chart.js 4.5.1 (MIT) in `static/vendor/`, licence file
 - Regenerate the PDF after editing (app running locally on port 8001):
   `python -c "from playwright.sync_api import sync_playwright as p; b=p().start().chromium.launch(); pg=b.new_page(); pg.goto('http://127.0.0.1:8001/manual'); pg.pdf(path='static/guides/Debut-User-Manual.pdf', format='A4', print_background=True, margin={'top':'14mm','bottom':'14mm','left':'12mm','right':'12mm'})"`
   then copy it to `docs/Debut-User-Manual.pdf`.
-- UI notes: the command palette (Ctrl/⌘+K) is built from the sidebar `NAV` plus create actions in `app.py` (`pal_items`); the ＋ Create menu and bottom bar are in `templates/base.html`; the secondary colour feeds CSS variable `--sec` (see `services.brand_shades`).
+- UI notes: the top-bar search is a plain form (Ctrl/⌘+K focuses it; ✕ and Esc clear it); the UTM Builder opens as a pop-up from `/utm/new`; the ＋ Create menu and bottom bar are in `templates/base.html`; the secondary colour feeds CSS variable `--sec` (see `services.brand_shades`).

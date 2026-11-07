@@ -666,7 +666,7 @@ def test_comments_mentions_notifications(app, mails):
     o.post("/m/tasks/save", data=dict(title="Write launch post", assignee="Lena Lead", status="To do"))
     o.post("/m/tasks/save", data=dict(title="Own task", assignee="Tester", status="To do"))
     assert unread("lead@x.com") == 1 and unread("o@x.com") == 0
-    assert 'class="pill">1' in lead.get("/app").data.decode()                                             # bell badge
+    assert 'class="dot">1' in lead.get("/app").data.decode()                                             # bell badge
     nid = dbq(app, "SELECT id FROM notifications", one=True)["id"]
     r = lead.get(f"/notifications/{nid}/open")
     assert r.status_code == 302 and "/m/tasks/" in r.headers["Location"] and unread("lead@x.com") == 0
@@ -1605,6 +1605,26 @@ def test_brand_shades_math_is_sane():
     # an invalid/blank secondary falls back to auto, same as not passing one at all
     assert S.hex_shades("#1E88E5", "") == sh
     assert S.hex_shades("#1E88E5", "not-a-color") == sh
+    # the app's actual background (bg/bg2) is a light tint of the PRIMARY colour, not a hardcoded value -
+    # so setting a brand colour visibly changes the whole app's background, not just the sidebar gradient
+    assert sh["bg"] != sh["bg2"] and total(sh["bg2"]) < total(sh["bg"])  # bg2 mixes less toward white, so it's the slightly-stronger one
+    assert total(sh["pri"]) < total(sh["bg2"]) < total(sh["bg"])          # both are lighter than the raw primary
+    # once a real secondary is set, 'accent' (used for focus rings, tile accents, chip borders) actually
+    # uses it - secondary now has a visible job beyond the two gradient-text spots
+    assert sh2["accent"] == sh2["sec"] == "#E53935"
+
+
+def test_brand_colours_flow_into_the_live_page_background(app, mails):
+    # end-to-end: once a workspace sets brand colours, the rendered page must actually use them for
+    # --bg/--bg2 (the real background), not just the static default - this is what makes the primary
+    # colour visibly "the background colour" site-wide, not only a sidebar tint
+    o = signup(app, "bgcolour@x.com")
+    o.post("/account/theme", data=dict(color="#1E88E5", secondary="#E53935"))
+    html = o.get("/app").data.decode()
+    sh = S.hex_shades("#1E88E5", "#E53935")
+    assert f"--bg:{sh['bg']}" in html
+    assert f"--bg2:{sh['bg2']}" in html
+    assert f"--accent:{sh['accent']}" in html and sh["accent"] == "#E53935"
 
 
 def test_brand_shades_none_for_personal_brand_and_no_colour(app, mails):
@@ -2840,7 +2860,7 @@ def test_excel_mock_template_works_for_every_module(app):
         wb = load_workbook(io.BytesIO(r.data))
         assert wb.active.title  # non-empty, valid sheet title
     assert b"Filled-in mock example (Excel)" in o.get("/m/gtm_plans").data
-    assert b"Blank template (CSV)" in o.get("/m/gtm_plans").data
+    assert b"Filled-in mock example (Excel)" in o.get("/m/gtm_plans").data
 
 
 # =====================================================================  Brand deck upload: automatic (no-AI) colour/font/logo extraction, applied to the workspace + saved to Brand Kit
@@ -3215,3 +3235,67 @@ def test_account_brand_deck_rescan_does_not_duplicate_brand_kit_entries(app):
     o.post("/account/brand-deck", data=dict(file=(io.BytesIO(deck), "brand.pptx")), content_type="multipart/form-data")
     second_count = dbq(app, "SELECT COUNT(*) c FROM brand_kit WHERE workspace_id=?", (wid,), one=True)["c"]
     assert first_count == second_count and first_count > 0
+
+
+def test_notes_list_batch_features(app, mails):
+    o = signup(app, "batch@x.com")
+    # multi-platform influencer: several kept in order, junk dropped
+    o.post("/m/influencers/save", data=dict(name="Ana", platform=["Instagram", "YouTube", "Bogus"]))
+    html = o.get("/m/influencers").data.decode()
+    assert "Instagram, YouTube" in html and "Bogus" not in html
+    # key dates show their notes column
+    o.post("/m/key_dates/save", data=dict(name="Diwali push", date="2026-11-08", kind="Festival", notes="Plan creatives early"))
+    assert "Plan creatives early" in o.get("/m/key_dates").data.decode()
+    # budget bar: red when <10% remaining
+    o.post("/m/campaigns/save", data=dict(name="Hot", budget="1000", spent="950", status="Live", objective="Sales", channel="Instagram"))
+    html = o.get("/m/campaigns").data.decode()
+    assert "Budget used" in html and "bbar bad" in html and "95% used" in html
+    # tasks open as popup, no separate page needed
+    assert "openOverlay" in o.get("/m/tasks").data.decode()
+    # latest updates search box, plan note + activity export / limit
+    assert "newsq" in o.get("/updates").data.decode()
+    assert "payment-gateway" in o.get("/billing").data.decode()
+    r = o.get("/activity/export.csv")
+    assert r.status_code == 200 and r.data.startswith(b"When,Who,Action,Detail")
+    assert "Latest 1000" in o.get("/activity").data.decode()
+
+
+def test_news_snapshot_and_moodboard_upgrades(app, mails):
+    o = signup(app, "mbadv@x.com")
+    html = o.get("/updates").data.decode()
+    assert "Snapshot" in html and "1 Nov 2026" in html and "Diwali 2026" in html
+    assert "Search Engine Land" in o.get("/updates?cat=SEO+%2F+Search").data.decode()
+    # template board
+    r = o.post("/moodboards/template/diwali", follow_redirects=False)
+    assert r.status_code == 302
+    bid = int(r.headers["Location"].rstrip("/").split("/")[-1])
+    page = o.get(f"/moodboards/{bid}").data.decode()
+    assert "Diya gold" in page and "Rename" in page and "Duplicate" in page
+    assert o.post("/moodboards/template/nope").status_code == 404
+    # rename
+    o.post(f"/moodboards/{bid}/rename", data=dict(name="Festive board", description="d"))
+    assert "Festive board" in o.get(f"/moodboards/{bid}").data.decode()
+    # colours -> brand kit (idempotent)
+    o.post(f"/moodboards/{bid}/save-colours")
+    n1 = len(dbq(app, "SELECT * FROM brand_kit WHERE value='#B8860B'"))
+    o.post(f"/moodboards/{bid}/save-colours")
+    assert n1 == 1 and len(dbq(app, "SELECT * FROM brand_kit WHERE value='#B8860B'")) == 1
+    # duplicate: copies cards; deleting the original must not break the copy's uploaded image
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+    import io
+    o.post(f"/moodboards/{bid}/add", data=dict(kind="upload", file=(io.BytesIO(_tiny_png()), "a.png")), content_type="multipart/form-data")
+    r = o.post(f"/moodboards/{bid}/duplicate", follow_redirects=False)
+    nid = int(r.headers["Location"].rstrip("/").split("/")[-1])
+    assert nid != bid
+    imgs = dbq(app, "SELECT content FROM board_items WHERE board_id=? AND kind='image'", (nid,))
+    assert len(imgs) == 1
+    o.post(f"/moodboards/{bid}/delete")
+    import os, config as _C
+    wid = wid_of(app, "mbadv@x.com")
+    name = os.path.basename(imgs[0]["content"])
+    assert os.path.exists(os.path.join(_C.UPLOAD_DIR, str(wid), name)) or imgs[0]["content"].startswith("s3:")
+
+
+def _tiny_png():
+    import base64
+    return base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")

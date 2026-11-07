@@ -2,7 +2,7 @@
 <div class="head"><h1>🩺 Marketing Health</h1><span class="muted">One screen for how your marketing is doing, and exactly what's left to fix</span></div>
 <p class="muted">Built entirely from what's already logged in Debut &mdash; nothing here needs a separate connected account. <a href="{{ url_for('ws.connected_accounts') }}">Connect social/ads accounts</a> once you have them, to bring in real reach and spend numbers too.</p>
 
-<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin:14px 0">
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin:14px 0">
 
 <div class="card"><b>🎨 Brand consistency</b>
 <div style="font-size:30px;font-weight:700;margin:4px 0">{{ brand_score }}%</div>

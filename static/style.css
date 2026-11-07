@@ -16,6 +16,14 @@ aside{width:246px;background:linear-gradient(180deg,#fff 0%,#f7f3ff 100%);border
 aside h2{font-size:16px;margin:2px 8px 12px;letter-spacing:-.01em}
 aside h2 a{background:linear-gradient(90deg,var(--pri-d),var(--sec));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;text-decoration:none}
 aside h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#a196c0;margin:18px 10px 5px;font-weight:700}
+.ngrp{margin:2px 0}
+.ngrp>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:#8a7fb0;padding:8px 10px;border-radius:9px;font-weight:700;user-select:none}
+.ngrp>summary::-webkit-details-marker{display:none}
+.ngrp>summary::after{content:"\25B8";font-size:11px;transition:transform .15s}
+.ngrp[open]>summary::after{transform:rotate(90deg)}
+.ngrp>summary:hover{background:var(--pri2);color:var(--pri-d)}
+.ngrp[open]>summary{color:var(--pri-d)}
+.ngrp>a{margin-left:6px}
 aside a{display:block;padding:6px 10px;border-radius:9px;color:var(--ink);text-decoration:none;transition:background .15s,color .15s}
 aside a:hover{background:var(--pri2);color:var(--pri-d)}
 aside a.on{background:var(--pri);color:#fff;box-shadow:0 4px 12px rgba(124,92,214,.3)}
@@ -115,8 +123,16 @@ body.app{display:flex;flex-direction:column}
 .tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
 .tb-search input{width:200px;max-width:34vw;background:#fff;border-radius:20px;padding:7px 14px;font-size:13px}
 .tb-ic{position:relative;background:var(--pri2);border:0;border-radius:10px;font-size:16px;padding:6px 10px;cursor:pointer;line-height:1}
-.tb-profile{background:var(--pri2);border:0;border-radius:20px;padding:6px 12px;cursor:pointer;font-weight:700;color:var(--pri-d);font-size:13px;white-space:nowrap}
-.tb-name{max-width:130px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:bottom;margin:0 4px}
+.tb-profile{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 14px 4px 5px;cursor:pointer;text-align:left;font:inherit;box-shadow:0 1px 4px rgba(43,36,66,.06);transition:box-shadow .15s,border-color .15s}
+.tb-profile:hover{border-color:var(--pri3);box-shadow:0 3px 10px rgba(43,36,66,.12)}
+.tb-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--pri),var(--sec));color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:none;line-height:1}
+.tb-who{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.tb-name{font-weight:700;font-size:13.5px;color:var(--ink);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.tb-role{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);font-weight:700}
+.tb-caret{color:var(--mut);font-size:11px}
+.tb-home{display:inline-flex;align-items:center;gap:6px;background:var(--pri2);color:var(--pri-d);text-decoration:none;font-weight:700;font-size:13px;padding:7px 13px;border-radius:10px;white-space:nowrap}
+.tb-home:hover{background:var(--pri3)}
+.tb-help{text-decoration:none;display:inline-block}
 .dd{position:relative}
 .dd-menu{display:none;flex-direction:column;position:absolute;right:0;top:calc(100% + 8px);background:#fff;border-radius:12px;box-shadow:var(--shadow-lg);min-width:190px;padding:6px;z-index:50}
 .dd-menu.show{display:flex}
@@ -130,7 +146,7 @@ body.app{display:flex;flex-direction:column}
 .overlay-body .head{margin-top:0}
 .overlay-body form.card{box-shadow:none;padding:0}
 .dd-wide a{white-space:normal}
-@media(max-width:620px){.tb-name{display:none}.tb-brand{max-width:36vw}}
+@media(max-width:620px){.tb-who,.tb-caret,.tb-home-t{display:none}.tb-profile{padding:3px}.tb-home{padding:7px 10px}.tb-brand{max-width:30vw}}
 .top{display:flex;align-items:center;gap:20px;padding:14px 34px;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
 .top a{color:var(--ink);text-decoration:none;font-weight:500}.top a.btn{color:#fff}.top .sp{flex:1}
 .top .brand{font-weight:800;font-size:18px;background:linear-gradient(90deg,var(--pri-d),var(--sec));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -208,3 +224,27 @@ code{background:var(--pri2);color:var(--pri-d);padding:1px 6px;border-radius:6px
 .mb-zoombar{display:flex;align-items:center;gap:8px;margin:10px 0 4px}
 .mb-zoombar #zoomLabel{min-width:42px;text-align:center;font-weight:600}
 @media(max-width:800px){.mcanvas-wrap{max-height:65vh}.mb-zoom-tip{display:none}}
+
+.bbar{height:8px;border-radius:99px;background:#e9e6f2;overflow:hidden}.bbar i{display:block;height:100%;border-radius:99px}
+.bbar.ok i{background:var(--pri)}.bbar.warn i{background:#e0a100}.bbar.bad i{background:#d64545}.bbad{color:#d64545;font-weight:600}
+.multi{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:4px}.multi .chk{display:inline-flex;align-items:center;gap:4px;font-weight:400}.multi .chk input{width:auto}
+
+/* phones: list tables become stacked cards - no sideways scrolling */
+@media(max-width:700px){
+ .topbar{gap:8px;padding:0 10px}.tb-brand{position:static;transform:none;flex:1;min-width:0;max-width:none;justify-content:center}
+ table.stack,table.stack tbody{display:block;background:none;border:0;box-shadow:none}
+ table.stack tr:first-child{display:none}
+ table.stack tr{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);margin:0 0 12px;padding:6px 4px}
+ table.stack td{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;border:0;padding:6px 12px;text-align:right;word-break:break-word}
+ table.stack td[data-label]:before{content:attr(data-label);flex:0 0 38%;text-align:left;font-size:11px;font-weight:700;color:var(--pri-d);text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+ table.stack td.e{display:none}
+ table.stack td:last-child{justify-content:flex-end;border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
+ table.stack td[colspan]{display:block;text-align:left}
+}
+
+#overlayBody .form.card{border:0;box-shadow:none;padding:0;background:transparent}
+#overlayBody .head h1{font-size:22px}
+.side-foot{margin-top:0;padding-top:0;border-top:0}.side-foot>a{font-size:12.5px}
+code{word-break:break-all;overflow-wrap:anywhere}
+@media(max-width:800px){main .card{max-width:100%;box-sizing:border-box;overflow-wrap:anywhere}main{min-width:0;overflow-x:hidden}}
+.two>*,.grid>*{min-width:0}main canvas{max-width:100%}

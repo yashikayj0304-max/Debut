@@ -2,10 +2,11 @@
 <div class="head"><h1>🖼️ {{ b['name'] }}</h1><div>
 <button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').showModal()">❓ How to use</button>
 <form method="post" action="{{ url_for('board_arrange', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">🧹 Tidy up</button></form>
-<a class="btn ghost" href="{{ url_for('moodboards') }}">All boards</a>
+<button type="button" class="btn ghost sm" onclick="document.getElementById('renameModal').showModal()">✏️ Rename</button> <form method="post" action="{{ url_for('board_duplicate', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">⧉ Duplicate</button></form> <form method="post" action="{{ url_for('board_save_colours', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm" title="Add every colour swatch on this board to your Brand Kit">🎨 Save colours to Brand Kit</button></form> <a class="btn ghost" href="{{ url_for('moodboards') }}">All boards</a>
 <form method="post" action="{{ url_for('board_delete', bid=b['id']) }}" style="display:inline" onsubmit="return confirm('Delete this whole board?')"><button class="btn danger">Delete board</button></form></div></div>
 <p class="muted">{{ b['description'] }} Drag any card to move it, drag the corner to resize, click to bring to front, <b>double-click a card to edit its text</b> (images get a 🔄 Replace button). Changes save as you go — just like a Miro board for your workspace.</p>
 
+<dialog id="renameModal" class="overlay-modal" style="max-width:460px"><div class="overlay-body"><form method="post" action="{{ url_for('board_rename', bid=b['id']) }}" class="form"><label>Board name<input name="name" value="{{ b['name'] }}" required></label><label>Description<input name="description" value="{{ b['description'] }}"></label><button class="btn">Save</button> <button type="button" class="btn ghost" onclick="document.getElementById('renameModal').close()">Cancel</button></form></div></dialog>
 <dialog id="helpModal" class="overlay-modal" style="max-width:520px">
 <div class="overlay-head"><b style="margin-right:auto;padding-left:4px">❓ How mood boards work</b><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').close()">✕ Close</button></div>
 <div class="overlay-body">

@@ -11,6 +11,8 @@
 <p class="muted" style="margin-top:10px">New to mood boards? Click <b>"✨ Load a sample board"</b> above for a ready-made example — four card types already placed, so you can see the format before building your own. Every board also has its own <b>"❓ How to use"</b> button with the full walkthrough.</p>
 </div>
 
+<div class="card" style="margin-bottom:16px"><b>🚀 Start from a template</b> <span class="muted">— a ready-made board you can edit, with colours and notes already placed.</span>
+<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">{% for k, label in [('diwali','🪔 Diwali 2026 festive'),('launch','🚀 Product launch'),('influencer','🤳 Influencer collab'),('brand','🎨 Brand identity')] %}<form method="post" action="{{ url_for('board_from_template', tkey=k) }}"><button class="btn ghost sm">{{ label }}</button></form>{% endfor %}</div></div>
 <form method="post" action="{{ url_for('board_new') }}" class="card two"><label>Board name<input name="name" required placeholder="e.g. Diwali 2026 — chocolate gifting"></label><label>Description<input name="description"></label><div><button class="btn">Create board</button></div></form>
 <div class="grid">{% for b in boards %}<a class="tile" href="{{ url_for('board_view', bid=b['id']) }}">
 {% if covers[b['id']] %}<img src="{{ media(covers[b['id']]['content']) }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px">{% endif %}

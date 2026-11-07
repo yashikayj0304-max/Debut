@@ -101,7 +101,7 @@ I'll fix it directly in the app and give you an updated zip — I can't watch yo
 
 1. **Sign up** at `/signup` with a password like `Sup3rSecret!9`. Watch the strength bar and the 👁 icon. Read **What happens next** under the form and open the **user manual** link.
 2. On **Home** check the greeting banner and the Get started progress bar.
-3. Press **＋ Create > Task**, save it; it appears in the list without leaving the page. Press **Ctrl+K**, type “tas”, press Enter.
+3. Press **＋ Create > Task**, save it; it appears in the list without leaving the page. Type “task” in the search box and press Enter; use the ✕ to clear it. Then open **Campaigns > UTM Builder > ＋ New UTM link**: it opens as a pop-up and builds the link as you type.
 4. **Account**: pick a primary and a secondary colour, press Apply. Buttons, the Create button, avatar and the banner follow your secondary colour. “Use auto” goes back to the automatic shade.
 5. **Mood Boards**: create one from a template, press 🔗 Share, copy the public link and open it in a private window.
 6. **Team & roles**: paste two emails, role Creator, invite. Because mail is in demo mode, the invite link is printed in the DEV banner (and in the server log). Open it in a private window to join as the creator: you only see content, tasks, orders, calendar and boards.

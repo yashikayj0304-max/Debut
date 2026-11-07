@@ -1,12 +1,12 @@
 {% extends "base.html" %}{% block body %}{% set popup = true %}{% set pop = ' onclick="return openOverlay(this.href,\'\')"'|safe if popup else '' %}
 <div class="head"><h1>{{ m.icon }} {{ m.title }}</h1><div>
-<a class="btn" href="{{ url_for('m_new', key=key) }}"{{ pop }}>+ New</a>
+{% if role != 'viewer' %}<a class="btn" href="{{ url_for('m_new', key=key) }}"{{ pop }}>+ New</a>{% endif %}
 {% if m.kanban %}<a class="btn ghost" href="{{ url_for('kanban', key=key) }}">Board view</a>{% endif %}
 {% if key == 'content_items' %}<a class="btn ghost" href="{{ url_for('calendar_view') }}">Calendar</a>{% endif %}
 <a class="btn ghost" href="{{ url_for('m_template_xlsx', key=key) }}">⬇ Filled-in mock example (Excel)</a>
 <a class="btn ghost" href="{{ url_for('m_export', key=key) }}">Export CSV</a>
-<a class="btn ghost" href="#importcsv" onclick="var d=document.getElementById('importcsv');d.open=true;d.scrollIntoView({block:'center'})">Import CSV</a></div></div>
-<details id="importcsv" style="margin:6px 0"><summary class="muted" style="cursor:pointer">Import from CSV</summary><form method="post" action="{{ url_for('m_import', key=key) }}" enctype="multipart/form-data" class="card" style="margin-top:8px"><p class="muted">Use the same column names as “Export CSV” (or the field labels), one row per record. Up to 2,000 rows. Use the filled-in Excel example above to see the exact format before you upload — if you build your sheet in Excel, just save it as CSV before importing.</p><input type="file" name="file" accept=".csv" required> <button class="btn sm">Import</button></form></details>
+{% if role != 'viewer' %}<a class="btn ghost" href="#importcsv" onclick="var d=document.getElementById('importcsv');d.open=true;d.scrollIntoView({block:'center'})">Import CSV</a>{% endif %}</div></div>
+{% if role != 'viewer' %}<details id="importcsv" style="margin:6px 0"><summary class="muted" style="cursor:pointer">Import from CSV</summary><form method="post" action="{{ url_for('m_import', key=key) }}" enctype="multipart/form-data" class="card" style="margin-top:8px"><p class="muted">Use the same column names as “Export CSV” (or the field labels), one row per record. Up to 2,000 rows. Use the filled-in Excel example above to see the exact format before you upload — if you build your sheet in Excel, just save it as CSV before importing.</p><input type="file" name="file" accept=".csv" required> <button class="btn sm">Import</button></form></details>{% endif %}
 {% if gap_banner %}<div class="banner"><a href="{{ url_for('marketing_health') }}">⚠ {{ gap_banner }} gap{{ 's' if gap_banner != 1 else '' }} here — see Marketing Health for the full checklist</a></div>{% endif %}
 <p class="muted">{{ m.desc }}</p>
 <form class="filters" method="get">
@@ -19,8 +19,8 @@
 {% elif t == 'select' and v %}<span class="badge b-{{ v|lower|replace(' ', '-')|replace('/', '') }}">{{ v }}</span>
 {% else %}{{ v|truncate(70) }}{% endif %}</td>{% endfor %}
 {% if bkeys %}{% set b = r[bkeys[0]]|float(0) %}{% set sp = r[bkeys[1]]|float(0) %}<td style="min-width:120px" data-label="Budget used">{% if b > 0 %}{% set pct = (sp / b * 100)|round|int %}{% set left = 100 - pct %}<div class="bbar {{ 'bad' if left < 10 else ('warn' if left < 25 else 'ok') }}" title="{{ pct }}% used, {{ left if left > 0 else 0 }}% remaining"><i style="width:{{ [pct, 100]|min }}%"></i></div><small class="{{ 'bbad' if left < 10 else 'muted' }}">{{ pct }}% used{% if left < 10 %} · {{ 'over budget' if left < 0 else 'under 10% left' }}{% endif %}</small>{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}
-<td style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{{ pop }}>Edit</a>
-<form method="post" action="{{ url_for('m_delete', key=key, rid=r['id']) }}" style="display:inline" onsubmit="return confirm('Delete this record?')"><button class="btn danger sm">✕</button></form></td></tr>
-{% else %}<tr><td colspan="{{ cols|length + 2 }}" class="muted">Nothing here yet. Click “+ New”.</td></tr>{% endfor %}</table>
+<td style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{{ pop }}>{{ 'View' if role == 'viewer' else 'Edit' }}</a>
+{% if role != 'viewer' %}<form method="post" action="{{ url_for('m_delete', key=key, rid=r['id']) }}" style="display:inline" onsubmit="return confirm('Delete this record?')"><button class="btn danger sm">✕</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="{{ cols|length + 2 }}" class="muted">Nothing here yet.{% if role != 'viewer' %} Click “+ New”.{% endif %}</td></tr>{% endfor %}</table>
 {% if page > 1 or more %}<p>{% if page > 1 %}<a class="btn ghost sm" href="?page={{ page - 1 }}&q={{ q }}&f={{ f }}">← Newer</a>{% endif %} {% if more %}<a class="btn ghost sm" href="?page={{ page + 1 }}&q={{ q }}&f={{ f }}">Older →</a>{% endif %}</p>{% endif %}
 {% endblock %}

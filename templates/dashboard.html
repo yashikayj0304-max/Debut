@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block body %}
-<div class="hero"><h2><span id="greet">Welcome</span>, {{ user['name'].split(' ')[0] if user and user['name'] else 'there' }} 👋</h2><p>{{ ws['name'] }} · your Marketing Command Centre</p>
+<div class="dhero"><h2><span id="greet">Welcome</span>, {{ user['name'].split(' ')[0] if user and user['name'] else 'there' }} 👋</h2><p>{{ ws['name'] }} · your Marketing Command Centre</p>
 {% if steps is defined and steps and role != 'creator' %}{% set _d = steps|selectattr(1)|list|length %}<div class="prog" title="{{ _d }} of {{ steps|length }} set-up steps done"><b style="width:{{ (100*_d/steps|length)|round|int }}%"></b></div><p style="font-size:12px;margin-top:6px">Set-up {{ _d }}/{{ steps|length }} complete</p>{% endif %}</div>
 {% if role != 'creator' %}<div class="card" style="border:1px solid var(--pri3)"><b>📋 Today</b> <span class="muted">— carried over from before, plus what's due today</span>
 {% if today_items %}{% for it in today_items %}<div style="padding:4px 0"><a href="{{ it.href }}">{{ it.icon }} {{ it.text }}</a></div>{% endfor %}

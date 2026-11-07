@@ -3,13 +3,13 @@
 {% if p.price == 0 %}<div class="price">₹0</div><div class="per">free forever</div>
 {% else %}<div class="price">₹{{ '{:,}'.format(p.price) }}</div><div class="per">per month {{ C.PRICE_NOTE }}</div>{% endif %}
 {% set cp = plans.get(cur) if (cta == 'billing' and cur in plans and cur != 'trial') else None %}
-{% macro num(label, v, cv, text) %}<li class="{{ 'hl' if cp and v != cv }}">{{ text }}{% if cp and v != cv %} <span class="dlt {{ 'up' if v > cv else 'down' }}">{{ '▲ more' if v > cv else '▼ less' }}</span>{% endif %}</li>{% endmacro %}
+{% macro num(label, v, cv, text, big) %}<li class="{{ 'hl' if cp and v != cv }}">{% set _b = ('<b class="kn">' ~ big ~ '</b>')|safe %}{{ text|e|replace(big|e, _b, 1) }}{% if cp and v != cv %} <span class="dlt {{ 'up' if v > cv else 'down' }}">{{ '▲ more' if v > cv else '▼ less' }}</span>{% endif %}</li>{% endmacro %}
 {% macro feat(on, con, text) %}<li class="{{ 'n' if not on }} {{ 'hl' if cp and on != con }}">{{ text }}{% if cp and on != con %} <span class="dlt {{ 'up' if on else 'down' }}">{{ '▲ added' if on else '▼ not included' }}</span>{% endif %}</li>{% endmacro %}
-<ul>{{ num('seats', p.seats, cp.seats if cp else 0, p.seats ~ ' team seat' ~ ('s' if p.seats > 1 else '')) }}
-{{ num('credits', p.ai_credits, cp.ai_credits if cp else 0, p.ai_credits ~ ' AI credits / month') }}
-{{ num('records', p.records, cp.records if cp else 0, 'Up to ' ~ '{:,}'.format(p.records) ~ ' records') }}
-{{ num('boards', p.boards, cp.boards if cp else 0, ('Unlimited' if p.boards >= 999 else p.boards) ~ ' mood boards') }}
-{{ num('watch', p.watch, cp.watch if cp else 0, 'Market Pulse: live news, trends & videos for ' ~ p.watch ~ ' topics') }}
+<ul>{{ num('seats', p.seats, cp.seats if cp else 0, p.seats ~ ' team seat' ~ ('s' if p.seats > 1 else ''), p.seats|string) }}
+{{ num('credits', p.ai_credits, cp.ai_credits if cp else 0, p.ai_credits ~ ' AI credits / month', p.ai_credits|string) }}
+{{ num('records', p.records, cp.records if cp else 0, 'Up to ' ~ '{:,}'.format(p.records) ~ ' records', '{:,}'.format(p.records)) }}
+{{ num('boards', p.boards, cp.boards if cp else 0, ('Unlimited' if p.boards >= 999 else p.boards) ~ ' mood boards', ('Unlimited' if p.boards >= 999 else p.boards|string)) }}
+{{ num('watch', p.watch, cp.watch if cp else 0, 'Market Pulse: live news, trends & videos for ' ~ p.watch ~ ' topics', p.watch|string) }}
 <li>Calendar, GTM plans, personas, competitors, brand kit, launch checklist, tasks, campaigns, leads, references, news feed</li>
 {{ feat('influencers' in p.features, 'influencers' in cp.features if cp else False, 'Influencer discovery & outreach') }}
 {{ feat('analytics' in p.features, 'analytics' in cp.features if cp else False, 'KPI tracking & analytics') }}

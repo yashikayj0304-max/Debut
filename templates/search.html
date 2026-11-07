@@ -1,5 +1,5 @@
-{% extends "base.html" %}{% block body %}<div class="head"><h1>🔎 Search</h1></div>
-<form class="filters" method="get"><input name="q" id="q" value="{{ term }}" placeholder="Search everything…" autofocus><button class="btn">Search</button></form>
+{% extends "base.html" %}{% block body %}<div class="head"><h1>🔎 Search</h1><a class="btn ghost" href="{{ url_for('dashboard') }}" onclick="if(history.length>1){history.back();return false}">✕ Close search</a></div>
+<form class="filters sbar" method="get"><input name="q" id="q" value="{{ term }}" placeholder="Search everything…" autofocus><button class="btn">Search</button>{% if term %}<a class="btn ghost" href="{{ url_for('search') }}">Clear</a>{% endif %}</form>
 {% if role != 'client' and has_key %}<div class="card" id="ask-card"><b>🤖 Ask Debut</b> <span class="muted">— ask a question in plain English; it answers using your own GTM plan, personas and brand kit</span>
 <div style="display:flex;gap:8px;margin-top:8px"><input id="ask-q" placeholder="e.g. Why is my engagement rate low? What should I do before launch?" value="{{ term if term and '?' in term else '' }}" style="flex:1"><button class="btn" id="ask-go" onclick="askDebut()">Ask</button></div>
 <div id="ask-out" class="out" style="margin-top:10px;display:none;white-space:pre-wrap"></div>

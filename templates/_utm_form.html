@@ -1,0 +1,15 @@
+<div class="fhead"><span class="fico">🏷️</span><div><h1>New · UTM link</h1><p class="fdesc">Add tracking to a link so every click shows up in Google Analytics under the right campaign, source and medium.</p><p class="freq"><span style="color:var(--bad)">*</span> marks required fields</p></div></div>
+<form method="post" action="{{ url_for('m_save', key='utm_links') }}" class="form card nice" data-utm="1">
+<input type="hidden" name="next" value="/utm">{% if modal|default(false) %}<input type="hidden" name="modal" value="1">{% endif %}
+<label class="full"><span class="lbl">Label <span style="color:var(--bad)">*</span></span><input name="name" placeholder="e.g. Diwali Instagram story 1" required maxlength="120"><span class="hint">Only for you, so you can find this link later.</span></label>
+<label class="full"><span class="lbl">Page you are linking to <span style="color:var(--bad)">*</span></span><input name="base_url" id="u_base_url" type="url" placeholder="https://yoursite.com/landing" required><span class="hint">The full address, starting with https://</span></label>
+<label><span class="lbl">Source</span><input name="source" id="u_source" list="u_src" placeholder="instagram" autocomplete="off"><span class="hint">Where the click comes from (utm_source)</span></label>
+<label><span class="lbl">Medium</span><input name="medium" id="u_medium" list="u_med" placeholder="social" autocomplete="off"><span class="hint">The type of channel (utm_medium)</span></label>
+<label><span class="lbl">Campaign</span><input name="campaign" id="u_campaign" list="u_camps" placeholder="diwali_2026" autocomplete="off"><span class="hint">Pick one of your campaigns or type a name (utm_campaign)</span></label>
+<label><span class="lbl">Content</span><input name="content" id="u_content" placeholder="story_v1"><span class="hint">Tells two ads or posts apart (utm_content)</span></label>
+<label class="full"><span class="lbl">Keyword (optional)</span><input name="term" id="u_term" placeholder="only for paid search"><span class="hint">utm_term, mostly for paid search</span></label>
+<div class="utm-out full"><span class="lbl">Your finished link <span class="muted" style="font-weight:400">— updates as you type</span></span><div class="utm-box"><input name="full_url" id="u_full_url" readonly placeholder="Fill in the page address above to see your link"><button type="button" class="btn ghost sm" onclick="copyUtm(this)">Copy</button></div></div>
+<datalist id="u_src"><option>instagram<option>facebook<option>linkedin<option>youtube<option>google<option>newsletter<option>whatsapp<option>influencer</datalist>
+<datalist id="u_med"><option>social<option>cpc<option>email<option>referral<option>display<option>organic<option>influencer</datalist>
+<datalist id="u_camps">{% for c in camps %}<option>{{ c }}{% endfor %}</datalist>
+<div class="fbar"><button class="btn">Save link</button>{% if not modal|default(false) %}<a class="btn ghost" href="{{ url_for('utm') }}">Cancel</a>{% else %}<button type="button" class="btn ghost" onclick="document.getElementById('overlayModal').close()">Cancel</button>{% endif %}</div></form>

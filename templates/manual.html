@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}User manual — {{ C.APP_NAME }}{% endblock %}{% block body %}
 <div class="manual">
 <div class="head"><h1>📖 {{ C.APP_NAME }} user manual</h1><div class="noprint"><button class="btn ghost" onclick="window.print()">🖨️ Print / save as PDF</button> <a class="btn" href="{{ url_for('static', filename='guides/Debut-User-Manual.pdf') }}" target="_blank">Download PDF</a></div></div>
-<p class="muted">Last updated 7 Nov 2026. Everything you need, from creating your account to inviting a team. Jump to: <a href="#start">Sign up</a> · <a href="#around">Find your way around</a> · <a href="#week">First week</a> · <a href="#forms">Adding &amp; editing</a> · <a href="#calendar">Calendar</a> · <a href="#boards">Mood boards</a> · <a href="#team">Team &amp; roles</a> · <a href="#clients">Clients</a> · <a href="#plans">Plans</a> · <a href="#colours">Colours</a> · <a href="#security">Security</a> · <a href="#keys">Shortcuts</a> · <a href="#faq">Troubleshooting</a></p>
+<p class="muted">Last updated 7 Nov 2026. Everything you need, from creating your account to inviting a team. Jump to: <a href="#start">Sign up</a> · <a href="#around">Find your way around</a> · <a href="#week">First week</a> · <a href="#forms">Adding &amp; editing</a> · <a href="#utm">UTM &amp; Experiments</a> · <a href="#calendar">Calendar</a> · <a href="#boards">Mood boards</a> · <a href="#team">Team &amp; roles</a> · <a href="#clients">Clients</a> · <a href="#plans">Plans</a> · <a href="#colours">Colours</a> · <a href="#security">Security</a> · <a href="#keys">Shortcuts</a> · <a href="#faq">Troubleshooting</a></p>
 
 <div class="card" id="start"><h2>1. Sign up (about 2 minutes)</h2>
 <ol>
@@ -16,7 +16,7 @@
 <table><tr><th>Where</th><th>What it does</th></tr>
 <tr><td>🏠 <b>Home</b> (top left)</td><td>Your dashboard: a greeting, set-up progress, the “Today” list (what is overdue or due), counts of everything, what publishes this week, budget, pipeline and funnel.</td></tr>
 <tr><td><b>Side menu</b></td><td>Grouped by topic (Strategy, Content, Campaigns, Promotions &amp; Events, Content Ops, Growth, Intelligence, Workspace). Click a heading to open or close it. A 🔒 means the item belongs to a higher plan.</td></tr>
-<tr><td><b>Search box</b> or <kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘</kbd>+<kbd>K</kbd> on Mac)</td><td>Opens the quick finder. Type to jump to any page, or to create something (“New task”). Pick “Search everything” to search all your records. ↑ ↓ to move, Enter to open, Esc to close.</td></tr>
+<tr><td><b>Search box</b> (top bar)</td><td>Type and press Enter to search all your records at once. The ✕ in the box (or the Esc key) clears it. On the results page, <b>✕ Close search</b> takes you back. Press <kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘</kbd>+<kbd>K</kbd> on Mac) to jump to the box from anywhere.</td></tr>
 <tr><td><b>＋ Create</b></td><td>Starts a new content item, task, campaign, lead or key date in a pop-up form, or opens mood boards and the Idea Bank. Which options you see depends on your role.</td></tr>
 <tr><td>❓ · 🔔</td><td>Help and guides; your notifications (assignments, mentions, approvals).</td></tr>
 <tr><td><b>Your name</b> (top right)</td><td>Profile, Send feedback and Log out. Your role (Owner, Admin, Lead, Manager, Creator, Viewer) shows under your name.</td></tr>
@@ -36,6 +36,10 @@
 <li>Lists show a <b>Budget used</b> bar for campaigns and promotions; it turns red when spend passes the budget.</li>
 <li>Lists have <b>Export to Excel</b> and a blank Excel template, so you can fill in bulk data and import it. Drag the ⠿ handle to reorder cards on boards.</li>
 <li>Deleting asks you to confirm. Everything you do is recorded in the Activity log (owners/admins can export it as CSV).</li></ul></div>
+
+<div class="card" id="utm"><h2>Tracking links (UTM Builder) and Experiments</h2>
+<ul><li><b>UTM Builder</b> (Campaigns): press <b>＋ New UTM link</b>. A pop-up asks for a label, the page you are linking to, where the link will be posted (source, for example instagram), the channel type (medium, for example social) and the campaign. The finished link builds itself as you type; press <b>Copy</b> and paste it into your post, ad or email. Saved links are listed with a Copy button.</li>
+<li><b>Experiments</b> (Campaigns) is for A/B tests: change <b>one thing</b>, measure <b>one number</b>. Fill in: <b>Hypothesis</b> (“If we [change], then [result], because [reason]”), <b>Channel</b>, <b>Success metric</b> (the one number you will watch, for example saves or click-through rate), <b>Variant A</b> (what you do today), <b>Variant B</b> (the one thing you change), <b>Status</b> (Idea, Running, Concluded) and, once finished, <b>Result / decision</b> (what happened and whether you keep, drop or retest it).</li></ul></div>
 
 <div class="card" id="calendar"><h2>5. Calendar</h2>
 <ul><li>Shows content by publish date and your key dates (festivals, sales, events) in orange. Use ◀ ▶ for months and the channel filter at the top.</li>
@@ -89,8 +93,8 @@
 
 <div class="card" id="keys"><h2>13. Shortcuts</h2>
 <table><tr><th>Do this</th><th>To get this</th></tr>
-<tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd></td><td>Quick finder: jump anywhere or create anything</td></tr>
-<tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></td><td>Move, open, close inside the quick finder or a pop-up</td></tr>
+<tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd></td><td>Jump to the search box</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>Clear the search box, or close a pop-up form</td></tr>
 <tr><td>Drag a calendar chip</td><td>Reschedule to another day</td></tr>
 <tr><td>Drag ⠿ on a card</td><td>Reorder</td></tr>
 <tr><td>Bottom ＋ on phones</td><td>New content in one tap</td></tr></table></div>

@@ -1589,7 +1589,7 @@ def test_brand_theming_business_vs_personal_brand(app, mails):
 
 def test_brand_shades_math_is_sane():
     sh = S.hex_shades("#1E88E5")
-    assert sh["pri"] == "#1E88E5"
+    assert sh["pri"] == "#1e88e5"
     assert sh["pri_d"] != sh["pri"] and sh["pri2"] != sh["pri"] and sh["pri3"] != sh["pri2"]
     # darker shade really is darker (lower total RGB), light tints really are lighter (closer to white) than the base
     def total(h): return sum(int(h[i:i+2], 16) for i in (1, 3, 5))
@@ -1600,7 +1600,7 @@ def test_brand_shades_math_is_sane():
     assert sh["sec_d"] != sh["sec"]
     # an explicit, valid secondary is used as-is (sec_d is a darkened version of it, not of the primary)
     sh2 = S.hex_shades("#1E88E5", "#E53935")
-    assert sh2["sec"] == "#E53935"
+    assert sh2["sec"] == "#e53935"
     assert sh2["sec_d"] == S._mix("#E53935", (0, 0, 0), 0.22)
     # an invalid/blank secondary falls back to auto, same as not passing one at all
     assert S.hex_shades("#1E88E5", "") == sh
@@ -1611,7 +1611,7 @@ def test_brand_shades_math_is_sane():
     assert total(sh["pri"]) < total(sh["bg2"]) < total(sh["bg"])          # both are lighter than the raw primary
     # once a real secondary is set, 'accent' (used for focus rings, tile accents, chip borders) actually
     # uses it - secondary now has a visible job beyond the two gradient-text spots
-    assert sh2["accent"] == sh2["sec"] == "#E53935"
+    assert sh2["accent"] == sh2["sec"] == "#e53935"
 
 
 def test_brand_colours_flow_into_the_live_page_background(app, mails):
@@ -1624,7 +1624,7 @@ def test_brand_colours_flow_into_the_live_page_background(app, mails):
     sh = S.hex_shades("#1E88E5", "#E53935")
     assert f"--bg:{sh['bg']}" in html
     assert f"--bg2:{sh['bg2']}" in html
-    assert f"--accent:{sh['accent']}" in html and sh["accent"] == "#E53935"
+    assert f"--accent:{sh['accent']}" in html and sh["accent"] == "#e53935"
 
 
 def test_brand_shades_none_for_personal_brand_and_no_colour(app, mails):
@@ -1634,7 +1634,7 @@ def test_brand_shades_none_for_personal_brand_and_no_colour(app, mails):
     assert S.brand_shades(dbq(app, "SELECT * FROM workspaces WHERE name='Acme Two'", one=True)) is None  # no brand_color set yet
     biz.post("/account/theme", data=dict(color="#1E88E5", secondary="#E53935"))
     sh = S.brand_shades(dbq(app, "SELECT * FROM workspaces WHERE name='Acme Two'", one=True))
-    assert sh["pri"] == "#1E88E5" and sh["sec"] == "#E53935"
+    assert sh["pri"] == "#1e88e5" and sh["sec"] == "#e53935"
 
 
 def test_moodboard_freeform_canvas(app):
@@ -3361,8 +3361,15 @@ def test_batch3_invites_plans_forms_share_password(app, mails):
 def test_ui_refresh_palette_create_menu_bottom_nav(app):
     c = signup(app, "ui@x.com")
     h = c.get("/app").data
-    assert b'id="palette"' in h and b'class="tb-create"' in h and b'class="bnav"' in h and b"PAL_ITEMS" in h
-    assert b"New task" in h and b'id="greet"' in h
+    assert b'id="palette"' not in h and b"PAL_ITEMS" not in h
+    assert b'class="tb-create"' in h and b'class="bnav"' in h and b'id="tbclear"' in h and b'id="tbq"' in h and b'id="greet"' in h
+    s = c.get("/search?q=zzz").data
+    assert b"Close search" in s
+    u = c.get("/utm/new?modal=1")
+    assert u.status_code == 200 and b"data-utm" in u.data and b"Your finished link" in u.data
+    assert b"New UTM link" in c.get("/utm").data
+    e = c.get("/m/experiments/new?modal=1").data
+    assert b"If we [change]" in e and b"Variant B" in e
 
 
 def test_user_manual_public_and_linked_everywhere(app):
@@ -3374,8 +3381,38 @@ def test_user_manual_public_and_linked_everywhere(app):
     assert b"/manual" in s and b"What happens next" in s
     c = signup(app, "man@x.com")
     h = c.get("/help").data
-    assert b"/manual" in h and b"Debut-User-Manual.pdf" in h and b"Ctrl+K" in h
+    assert b"/manual" in h and b"Debut-User-Manual.pdf" in h and b"Experiments" in h
     assert b"topgt;" not in h
     d = c.get("/app").data
-    assert b"data-tour=\"create\"" in d and b"Quick finder" in d
+    assert b"data-tour=\"create\"" in d
     assert c.get("/static/guides/Debut-User-Manual.pdf").status_code == 200
+
+
+def test_viewer_never_sees_write_buttons_and_landing_hero_not_hijacked(app, mails):
+    o = signup(app, "ovw@x.com")
+    o.post("/m/content_items/save", data=dict(title="Visible post", channel="Instagram", status="Idea"))
+    vw = _join(app, o, mails, "vww@x.com", "viewer", "Vee")
+    h = vw.get("/m/content_items").data
+    assert b"Visible post" in h
+    assert b">+ New</a>" not in h
+    assert b"Import CSV" not in h
+    assert b'id="importcsv"' not in h
+    assert b"Delete this record?" not in h
+    assert b">View</a>" in h
+    c = vw.get("/calendar").data
+    assert b"+ Content" not in c and b'title="Add content"' not in c
+    assert b"Save changes" not in vw.get("/m/content_items/1/edit?modal=1").data
+    # the landing page hero and the dashboard banner use different class names
+    land = app.test_client().get("/").data
+    assert b'class="hero"' in land and b"dhero" not in land
+    assert b'class="dhero"' in o.get("/app").data
+
+
+def test_hex_shades_text_always_readable():
+    import services
+    for pri, sec in [("#ffd60a", "#fff3b0"), ("#0b1f4d", "#1d3b8b"), ("#111111", "#333333"), ("#f2f2f2", "#ffffff"), ("#14b8a6", None)]:
+        s = services.hex_shades(pri, sec)
+        assert s["on"] in ("#ffffff", services.DARK_INK)
+        assert services.contrast(s["pri_d"], "#ffffff") >= 4.5
+        assert services.contrast(s["sec_d"], "#ffffff") >= 4.5
+        assert services.contrast(s["on"], s["sec_g"]) >= 4.5

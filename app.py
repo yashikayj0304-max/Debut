@@ -23,7 +23,7 @@ class SafeInt(IntegerConverter):
         kw.setdefault("max", 2**31 - 1)
         super().__init__(map, **kw)
 
-PUBLIC = {"board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
+PUBLIC = {"survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
 VIEWER_WRITE_OK = {"auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
@@ -67,7 +67,8 @@ def create_app(config=None, init=True, database_url=None):
     from workspace import bp as ws_bp
     from admin import bp as admin_bp
     from api import bp as api_bp
-    for b in (auth_bp, billing_bp, ws_bp, admin_bp, api_bp):
+    from survey import bp as survey_bp
+    for b in (auth_bp, billing_bp, ws_bp, admin_bp, api_bp, survey_bp):
         app.register_blueprint(b)
     views.register(app)
 

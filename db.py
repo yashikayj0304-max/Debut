@@ -97,6 +97,7 @@ def init_schema(modules):
         f"CREATE TABLE IF NOT EXISTS comments (id {pk}, workspace_id INTEGER NOT NULL, module TEXT NOT NULL, record_id INTEGER NOT NULL, user_id INTEGER, body TEXT NOT NULL, client_visible INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS notifications (id {pk}, workspace_id INTEGER NOT NULL, user_id INTEGER NOT NULL, kind TEXT DEFAULT '', message TEXT NOT NULL, link TEXT DEFAULT '', is_read INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS api_keys (id {pk}, workspace_id INTEGER NOT NULL, user_id INTEGER, name TEXT DEFAULT '', prefix TEXT DEFAULT '', key_hash TEXT UNIQUE NOT NULL, scope TEXT DEFAULT 'read', last_used TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS survey_responses (id {pk}, data TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS feedback (id {pk}, workspace_id INTEGER, user_id INTEGER, kind TEXT DEFAULT 'idea', page TEXT DEFAULT '', message TEXT NOT NULL, resolved INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS pulse_runs (id {pk}, workspace_id INTEGER NOT NULL, payload TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS boards (id {pk}, workspace_id INTEGER NOT NULL DEFAULT 0, name TEXT, description TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",

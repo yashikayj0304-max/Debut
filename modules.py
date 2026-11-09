@@ -87,13 +87,13 @@ PHASES = ["Research", "Positioning", "Product & Pricing", "Channels", "Content",
           "Sales & Enablement", "Launch", "Post-launch"]
 
 MODULES = OrderedDict([
-    ("gtm_plans", dict(title="GTM Plans", icon="🚀", group="Strategy", desc="One record per product/launch: goal, market, positioning, pricing, channels, budget.",
+    ("gtm_plans", dict(title="Launch Plans (GTM)", icon="🚀", group="Strategy", desc="One record per product/launch: goal, market, positioning, pricing, channels, budget.",
         fields=[F("name", "Plan name"), F("product", "Product / offering"), F("stage", "Stage", "select", ["Research", "Planning", "Pre-launch", "Launch", "Post-launch", "Scale"]),
                 F("launch_date", "Launch date", "date"), F("goal", "Primary goal & success metric", "textarea"), F("target_market", "Target market / segments", "textarea"),
                 F("positioning", "Positioning & value proposition", "textarea"), F("pricing", "Pricing & packaging", "textarea"), F("channels", "Channel mix", "textarea"),
                 F("budget", "Budget (total)", "number"), F("owner", "Owner"), F("risks", "Risks & dependencies", "textarea"), F("notes", "Notes", "textarea")],
         cols=["name", "product", "stage", "launch_date", "budget", "owner"], filter="stage")),
-    ("personas", dict(title="Personas / ICP", icon="🎯", group="Strategy", desc="Ideal customer profiles and buyer personas.",
+    ("personas", dict(title="Ideal Customers (Personas / ICP)", icon="🎯", group="Strategy", desc="Ideal customer profiles and buyer personas.",
         fields=[F("name", "Persona name"), F("role", "Role / who they are"), F("industry", "Industry / segment"), F("company_size", "Company / household size"),
                 F("pain_points", "Pain points", "textarea"), F("goals", "Goals / jobs to be done", "textarea"), F("objections", "Objections", "textarea"),
                 F("channels", "Where they spend time", "textarea"), F("buying_triggers", "Buying triggers", "textarea")],
@@ -123,7 +123,7 @@ MODULES = OrderedDict([
         fields=[F("title", "Title"), F("url", "URL", "url"), F("category", "Category", "select", ["Inspiration", "Competitor", "Benchmark", "Article", "Tool", "Template", "Case study", "Design", "Ad library", "Other"]),
                 F("tags", "Tags"), F("notes", "Notes", "textarea"), F("favorite", "Favourite", "select", ["No", "Yes"])],
         cols=["title", "url", "category", "tags", "favorite"], filter="category")),
-    ("keywords", dict(title="SEO Keywords", icon="🔎", group="Content", desc="Keyword targets and rank tracking.",
+    ("keywords", dict(title="Search Keywords (SEO)", icon="🔎", group="Content", desc="Keyword targets and rank tracking.",
         fields=[F("keyword", "Keyword"), F("volume", "Monthly volume", "number"), F("difficulty", "Difficulty (0-100)", "number"),
                 F("intent", "Intent", "select", ["Informational", "Commercial", "Transactional", "Navigational"]), F("target_url", "Target URL", "url"),
                 F("position", "Current position", "number"), F("status", "Status", "select", ["Idea", "Targeting", "Ranking", "Won", "Dropped"])],
@@ -155,7 +155,7 @@ MODULES = OrderedDict([
         fields=[F("name", "Name"), F("company", "Company"), F("email", "Email"), F("phone", "Phone"), F("source", "Source / UTM"),
                 F("stage", "Stage", "select", ["New", "MQL", "SQL", "Opportunity", "Won", "Lost"]), F("value", "Deal value", "number"), F("next_step", "Next step"), F("notes", "Notes", "textarea")],
         cols=["name", "company", "source", "stage", "value", "next_step"], filter="stage", kanban="stage")),
-    ("kpis", dict(title="KPI Log", icon="📈", group="Growth", desc="Log metrics over time; charts on the Analytics page.",
+    ("kpis", dict(title="Results Log (KPIs)", icon="📈", group="Growth", desc="Log metrics over time; charts on the Analytics page.",
         fields=[F("metric", "Metric (e.g. Website visits)"), F("channel", "Channel"), F("period", "Date", "date"), F("value", "Actual", "number"),
                 F("target", "Target", "number"), F("campaign", "Campaign"), F("notes", "Notes")],
         cols=["metric", "channel", "period", "value", "target", "campaign"])),
@@ -216,7 +216,7 @@ MODULES = OrderedDict([
         fields=[F("name", "Template name"), F("channel", "Channel", "select", ["Email", "Instagram DM", "LinkedIn", "WhatsApp", "X DM"]),
                 F("audience", "Audience", "select", ["Influencer", "Creator / freelancer", "PR / Media", "Event guest", "Retail partner"]), F("subject", "Subject"), F("body", "Body", "textarea")],
         cols=["name", "channel", "audience"], filter="audience")),
-    ("utm_links", dict(title="UTM Links", icon="🏷️", group="Campaigns", desc="Saved tracking links (use the UTM Builder to create).",
+    ("utm_links", dict(title="Trackable Links (UTM)", icon="🏷️", group="Campaigns", desc="Saved tracking links (use the UTM Builder to create).",
         fields=[F("name", "Label"), F("base_url", "Base URL", "url"), F("source", "utm_source"), F("medium", "utm_medium"), F("campaign", "utm_campaign"),
                 F("term", "utm_term"), F("content", "utm_content"), F("full_url", "Full URL", "url")],
         cols=["name", "campaign", "source", "medium", "full_url"])),
@@ -260,7 +260,7 @@ MODULES["pitches"] = dict(title="Opportunities", icon="🎤", group="Campaigns",
             F("host", "Organiser / host"), F("contact", "Contact person"), F("email", "Contact email"), F("status", "Status", "select", ["Idea", "Researching", "Pitched", "In discussion", "Confirmed", "Done", "Declined"]),
             F("date", "Event / publish date", "date"), F("follow_up", "Follow up on", "date"), F("audience", "Audience / reach"), F("link", "Link", "url"), F("pitch", "Angle / pitch", "textarea"), F("outcome", "Outcome & learnings", "textarea")],
     cols=["name", "type", "host", "status", "date", "follow_up"], filter="status", kanban="status")
-MODULES["accounts"] = dict(title="Target Accounts", icon="🏛️", group="Growth", desc="Account-based marketing: the companies you want, the people who decide, and the next move for each.",
+MODULES["accounts"] = dict(title="Target Companies (Accounts)", icon="🏛️", group="Growth", desc="Account-based marketing: the companies you want, the people who decide, and the next move for each.",
     fields=[F("company", "Company"), F("industry", "Industry"), F("tier", "Tier", "select", ["Tier 1", "Tier 2", "Tier 3"]),
             F("stage", "Stage", "select", ["Target", "Researching", "Engaged", "Meeting booked", "Proposal", "Won", "Lost", "Nurture"]),
             F("contact_name", "Key contact"), F("contact_role", "Contact role"), F("contact_email", "Contact email"), F("linkedin", "LinkedIn", "url"),
@@ -273,7 +273,7 @@ MODULES["retail_audits"] = dict(title="Retail Audits", icon="🏪", group="Growt
             F("price_check", "Price", "select", ["At MRP", "Discounted", "Above MRP"]), F("competitor", "Competitor activity", "textarea"), F("photo_url", "Photo link", "url"), F("actions", "Actions needed", "textarea")],
     cols=["store", "city", "channel", "audit_date", "availability", "posm"], filter="availability")
 
-MODULES["watchlist"] = dict(title="Market Pulse Watchlist", icon="🔭", group="Intelligence", desc="What Market Pulse tracks for you: keywords, brands, competitors and subreddits. Competitors you add under Competitors are tracked automatically.",
+MODULES["watchlist"] = dict(title="News Watchlist (Market Pulse)", icon="🔭", group="Intelligence", desc="What Market Pulse tracks for you: keywords, brands, competitors and subreddits. Competitors you add under Competitors are tracked automatically.",
     fields=[F("term", "Keyword / brand / subreddit"), F("type", "Type", "select", ["Keyword", "Competitor", "Brand", "Subreddit"]), F("region", "Region", "select", ["India", "Global", "Both"]), F("notes", "Notes", "textarea")],
     cols=["term", "type", "region", "notes"], filter="type")
 

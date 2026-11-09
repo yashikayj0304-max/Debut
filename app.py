@@ -152,7 +152,7 @@ def create_app(config=None, init=True, database_url=None):
 
     @app.context_processor
     def ctx():
-        d = dict(HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[])
+        d = dict(HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[], NAV_TAG={})
         if g.get("user") and g.get("ws"):
             d["trial_left"] = S.trial_days_left(g.ws)
             d["plan_key"] = g.plan_key
@@ -165,9 +165,9 @@ def create_app(config=None, init=True, database_url=None):
             d["lapsed"] = g.plan_key == "free" and g.ws["plan"] != "free"
             groups = OrderedDict([("Strategy", []), ("Content", []), ("Campaigns", []), ("Promotions & Events", []), ("Content Ops", []), ("Growth", []), ("Intelligence", [])])
             special = {"Content": [("Calendar", "calendar_view", "📅"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
-                       "Campaigns": [("Discover Influencers", "discover", "🔭"), ("UTM Builder", "utm", "🏷️")],
+                       "Campaigns": [("Discover Influencers", "discover", "🔭"), ("Trackable links (UTM)", "utm", "🏷️")],
                        "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈"), ("Marketing Health", "marketing_health", "🩺"), ("Your Recap", "recap", "✨")],
-                       "Intelligence": [("Market Pulse", "pulse_page", "📡"), ("Latest Updates", "updates", "⚡"), ("AI Studio", "ai_studio", "🤖")]}
+                       "Intelligence": [("Live news (Market Pulse)", "pulse_page", "📡"), ("Latest Updates", "updates", "⚡"), ("AI Studio", "ai_studio", "🤖")]}
             feat_of = {"content_ops": "content_ops", "discover": "influencers", "analytics": "analytics", "ai_studio": "ai", "marketing_health": "analytics"}
             creator = g.role == "creator"
             lock = lambda f: " 🔒" if (f and f not in g.plan["features"]) else ""
@@ -189,6 +189,7 @@ def create_app(config=None, init=True, database_url=None):
             if cal_i is not None and ci_i is not None:
                 groups["Content"].insert(cal_i + 1, groups["Content"].pop(ci_i))
             d["NAV"] = OrderedDict((k, v) for k, v in groups.items() if v)
+            d["NAV_TAG"] = {"Strategy": "plan & position", "Content": "make & schedule", "Campaigns": "launch & reach", "Promotions & Events": "sales, drops, events", "Content Ops": "creators & invoices", "Growth": "results & reports", "Intelligence": "news & AI"}
             # a short, always-visible list of the pages people use every day; everything else lives behind "All tools"
             _all = {h: lbl for items in d["NAV"].values() for lbl, h in items}
             _ess = [url_for(x) for x in ("calendar_view", "moodboards")] + [url_for("m_list", key=k) for k in ("content_items", "tasks", "campaigns", "leads")] + [url_for("ai_studio")]

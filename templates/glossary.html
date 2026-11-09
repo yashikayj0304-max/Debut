@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Jargon buster{% endblock %}{% block body %}
+<div class="head"><h1>📖 Jargon buster</h1><a class="btn ghost" href="{{ url_for('help_centre') }}">❓ Help &amp; guides</a></div>
+<p class="muted">Marketing people love short words. Here's what they actually mean, in plain English, and where to find them in {{ C.APP_NAME }}.</p>
+<input id="gq" class="gq" type="search" placeholder="Search a word, e.g. UTM" aria-label="Search the jargon buster" autofocus>
+<div class="gloss">{% for term, mean, where in terms %}<div class="card gl" data-t="{{ (term ~ ' ' ~ mean)|lower }}"><b>{{ term }}</b><p>{{ mean }}</p>{% if where %}<span class="pill">{{ where }}</span>{% endif %}</div>{% endfor %}</div>
+<p class="muted" id="gnone" hidden>Nothing matches that. Try a shorter word, or <a href="{{ url_for('search') }}">search the app</a>.</p>
+<script>(function(){var i=document.getElementById("gq"),n=document.getElementById("gnone");i.addEventListener("input",function(){var v=i.value.trim().toLowerCase(),c=0;document.querySelectorAll(".gl").forEach(function(e){var m=!v||e.dataset.t.indexOf(v)>-1;e.hidden=!m;if(m)c++;});n.hidden=c>0;});})();</script>
+{% endblock %}

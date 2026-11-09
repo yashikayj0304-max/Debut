@@ -67,10 +67,11 @@ def dev_link(sent, link):
         flash(("DEV: " if not C.PROD else "") + "We couldn't email this link (mail isn't set up yet), so here it is - open it to continue: " + S.app_url() + link)
 
 
-def send_verify(user):
+def send_verify(user, quiet=False):
     link = url_for("auth.verify", token=ser("verify").dumps(user["id"]))
     sent = S.send_email(user["email"], f"Verify your email for {C.APP_NAME}", f"Hi {user['name'] or ''},\n\nConfirm your email: {S.app_url()}{link}\n\nThanks,\n{C.APP_NAME}")
-    dev_link(sent, link)
+    if not (quiet and not C.SMTP_HOST):
+        dev_link(sent, link)
 
 
 def accept_invite(token, user):
@@ -142,7 +143,7 @@ def signup():
         start_session(uid, wid)
         S.audit("signup", email, wid=wid, uid=uid)
         S.audit("dpdp_consent", f"{email} accepted Terms/Privacy at signup", wid=wid, uid=uid)
-        send_verify(user)
+        send_verify(user, quiet=True)  # no mail set up yet: don't greet a new user with a raw-link toast
         flash("You're in! Your workspace is ready 🎉")
         return redirect(url_for("dashboard"))
     return render_template("signup.html", inv=inv, inv_ws=inv_ws, token=token, form={}, industries=IND.CHOICES)

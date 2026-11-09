@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}
 <div class="head"><h1>📊 Analytics</h1><a class="btn" href="{{ url_for('m_new', key='kpis', next='/analytics') }}" onclick="return openOverlay(this.href,'')">+ Log KPI</a></div>
-<p class="muted">Charts are built from the KPI Log, Campaigns and Leads. Log metrics weekly for trends.</p>
+<p class="muted">Charts are built from the Results Log (KPIs), Campaigns and Leads. Log metrics weekly for trends.</p>
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr))">
 {% for name in series %}<div class="card"><b>{{ name }}</b><canvas id="k{{ loop.index }}" height="140"></canvas></div>{% endfor %}
 <div class="card"><b>Budget vs spent</b><canvas id="bud" height="140"></canvas></div>

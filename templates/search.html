@@ -4,8 +4,10 @@
 <div style="display:flex;gap:8px;margin-top:8px"><input id="ask-q" placeholder="e.g. Why is my engagement rate low? What should I do before launch?" value="{{ term if term and '?' in term else '' }}" style="flex:1"><button class="btn" id="ask-go" onclick="askDebut()">Ask</button></div>
 <div id="ask-out" class="out" style="margin-top:10px;display:none;white-space:pre-wrap"></div>
 <p class="muted" id="ask-st" style="margin-top:6px"></p></div>{% endif %}
+{% if tools %}<div class="card"><b>🧭 Jump to a tool</b><div class="chips" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">{% for label, href in tools %}<a class="btn ghost sm" href="{{ href }}">{{ label }}</a>{% endfor %}</div></div>{% endif %}
+{% if not term %}<div class="card"><b>Lost? Try typing what you want to do.</b><p class="muted">For example: <em>post</em>, <em>invoice</em>, <em>calendar</em>, <em>stuck</em>, <em>GTM</em>. We'll point you to the right tool. Not sure what a word means? <a href="{{ url_for('glossary') }}">Open the jargon buster</a>.</p></div>{% endif %}
 {% for key, m, rows, tf in results %}<div class="card"><b>{{ m.icon }} {{ m.title }}</b>{% for r in rows %}<div style="padding:4px 0"><a href="{{ url_for('m_edit', key=key, rid=r['id']) }}">{{ r[tf] or '(untitled)' }}</a></div>{% endfor %}</div>
-{% else %}{% if term %}{{ empty('search', 'No results for “' ~ term ~ '”', 'Check the spelling or try a shorter word.') }}{% endif %}{% endfor %}
+{% else %}{% if term and not tools %}{{ empty('search', 'No results for “' ~ term ~ '”', 'Check the spelling or try a shorter word.') }}{% endif %}{% endfor %}
 {% endblock %}
 {% block scripts %}<script>
 async function askDebut(){

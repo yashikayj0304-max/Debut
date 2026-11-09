@@ -100,6 +100,11 @@ def health():
         return jsonify(status="db_error"), 503
 
 
+@route("/glossary")
+def glossary():
+    return render_template("glossary.html", terms=GLOSSARY)
+
+
 @route("/help")
 def help_centre():
     return render_template("help.html")
@@ -193,7 +198,7 @@ def dashboard():
     if wins and cnt("memberships") <= 1 and g.role in ("owner", "admin"):
         pending.sort(key=lambda x: 0 if x[0] == "Invite a teammate" else 1)
     next_step = pending[0] if pending else None
-    return render_template("dashboard.html", next_step=next_step, upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
+    return render_template("dashboard.html", next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
                            today_items=today_items, today_more=today_more,
                            steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
@@ -703,6 +708,74 @@ def m_reorder_list(key):
 
 
 # ----------------------------------------------------------------- search
+GLOSSARY = [
+    ("GTM (go-to-market)", "Your plan for how a product or offer reaches customers: who it's for, what you say, where you show up and how you'll know it worked.", "Debut: Launch Plans (GTM)"),
+    ("ICP / Persona", "A short description of your ideal customer: who they are, what they want and what stops them buying.", "Debut: Ideal Customers"),
+    ("UTM link", "A normal link with a few tags added, so your analytics can tell which post or ad a click came from.", "Debut: Trackable Links (UTM)"),
+    ("KPI", "A number you watch to know if things are working, for example followers, leads or sales per month.", "Debut: Results Log (KPIs)"),
+    ("ROI", "Return on investment: what you got back compared with what you spent.", ""),
+    ("ROAS", "Return on ad spend: sales made for every rupee spent on ads.", ""),
+    ("CAC", "Customer acquisition cost: what it costs, on average, to win one new customer.", ""),
+    ("CTR", "Click-through rate: of the people who saw something, the share who clicked.", ""),
+    ("CPC / CPM", "Cost per click / cost per 1,000 views. Two common ways ads are priced.", ""),
+    ("Conversion", "When someone does the thing you wanted: signs up, buys, books a call.", ""),
+    ("Funnel", "The steps people go through, from first hearing about you to becoming a customer.", "Debut: Analytics"),
+    ("SEO", "Search engine optimisation: making your pages easier to find on Google.", "Debut: Search Keywords (SEO)"),
+    ("CTA", "Call to action: the line or button that tells people what to do next, such as 'Book now'.", ""),
+    ("Battlecard", "A one-page cheat sheet on a competitor: what they offer, where you're stronger and what to say.", "Debut: Competitors"),
+    ("Brand kit", "Your logo, colours, fonts and tone of voice, saved once so everything looks like you.", "Debut: Brand Kit"),
+    ("Mood board", "A collage of images, colours and notes that captures the look and feel of a launch.", "Debut: Mood Boards"),
+    ("UGC", "User-generated content: posts, photos or videos made by customers or creators rather than by you.", ""),
+    ("PR", "Public relations: getting press, media and influencers to talk about you.", "Debut: PR & Media"),
+    ("Lead", "Someone who has shown interest and could become a customer.", "Debut: Leads"),
+    ("Content calendar", "A schedule of what you'll post, where and when.", "Debut: Calendar"),
+    ("Market Pulse", "Live news and trends for your industry, so you don't need ten tabs open.", "Debut: Live news (Market Pulse)"),
+    ("A/B test", "Trying two versions of one thing to see which does better.", "Debut: Experiments"),
+    ("POSM", "Point-of-sale material: in-store displays, shelf strips and posters that help a product sell.", ""),
+    ("Rate card", "A price list for your services or for what creators charge.", "Debut: Rate Card"),
+]
+
+# Plain-English words people actually type when they are looking for a tool (not the tool's own name).
+TOOL_WORDS = {
+    "content_items": "post posts reel reels caption blog video instagram schedule publish write", "tasks": "todo to-do task work checklist deadline",
+    "campaigns": "campaign ads ad budget promote", "leads": "lead customers enquiries inquiry sales prospects crm", "kpis": "results numbers metrics performance kpi stats",
+    "gtm_plans": "launch plan strategy gtm go to market", "personas": "audience customer icp persona who buys", "competitors": "rivals competition competitor battlecard",
+    "brand_kit": "logo colours colors fonts voice brand tone", "launch_checklist": "launch checklist steps", "influencers": "influencer creator collab outreach dm",
+    "payments": "invoice invoices payout pay money payment", "utm_links": "utm tracking link links track clicks", "keywords": "seo keyword search google rank",
+    "key_dates": "festival dates sale date holiday", "events": "event events offline", "promotions": "promotion offer discount sale",
+    "pr_contacts": "pr press media journalist", "creators": "creator freelancer writer designer", "clients": "client clients customer account", "reference_links": "inspiration references links save",
+    "assets": "files library images assets media", "experiments": "test ab a/b experiment", "feeds": "news rss sources", "watchlist": "watch topics news trends",
+}
+TOOL_PAGES = [("calendar_view", "📅 Calendar", "calendar schedule month plan dates"), ("moodboards", "🖼️ Mood Boards", "mood board vibe inspiration pinterest"), ("ideas", "💡 Idea Bank", "ideas inspiration stuck content ideas"),
+              ("ai_studio", "🤖 AI Studio", "ai write draft generate caption chatgpt"), ("pulse_page", "📡 Live news (Market Pulse)", "news trends market pulse competitors"), ("analytics", "📈 Analytics", "analytics charts results funnel"),
+              ("marketing_health", "🩺 Marketing Health", "health score check consistency"), ("report", "📑 Client report", "report pdf client monthly"), ("whatnow", "🫠 Idk what to do", "stuck lost help next what now bored"),
+              ("glossary", "📖 Jargon buster", "meaning what is glossary jargon terms explain gtm utm kpi icp roi"), ("help_centre", "❓ Help & guides", "help guide manual how to")]
+
+
+def find_tools(term):
+    """'Where is X?' - match a typed word against every tool's name, plain-English keywords and short hint."""
+    t = (term or "").strip().lower()
+    if len(t) < 2:
+        return []
+    out = []
+    for key, m in MODULES.items():
+        if locked(key) or (g.role == "creator" and key not in CREATOR_MODULES):
+            continue
+        hay = f"{m['title']} {TOOL_WORDS.get(key, '')}".lower()
+        if t in hay:
+            out.append((f"{m['icon']} {m['title']}", url_for("m_list", key=key)))
+    if g.role != "creator" or True:
+        for ep, label, words in TOOL_PAGES:
+            if g.role == "creator" and ep not in ("calendar_view", "moodboards", "ideas", "whatnow", "glossary", "help_centre"):
+                continue
+            if g.role == "client":
+                continue
+            if t in f"{label} {words}".lower():
+                out.append((label, url_for(ep)))
+    return out[:8]
+
+
+
 @route("/search")
 def search():
     term, results = request.args.get("q", "").strip(), []
@@ -715,7 +788,7 @@ def search():
             rows = q(f"SELECT * FROM {key} WHERE workspace_id=? AND ({where}) ORDER BY id DESC LIMIT 5", [W()] + [f"%{term.lower()}%"] * len(fields))
             if rows:
                 results.append((key, m, rows, m["fields"][0][0]))
-    return render_template("search.html", term=term, results=results, has_key=bool(C.ANTHROPIC_API_KEY))
+    return render_template("search.html", term=term, results=results, tools=find_tools(term), has_key=bool(C.ANTHROPIC_API_KEY))
 
 
 # ----------------------------------------------------------------- calendar
@@ -1779,6 +1852,48 @@ def team_hub():
     soon = q("SELECT * FROM content_items WHERE workspace_id=? AND publish_date BETWEEN ? AND ? AND status!='Published' ORDER BY publish_date LIMIT 30", (w, t, wk))
     feed = q("SELECT a.*, u.name AS uname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.workspace_id=? ORDER BY a.id DESC LIMIT 15", (w,))
     return render_template("team_hub.html", rows=rows, overdue=overdue[:10], unassigned=unassigned[:10], n_overdue=len(overdue), n_open=len(tasks), review=review, orders=orders, soon=soon, feed=feed, today=t)
+
+
+NEXT_TOOLS = [("content_items", "📝", "Plan a post", "Put your first post on the calendar"),
+              ("tasks", "🗂️", "Make a to-do", "Turn a thought into a task with a date"),
+              ("campaigns", "📣", "Start a campaign", "Group your posts under one goal"),
+              ("leads", "🧲", "Catch a lead", "Keep track of people who are interested"),
+              ("events", "🎪", "Plan a drop or event", "Dates, budget and checklist in one place"),
+              ("influencers", "🤳", "Find your people", "Track who you've pinged and who replied")]
+
+
+def next_tools(w, limit=2):
+    """Gentle, never-locked suggestions: the first few tools this workspace hasn't touched yet."""
+    out = []
+    for k, ic, title, why in NEXT_TOOLS:
+        if k not in MODULES or locked(k) or (g.role == "creator" and k not in CREATOR_MODULES):
+            continue
+        if q(f"SELECT COUNT(*) c FROM {k} WHERE workspace_id=?", (w,), one=True)["c"] == 0:
+            out.append(dict(icon=ic, title=title, why=why, href=url_for("m_new", key=k)))
+        if len(out) >= limit:
+            break
+    return out
+
+
+WHATNOW_VIBES = ["Okay bestie, here's the move.", "No overthinking. Just this one thing.", "Tiny step, big glow-up.", "Main character move, coming right up.", "You've got this. Start here.", "Low effort, high payoff. Go."]
+
+
+@route("/whatnow")
+def whatnow():
+    w, t = g.ws["id"], S.today().isoformat()
+    picks = []
+    for r in q("SELECT * FROM tasks WHERE workspace_id=? AND due_date!='' AND due_date<=? AND status NOT IN ('Done','Completed') ORDER BY due_date LIMIT 3", (w, t)):
+        picks.append(dict(icon="⏰", title=f"Finish: {r['title']}", why="It's due, so clear it and feel lighter.", href=url_for("m_edit", key="tasks", rid=r["id"])))
+    for r in q("SELECT * FROM content_items WHERE workspace_id=? AND publish_date!='' AND publish_date<=? AND status NOT IN ('Published','On hold') ORDER BY publish_date LIMIT 3", (w, t)):
+        picks.append(dict(icon="📝", title=f"Get this out: {r['title']}", why="It's meant to go live today or earlier.", href=url_for("m_edit", key="content_items", rid=r["id"])))
+    for r in q("SELECT * FROM influencers WHERE workspace_id=? AND next_followup!='' AND next_followup<=? AND status NOT IN ('Booked','Delivered','Rejected') ORDER BY next_followup LIMIT 2", (w, t)):
+        picks.append(dict(icon="🤳", title=f"Slide into {r['name']}'s DMs", why="Follow-up time. Quick message, done.", href=url_for("outreach", iid=r["id"])))
+    picks += next_tools(w, 3)
+    picks.append(dict(icon="💡", title="Steal an idea", why="Stuck? The Idea Bank has starters for your industry.", href=url_for("ideas")))
+    picks.append(dict(icon="🖼️", title="Vibe check", why="Pin a few images to a mood board. Zero pressure.", href=url_for("moodboards")))
+    n = request.args.get("n", type=int) or 0
+    pick = picks[n % len(picks)]
+    return render_template("whatnow.html", pick=pick, n=n, more=len(picks) > 1, vibe=WHATNOW_VIBES[(n + len(picks)) % len(WHATNOW_VIBES)])
 
 
 @route("/ideas")

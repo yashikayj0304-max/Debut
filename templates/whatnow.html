@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}What now?{% endblock %}{% block content %}
+<div class="head"><h1>🫠 Idk what to do</h1></div>
+<div class="card whatnow"><p class="muted">{{ vibe }}</p>
+<div class="wn-ic">{{ pick['icon'] }}</div><h2>{{ pick['title'] }}</h2><p>{{ pick['why'] }}</p>
+<p><a class="btn" href="{{ pick['href'] }}">Do this now</a> {% if more %}<a class="btn ghost" href="{{ url_for('whatnow', n=n+1) }}">🎲 Give me another</a>{% endif %}</p></div>
+{% endblock %}

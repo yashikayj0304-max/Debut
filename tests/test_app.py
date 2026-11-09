@@ -636,7 +636,7 @@ def test_new_industry_modes_and_niche_modules(app):
     b2b = _as(app, "b2b@x.com", "Acme Industrial", "b2b", "1")
     nav = lambda c: c.get("/app").data.decode()
     assert "Opportunities" in nav(pb) and "Opportunities" not in nav(d2c) and "Opportunities" in nav(b2b)
-    assert "Target Accounts" in nav(b2b) and "Target Accounts" not in nav(pb) and "Retail Audits" in nav(fm) and "Retail Audits" not in nav(b2b)
+    assert "Target Companies" in nav(b2b) and "Target Companies" not in nav(pb) and "Retail Audits" in nav(fm) and "Retail Audits" not in nav(b2b)
     for c in (pb, d2c, fm, b2b):                                 # hidden from the menu is not the same as gone: URL still works
         for k in ("pitches", "accounts", "retail_audits"):
             assert c.get(f"/m/{k}").status_code == 200 and c.get(f"/m/{k}/new").status_code == 200
@@ -2720,7 +2720,7 @@ def test_sidebar_shows_every_module_directly_no_more_tools_popup(app):
     assert "Rate Card" in aside
     assert "Launch Checklist" in aside
     # ...same as the groups' first few items, which were always shown directly
-    assert "GTM Plans" in aside and "Calendar" in aside and "Promotions" in aside and "Events" in aside
+    assert "Launch Plans (GTM)" in aside and "Calendar" in aside and "Promotions" in aside and "Events" in aside
 
 
 # =====================================================================  Idea Bank quick-add: fetch-based overlay fragment (replaces the broken same-origin iframe)
@@ -2851,7 +2851,7 @@ def test_excel_mock_template_handles_slash_in_module_title(app):
     assert r.status_code == 200
     from openpyxl import load_workbook
     wb = load_workbook(io.BytesIO(r.data))
-    assert wb.active.title == "Personas - ICP"
+    assert wb.active.title == "Ideal Customers (Personas - ICP"  # slash sanitised, cut to Excel's 31-char limit
 
 
 def test_excel_mock_template_works_for_every_module(app):
@@ -3440,7 +3440,7 @@ def test_dark_mode_pinned_and_empty_state_present(app, mails):
 
 def test_landing_feature_overviews_clickable(app):
     html = app.test_client().get("/").data.decode()
-    assert html.count('class="chip"') == 5 and html.count('class="card fcard"') == 15
+    assert html.count('class="chip" data-f') == 5 and html.count('class="card fcard"') == 15
     assert 'id="featDlg"' in html and "Mood boards" in html and "See overview" in html
     assert html.index('id="featDlg"') > html.index("</section>")  # dialog sits in the body, not inside the title block
 
@@ -3715,3 +3715,27 @@ def test_comfort_settings_and_page_address(app):
     home = o.get("/pricing", headers={"Host": "debut-test.onrender.com"}).data.decode()
     assert 'rel="canonical" href="http://debut-test.onrender.com/pricing"' in home       # never the 127.0.0.1 development default on a live host when APP_URL is unset
     o.post("/account/verify", headers={"Host": "debut-test.onrender.com"})
+
+
+def test_landing_explains_purpose_for_newcomers_and_pros(app):
+    html = app.test_client().get("/").data.decode()
+    for t in ("Main character energy", "from one place", "How it works", "Which sounds like you?", "Launch plans (GTM)", "trackable links (UTM)", "Made for professionals too", "Quick answers", "Ready to start?"):
+        assert t in html, t
+    assert html.count("lp-group") >= 4 and html.count('class="card fcard"') == 15
+
+
+def test_idk_shortcut_on_dashboard_and_create_menu(app):
+    o = signup(app, "idkshort@x.com")
+    html = o.get("/app").data.decode()
+    assert html.count("Idk what to do") >= 2 and "/whatnow" in html
+
+
+def test_find_tools_and_jargon_buster(app):
+    o = signup(app, "finder@x.com")
+    html = o.get("/search?q=invoice").data.decode()
+    assert "Jump to a tool" in html and "Invoices" in html
+    assert "/glossary" in o.get("/search").data.decode()
+    g = o.get("/glossary").data.decode()
+    assert "UTM link" in g and "ICP" in g and "Jargon buster" in g
+    assert "/glossary" in o.get("/help").data.decode()
+    assert "Jump to a tool" in o.get("/search?q=stuck").data.decode()

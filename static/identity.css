@@ -367,3 +367,23 @@ html[data-text=large] body{font-size:16px!important}html[data-text=xl] body{font
 html[data-text=large] .muted,html[data-text=xl] .muted{font-size:inherit}
 html[data-motion=reduce] *,html[data-motion=reduce] *::before,html[data-motion=reduce] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 #comfort .chip.on{background:var(--pri);color:var(--on,#fff);border-color:var(--pri)}
+
+/* v17 landing: how-it-works, who-for tabs, grouped features, proof, FAQ */
+.hero .lp-for{font-size:15px;opacity:.85;margin-top:-4px}
+.lp-how,.lp-who,.lp-pro,.lp-faq,.lp-cta{max-width:980px;margin:42px auto 0;padding:0 16px}
+.lp-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
+.lp-steps .card{position:relative;padding-top:22px}.lp-steps .card b{display:block;margin-bottom:4px;font-size:17px}
+.lp-n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--pri);color:#fff;font-weight:800;margin-bottom:8px}
+.lp-tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.lp-tab{font:inherit;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink);background:var(--card);border:2px solid var(--out,var(--line));border-radius:999px;padding:8px 16px;box-shadow:2px 2px 0 var(--out,transparent)}.lp-tab.on{background:var(--pri);color:#fff}
+.lp-pane{max-width:640px;margin:0 auto}.lp-pane[hidden]{display:none}.lp-pane ul{margin:8px 0 12px;padding-left:20px}.lp-pane li{margin:4px 0}
+.lp-group{max-width:1100px;margin:26px auto 0;padding:0 16px}.lp-group h3{margin:0}.lp-group>p{margin:2px 0 8px}
+.lp-proof{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
+.lp-proof span{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;font-weight:600;font-size:14px}
+.lp-faq details{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:12px 16px;margin:8px 0}
+.lp-faq summary{cursor:pointer;font-weight:700}.lp-faq details p{margin:8px 0 0;color:var(--mut)}
+.lp-cta{text-align:center}
+@media(max-width:720px){.lp-steps{grid-template-columns:1fr}}
+
+/* v18 jargon buster + tool finder */
+.gq{width:100%;max-width:520px;margin:6px 0 14px}.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.gloss .card{margin:0}.gloss .card[hidden]{display:none}.gloss p{margin:6px 0 8px}

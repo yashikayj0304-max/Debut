@@ -1,6 +1,6 @@
 # Debut: marketing operating system (SaaS edition)
 
-GTM plans, content calendar (drag & drop, ICS feed), mood boards, reference links, latest-news aggregator, campaigns, KPIs, UTM builder,
+GTM plans, content calendar (drag & drop, ICS feed), drag-to-reorder boards and lists with sort + group-by, mood boards, reference links, latest-news aggregator, campaigns, KPIs, UTM builder,
 creator network + content orders + invoices (Content Ops), influencer discovery & outreach, promotions & events (with auto-checklists),
 live Market Pulse (news, trends, videos, competitors) and AI web research, AI Studio, global search, CSV import/export, and full multi-tenant SaaS plumbing: accounts, workspaces, roles, invites, a **Free forever plan** plus paid subscriptions, usage limits, group mode with a Team Lead role, 14 industry modes (personal brand, B2B, D2C, FMCG, startup, hospitality and more), comments and notifications, a REST API, two-factor login, client reports and an installable mobile app and a platform-owner admin console.
 

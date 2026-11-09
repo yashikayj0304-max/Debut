@@ -26,12 +26,12 @@ Sources on: news ({{ {'google_rss': 'Google News', 'gnews': 'GNews', 'newsdata':
 {% if not watch %}<p class="muted">Nothing yet. Add a keyword, brand or competitor below.</p>{% endif %}
 {% if can_refresh %}<form method="post" action="{{ url_for('pulse_watch_add') }}" class="filters" style="max-width:none;margin-top:8px;flex-wrap:wrap;align-items:center">
 <input name="term" placeholder="Keyword, brand or subreddit…" required style="max-width:200px;flex:1 1 160px">
-<select name="type" style="flex:0 0 auto"><option>Keyword</option><option>Competitor</option><option>Brand</option><option>Subreddit</option></select>
-<select name="region" style="flex:0 0 auto"><option>India</option><option>Global</option><option>Both</option></select>
+<select name="type" aria-label="Type" style="flex:0 0 auto"><option>Keyword</option><option>Competitor</option><option>Brand</option><option>Subreddit</option></select>
+<select name="region" aria-label="Region" style="flex:0 0 auto"><option>India</option><option>Global</option><option>Both</option></select>
 <button class="btn sm" style="white-space:nowrap;flex:0 0 auto">+ Add source</button></form>
 <p class="muted" style="margin-top:6px">Competitors you add under <b>Competitors</b> are tracked automatically.</p>{% endif %}</div>
 {% if can_refresh %}<div class="card"><b>📅 Add public holidays to Key Dates</b><p class="muted">Plan around real dates. Pulled live from a public holiday service.</p>
-<form method="post" action="{{ url_for('pulse_holidays') }}" class="filters" style="max-width:none"><select name="country">{% for c, n in countries %}<option value="{{ c }}">{{ n }}</option>{% endfor %}</select><select name="year"><option>{{ year }}</option><option>{{ year + 1 }}</option></select><button class="btn ghost">Add holidays</button></form></div>{% endif %}</div>
+<form method="post" action="{{ url_for('pulse_holidays') }}" class="filters" style="max-width:none"><select name="country" aria-label="Country">{% for c, n in countries %}<option value="{{ c }}">{{ n }}</option>{% endfor %}</select><select name="year" aria-label="Year"><option>{{ year }}</option><option>{{ year + 1 }}</option></select><button class="btn ghost">Add holidays</button></form></div>{% endif %}</div>
 <p class="tag">Headlines belong to their publishers: click through to read the original. Trend words are computed from headlines and are a signal, not a forecast.</p>
 {% endblock %}
 {% block scripts %}<script>

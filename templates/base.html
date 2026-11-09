@@ -38,7 +38,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 <div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
 {% if role != 'client' %}<nav class="bnav" aria-label="Quick navigation"><a href="{{ url_for('dashboard') }}"><i>🏠</i>Home</a><a href="{{ url_for('calendar_view') }}"><i>📅</i>Calendar</a>
 {% if role not in ('viewer',) %}<a class="bn-plus" href="{{ url_for('m_new', key='content_items') }}" aria-label="New content"><i>＋</i></a>{% else %}<a href="{{ url_for('moodboards') }}"><i>🖼️</i>Boards</a>{% endif %}
-<a href="{{ url_for('m_list', key='tasks') }}"><i>✅</i>Tasks</a><a href="#" onclick="document.body.classList.toggle('nav-open');return false"><i>☰</i>Menu</a></nav>
+<a href="{{ url_for('m_list', key='tasks') }}"><i>✅</i>Tasks</a><a href="#" role="button" aria-label="Open menu" onclick="document.body.classList.toggle('nav-open');return false"><i>☰</i>Menu</a></nav>
 {% endif %}
 <dialog id="overlayModal" class="overlay-modal"><div class="overlay-head"><button type="button" class="btn ghost sm" onclick="document.getElementById('overlayModal').close()">✕ Close</button></div><div id="overlayBody" class="overlay-body"><p class="muted" style="padding:20px">Loading…</p></div></dialog>
 <div class="appcols">
@@ -133,6 +133,9 @@ function bullets(id){
  document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();i.focus();i.select();}});
 })();
 // flash messages slide away on their own
+window.toast=function(msg,ms){var c=document.querySelector(".toasts");if(!c){c=document.createElement("div");c.className="toasts";c.setAttribute("role","status");document.body.appendChild(c);}
+ var f=document.createElement("div");f.className="flash";f.textContent=msg;var x=document.createElement("button");x.type="button";x.className="flash-x";x.setAttribute("aria-label","Dismiss");x.textContent="✕";x.onclick=function(){f.remove();};f.appendChild(x);c.appendChild(f);
+ setTimeout(function(){f.classList.add("out");setTimeout(function(){f.remove();},400);},ms||3200);};
 setTimeout(function(){document.querySelectorAll('.toasts .flash').forEach(function(f){f.classList.add('out');setTimeout(function(){f.remove();},400);});},6500);
 // greeting on the dashboard uses the viewer's own clock
 (function(){var g=document.getElementById('greet');if(!g)return;var h=new Date().getHours();g.textContent=h<5?'Burning the midnight oil':h<12?'Good morning':h<17?'Good afternoon':h<21?'Good evening':'Good night';})();
@@ -286,6 +289,9 @@ function enablePush(){var m=document.getElementById("pushMsg");function say(t){i
  aside.addEventListener("click",function(e){if(e.target.closest("a")){ready=true;try{sessionStorage.setItem("asideScroll",String(aside.scrollTop));}catch(x){}}});
  window.addEventListener("pagehide",function(){if(ready)save();});
 })();
+/* tab title: name the page so tabs and history are not all just the app name */
+(function(){var n=document.title.trim(),app={{ C.APP_NAME|tojson }};if(n!==app)return;var h=document.querySelector("main h1,.page h1,h1");if(!h)return;
+ var t=h.textContent.replace(/\s+/g," ").replace(/^[^A-Za-z0-9]+/,"").trim();if(t&&t.length<70)document.title=t+" · "+app;})();
 /* instant (no-reload) tick-offs and reactions */
 function fd(f){var d=new FormData(f);d.set("csrf_token",window.CSRF);return d}
 document.addEventListener("submit",function(e){var f=e.target;
@@ -309,11 +315,18 @@ document.addEventListener("submit",function(e){var f=e.target;
   box.innerHTML="";var any=0;
   pins.forEach(function(h){var src=aside.querySelector('details.ngrp a[href="'+h+'"]');if(!src)return;any++;
    if(any===1){var t=document.createElement("b");t.textContent="⭐ Pinned";box.appendChild(t);}
-   var r=document.createElement("div");r.className="nrow";var a=document.createElement("a");a.href=h;a.textContent=src.textContent;if(src.classList.contains("on"))a.className="on";r.appendChild(a);
+   var r=document.createElement("div");r.className="nrow";r.dataset.h=h;var a=document.createElement("a");a.href=h;a.textContent=src.textContent;if(src.classList.contains("on"))a.className="on";r.appendChild(a);
    var b=document.createElement("button");b.type="button";b.className="pin-btn on";b.title="Unpin";b.textContent="★";b.onclick=function(){toggle(h);};r.appendChild(b);box.appendChild(r);});
-  box.style.display=any?"":"none";
+  box.style.display=any?"":"none";box.classList.toggle("canreorder",any>1);
+  if(any>1)[].forEach.call(box.querySelectorAll(".nrow"),function(r){var g=document.createElement("span");g.className="pgrip";g.textContent="⠿";g.title="Drag to reorder your pins";r.insertBefore(g,r.firstChild);});
   aside.querySelectorAll("details.ngrp .nrow").forEach(function(r){var a=r.querySelector("a"),b=r.querySelector(".pin-btn"),h=a.getAttribute("href"),p=pins.indexOf(h)>-1;b.textContent=p?"★":"☆";b.classList.toggle("on",p);b.title=p?"Unpin":"Pin to top";});
  }
+ box.addEventListener("pointerdown",function(e){var g=e.target.closest&&e.target.closest(".pgrip");if(!g||e.button!==0)return;var row=g.closest(".nrow");e.preventDefault();var id=e.pointerId,go=false;
+  function mv(ev){if(ev.pointerId!==id)return;if(!go){go=true;row.classList.add("pdrag");}var hit=document.elementFromPoint(ev.clientX,ev.clientY),t=hit&&hit.closest&&hit.closest("#pinnedBox .nrow");
+   if(t&&t!==row){var r=t.getBoundingClientRect();box.insertBefore(row,ev.clientY<r.top+r.height/2?t:t.nextSibling);}ev.preventDefault();}
+  function up(ev){if(ev.pointerId!==id)return;document.removeEventListener("pointermove",mv);document.removeEventListener("pointerup",up);if(!go)return;row.classList.remove("pdrag");
+   pins=[].map.call(box.querySelectorAll(".nrow"),function(r){return r.dataset.h;}).concat(pins.filter(function(h){return !aside.querySelector('#pinnedBox .nrow[data-h="'+h+'"]');}));save();draw();}
+  document.addEventListener("pointermove",mv,{passive:false});document.addEventListener("pointerup",up);});
  function toggle(h){var i=pins.indexOf(h);if(i>-1)pins.splice(i,1);else pins.push(h);save();draw();}
  aside.querySelectorAll("details.ngrp:not(.side-foot)>a").forEach(function(a){var r=document.createElement("div");r.className="nrow";a.parentNode.insertBefore(r,a);r.appendChild(a);var b=document.createElement("button");b.type="button";b.className="pin-btn";b.textContent="☆";b.setAttribute("aria-label","Pin this page");b.onclick=function(e){e.preventDefault();toggle(a.getAttribute("href"));};r.appendChild(b);});
  draw();

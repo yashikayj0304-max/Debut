@@ -12,7 +12,7 @@ from itsdangerous import URLSafeSerializer, BadSignature
 import config as C
 import services as S
 import industries as IND
-from db import q, ex, ins, qi
+from db import q, ex, ins, qi, MANUAL_ORDER
 from extensions import csrf, limiter
 from modules import *  # noqa: F401,F403
 
@@ -246,7 +246,17 @@ def m_list(key):
         args.append(f)
     if where:
         sql += " AND " + " AND ".join(where)
-    order = "publish_date DESC, id DESC" if key == "content_items" else "id DESC"
+    default_manual = key in MANUAL_ORDER and key != "content_items"   # these open in the hand-made order (identical to newest-first until someone drags)
+    default_order = f"sort_order ASC, {_tb(key)}" if default_manual else ("publish_date DESC, id DESC" if key == "content_items" else "id DESC")
+    choices = sort_choices(key, m)
+    sort = request.args.get("sort", "")
+    direction = "desc" if request.args.get("dir") == "desc" else "asc"
+    if sort.startswith("col:") and sort[4:] in [c for c in m["cols"] if c not in hidden]:
+        order = order_sql(key, m, sort, direction)
+    elif sort in [c for c, _ in choices]:
+        order = order_sql(key, m, sort)
+    else:
+        sort, order = "", default_order
     page = min(max(1, S.to_int(request.args.get("page"), 1)), 10000)
     per = 100
     rows = q(sql + f" ORDER BY {order} LIMIT {per + 1} OFFSET {(page - 1) * per}", args)
@@ -255,7 +265,7 @@ def m_list(key):
     dist = []
     if ffield and ffield[0] not in hidden:
         dist = [(r["v"], r["c"]) for r in q(f"SELECT {qi(ffield[0])} v, COUNT(*) c FROM {key} WHERE workspace_id=? AND {qi(ffield[0])} IS NOT NULL AND {qi(ffield[0])}<>'' GROUP BY {qi(ffield[0])} ORDER BY c DESC", (W(),))]
-    return render_template("crud_list.html", dist=dist, layout=LIST_LAYOUT.get(key), view=request.args.get("view", ""), key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner, bkeys={"campaigns": ("budget", "spent"), "promotions": ("budget", "spend")}.get(key))
+    return render_template("crud_list.html", choices=choices, sort=sort, sdir=direction, default_manual=default_manual, can_drag=((sort == "manual" or (sort == "" and default_manual)) and key in MANUAL_ORDER and g.role != "viewer"), dist=dist, layout=LIST_LAYOUT.get(key), view=request.args.get("view", ""), key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner, bkeys={"campaigns": ("budget", "spent"), "promotions": ("budget", "spend")}.get(key))
 
 
 def _hidden(key):
@@ -519,25 +529,102 @@ def m_import(key):
     return redirect(url_for("m_list", key=key))
 
 
+# ----------------------------------------------------------------- sorting (boards + lists)
+def _tb(key):
+    """Tie-break among cards nobody has dragged yet: a pre-loaded checklist reads top-to-bottom in phase order,
+    everything else shows the newest first."""
+    return "id ASC" if key == "launch_checklist" else "id DESC"
+
+
+def sort_choices(key, m):
+    """The sort options a module offers: [(code, label)]. 'manual' is the drag-and-drop order."""
+    names = {x[0]: x for x in m["fields"]}
+    c = []
+    if key in MANUAL_ORDER:
+        c.append(("manual", "✋ My order"))
+    c += [("new", "🆕 Newest first"), ("old", "📜 Oldest first"), ("az", "🔤 A → Z"), ("za", "🔡 Z → A")]
+    if "due_date" in names:
+        c.append(("due", "⏰ Due date"))
+    if "priority" in names and names["priority"][2] == "select":
+        c.append(("priority", "🔥 Priority"))
+    dfield = next((x[0] for x in m["fields"] if x[2] == "date" and x[0] != "due_date"), None)
+    if dfield:
+        c.append(("date", "📅 " + next(x[1] for x in m["fields"] if x[0] == dfield)))
+    return c
+
+
+def order_sql(key, m, sort, direction="asc"):
+    """Safe ORDER BY for a sort code. Every column name comes from the module definition, never from the request."""
+    fields = {x[0]: x for x in m["fields"]}
+    title = m["fields"][0][0]
+    blank_last = lambda c: f"CASE WHEN {qi(c)} IS NULL OR {qi(c)}='' THEN 1 ELSE 0 END, "
+    if sort.startswith("col:") and sort[4:] in fields:
+        c, t = sort[4:], fields[sort[4:]][2]
+        d = "DESC" if direction == "desc" else "ASC"
+        expr = f"CAST({qi(c)} AS REAL)" if t == "number" else (qi(c) if t == "date" else f"LOWER({qi(c)})")
+        return blank_last(c) + f"{expr} {d}, id DESC"
+    if sort == "manual" and key in MANUAL_ORDER:
+        return f"sort_order ASC, {_tb(key)}"
+    if sort == "old":
+        return "id ASC"
+    if sort == "az":
+        return f"LOWER({qi(title)}) ASC, id DESC"
+    if sort == "za":
+        return f"LOWER({qi(title)}) DESC, id DESC"
+    if sort == "due" and "due_date" in fields:
+        return blank_last("due_date") + "due_date ASC, id DESC"
+    if sort == "priority" and "priority" in fields and fields["priority"][2] == "select":
+        opts = fields["priority"][3]
+        case = " ".join(f"WHEN {qi('priority')}='{str(o).replace(chr(39), chr(39) * 2)}' THEN {len(opts) - i}" for i, o in enumerate(opts))
+        return f"CASE {case} ELSE 99 END ASC, id DESC"
+    if sort == "date":
+        d = next((x[0] for x in m["fields"] if x[2] == "date" and x[0] != "due_date"), None)
+        if d:
+            return blank_last(d) + f"{qi(d)} ASC, id DESC"
+    return "id DESC"
+
+
+def board_fields(m):
+    """Select fields a board can be grouped by: [(name, label, options)]."""
+    return [(x[0], x[1], x[3]) for x in m["fields"] if x[2] == "select" and x[3] and len(x[3]) <= 12]
+
+
+
 @route("/kanban/<key>")
 def kanban(key):
     m = mod(key)
-    field = m.get("kanban") or abort(404)
+    base = m.get("kanban") or abort(404)
+    groups = board_fields(m)
+    by = request.args.get("by", base)
+    if by not in [x[0] for x in groups]:
+        by = base
+    field = by
     opts = next(x for x in m["fields"] if x[0] == field)[3]
-    has_due = any(n == "due_date" for n, *_ in m["fields"])
-    sort_due = has_due and request.args.get("sort") == "due"
-    # default order is each card's manual drag position within its column (sort_order), falling back to
-    # newest-first for cards nobody has ever dragged (they all share sort_order=0)
-    order = "due_date ASC, id DESC" if sort_due else "sort_order ASC, id DESC"
-    rows = q(f"SELECT * FROM {key} WHERE workspace_id=? ORDER BY {order} LIMIT 500", (W(),))
-    return render_template("kanban.html", key=key, m=m, field=field, opts=opts, rows=rows, title_f=m["fields"][0][0],
-                           sub_f=m["cols"][1] if len(m["cols"]) > 1 else m["fields"][0][0], has_due=has_due, sort_due=sort_due)
+    choices = sort_choices(key, m)
+    codes = [c for c, _ in choices]
+    # default is the hand-made order where the module supports it, else newest first
+    sort = request.args.get("sort") or ("manual" if "manual" in codes else "new")
+    if sort not in codes:
+        sort = "manual" if "manual" in codes else "new"
+    rows = q(f"SELECT * FROM {key} WHERE workspace_id=? ORDER BY {order_sql(key, m, sort)} LIMIT 500", (W(),))
+    return render_template("kanban.html", key=key, m=m, field=field, base=base, groups=groups, opts=opts, rows=rows, title_f=m["fields"][0][0],
+                           sub_f=m["cols"][1] if len(m["cols"]) > 1 else m["fields"][0][0], sort=sort, choices=choices,
+                           can_drag=g.role != "viewer", manual=(sort == "manual"),
+                           prio=next((x[3] for x in m["fields"] if x[0] == "priority" and x[2] == "select"), []))
+
+
+def _group_field(key, m):
+    """The select field a board move applies to: ?by= / by= when valid, else the module's own board field."""
+    by = request.values.get("by") or m.get("kanban") or ""
+    if by not in [x[0] for x in board_fields(m)]:
+        by = m.get("kanban") or abort(400)
+    return by
 
 
 @route("/m/<key>/<int:rid>/status", methods=["POST"])
 def m_status(key, rid):
     m = mod(key)
-    field = m.get("kanban") or abort(400)
+    field = _group_field(key, m)
     opts = next(x for x in m["fields"] if x[0] == field)[3]
     v = request.form.get("value", "")
     if v not in opts:
@@ -553,12 +640,14 @@ def m_status(key, rid):
 
 @route("/m/<key>/<int:rid>/reorder", methods=["POST"])
 def m_reorder(key, rid):
-    """Drag a kanban card to a new spot - possibly a new column (same as m_status) and/or a new position
-    within that column. before_id is the card it was dropped in front of, or blank to drop at the end."""
+    """Drag a board card to a new spot - possibly a new column and/or a new position within it.
+    before_id is the card it was dropped in front of, or blank to drop at the end. Answers JSON when called
+    from the page's script (so the board never reloads) and redirects for a plain form post."""
     m = mod(key)
-    field = m.get("kanban") or abort(400)
+    field = _group_field(key, m)
     opts = next(x for x in m["fields"] if x[0] == field)[3]
     status = request.form.get("status", "")
+    wants_json = request.headers.get("X-Requested-With") == "fetch"
     if status not in opts:
         abort(400)
     row = row_or_404(key, rid)
@@ -567,20 +656,49 @@ def m_reorder(key, rid):
         ex(f"UPDATE {key} SET {qi(field)}=? WHERE id=? AND workspace_id=?", (new_val, rid, W()))
         if field == "status":
             changed_hooks(key, rid, m, {"status": new_val}, row)
-    before_id = request.form.get("before_id", "").strip()
-    siblings = [r["id"] for r in q(f"SELECT id FROM {key} WHERE workspace_id=? AND {qi(field)}=? ORDER BY sort_order ASC, id DESC", (W(), new_val))]
-    old_i = siblings.index(rid) if rid in siblings else None
-    if rid in siblings:
-        siblings.remove(rid)
-    if before_id.isdigit() and int(before_id) in siblings:
-        ti = siblings.index(int(before_id))
-        # dragging a card DOWN within its own column: it lands where the target card was (i.e. after it)
-        siblings.insert(ti + 1 if old_i is not None and old_i <= ti else ti, rid)
-    else:
-        siblings.append(rid)
-    for i, sid in enumerate(siblings):
-        ex(f"UPDATE {key} SET sort_order=? WHERE id=? AND workspace_id=?", (i * 10, sid, W()))
+    if key in MANUAL_ORDER:
+        before_id = request.form.get("before_id", "").strip()
+        siblings = [r["id"] for r in q(f"SELECT id FROM {key} WHERE workspace_id=? AND {qi(field)}=? ORDER BY sort_order ASC, {_tb(key)}", (W(), new_val))]
+        old_i = siblings.index(rid) if rid in siblings else None
+        if rid in siblings:
+            siblings.remove(rid)
+        if before_id.isdigit() and int(before_id) in siblings:
+            ti = siblings.index(int(before_id))
+            # the page tells us which side of the target card it was dropped on (after=1) only when it knows;
+            # the old form-post flow assumed "dragging down lands after the target".
+            after = request.form.get("after")
+            if after in ("0", "1"):
+                siblings.insert(ti + 1 if after == "1" else ti, rid)
+            else:
+                siblings.insert(ti + 1 if old_i is not None and old_i <= ti else ti, rid)
+        else:
+            siblings.append(rid)
+        for i, sid in enumerate(siblings):
+            ex(f"UPDATE {key} SET sort_order=? WHERE id=? AND workspace_id=?", (i * 10, sid, W()))
+    if wants_json:
+        from flask import get_flashed_messages
+        return jsonify(ok=True, status=new_val, moved=(new_val == status), msgs=get_flashed_messages())
     return redirect(safe_next(url_for("kanban", key=key)))
+
+
+@route("/m/<key>/reorder-list", methods=["POST"])
+def m_reorder_list(key):
+    """Save a hand-made order for the rows on screen (list, cards or checklist). The rows on screen take the
+    slots they already occupied, so reordering one page of a long list never disturbs the rest."""
+    mod(key)
+    if key not in MANUAL_ORDER:
+        abort(400)
+    ids = [int(x) for x in request.form.get("ids", "").split(",") if x.strip().isdigit()][:500]
+    if not ids:
+        abort(400)
+    allrows = [r["id"] for r in q(f"SELECT id FROM {key} WHERE workspace_id=? ORDER BY sort_order ASC, {_tb(key)}", (W(),))]
+    present = [i for i in ids if i in set(allrows)]
+    slots = [n for n, i in enumerate(allrows) if i in set(present)]
+    for n, i in zip(slots, present):
+        allrows[n] = i
+    for n, rid in enumerate(allrows):
+        ex(f"UPDATE {key} SET sort_order=? WHERE id=? AND workspace_id=?", (n * 10, rid, W()))
+    return jsonify(ok=True)
 
 
 # ----------------------------------------------------------------- search

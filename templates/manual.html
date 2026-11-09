@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block title %}User manual — {{ C.APP_NAME }}{% endblock %}{% block body %}
 <div class="manual">
-<div class="head"><h1>📖 {{ C.APP_NAME }} user manual</h1><div class="noprint"><button class="btn ghost" onclick="window.print()">🖨️ Print / save as PDF</button> <a class="btn" href="{{ url_for('static', filename='guides/Debut-User-Manual.pdf') }}" target="_blank">Download PDF</a></div></div>
+<div class="head"><h1>📖 {{ C.APP_NAME }} user manual</h1><div class="noprint"><button class="btn ghost" onclick="window.print()">🖨️ Print / save as PDF</button> <a class="btn" href="{{ url_for('static', filename='guides/Debut-User-Manual.pdf') }}" target="_blank" rel="noopener">Download PDF</a></div></div>
 <p class="muted">Last updated 7 Nov 2026. Everything you need, from creating your account to inviting a team. Jump to: <a href="#start">Sign up</a> · <a href="#around">Find your way around</a> · <a href="#week">First week</a> · <a href="#forms">Adding &amp; editing</a> · <a href="#utm">UTM &amp; Experiments</a> · <a href="#calendar">Calendar</a> · <a href="#boards">Mood boards</a> · <a href="#team">Team &amp; roles</a> · <a href="#clients">Clients</a> · <a href="#plans">Plans</a> · <a href="#colours">Colours</a> · <a href="#security">Security</a> · <a href="#keys">Shortcuts</a> · <a href="#faq">Troubleshooting</a></p>
 
 <div class="card" id="start"><h2>1. Sign up (about 2 minutes)</h2>
@@ -44,7 +44,7 @@
 <ul><li>Every “New” and “Edit” opens a <b>pop-up form</b> over the page, so you never lose your place. Save returns you to the same page.</li>
 <li>Each form starts with what it is for. Fields marked <span style="color:var(--bad)">*</span> are required; a field’s hint is shown under it. Some fields allow several choices (for example an influencer’s platforms are tick-boxes).</li>
 <li>Lists show a <b>Budget used</b> bar for campaigns and promotions; it turns red when spend passes the budget.</li>
-<li>Lists have <b>Export to Excel</b> and a blank Excel template, so you can fill in bulk data and import it. Drag the ⠿ handle to reorder cards on boards.</li>
+<li>Lists have <b>Export to Excel</b> and a blank Excel template, so you can fill in bulk data and import it. Boards and lists can be put in your own order: grab a card (or the ⠿ grip on a phone) and drop it where you want, and use <b>Sort</b> and <b>Group by</b> to look at the same work another way.</li>
 <li>Deleting asks you to confirm. Everything you do is recorded in the Activity log (owners/admins can export it as CSV).</li></ul></div>
 
 <div class="card" id="utm"><h2>Tracking links (UTM Builder) and Experiments</h2>
@@ -106,7 +106,7 @@
 <tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd></td><td>Jump to the search box</td></tr>
 <tr><td><kbd>Esc</kbd></td><td>Clear the search box, or close a pop-up form</td></tr>
 <tr><td>Drag a calendar chip</td><td>Reschedule to another day</td></tr>
-<tr><td>Drag ⠿ on a card</td><td>Reorder</td></tr>
+<tr><td>Drag a board card or the ⠿ in a list</td><td>Move it or reorder it (Alt + arrow keys also works)</td></tr>
 <tr><td>Bottom ＋ on phones</td><td>New content in one tap</td></tr></table></div>
 
 <div class="card" id="faq"><h2>14. Troubleshooting</h2>

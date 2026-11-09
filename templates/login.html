@@ -3,6 +3,6 @@
 <form method="post"><input type="hidden" name="invite" value="{{ token }}"><input type="hidden" name="next" value="{{ request.args.get('next','') }}">
 <label>Email<input type="email" name="email" value="{{ email }}" required autofocus></label><label>Password<input type="password" name="password" required></label>
 <button class="btn">Log in</button></form><p class="muted"><a href="{{ url_for('auth.forgot') }}">Forgot password?</a> · <a href="{{ url_for('auth.signup') }}">Create an account</a></p>
-<p class="muted" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">New here? <a href="{{ url_for('static', filename='guides/Debut-Visual-Tour.pdf') }}" target="_blank">📘 Download a quick visual tour (PDF)</a> before you sign in.</p>
+<p class="muted" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">New here? <a href="{{ url_for('static', filename='guides/Debut-Visual-Tour.pdf') }}" target="_blank" rel="noopener">📘 Download a quick visual tour (PDF)</a> before you sign in.</p>
 <p class="muted" style="margin-top:8px">Joining a teammate's workspace? There's no separate team login — use this same form with the email and password you set when you accepted your invite.</p></div>
 {% endblock %}

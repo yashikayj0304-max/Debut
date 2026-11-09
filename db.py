@@ -65,6 +65,9 @@ def _pk():
     return "SERIAL PRIMARY KEY" if IS_PG else "INTEGER PRIMARY KEY AUTOINCREMENT"
 
 
+# modules whose records can be dragged into a custom order (a sort_order column is added to each)
+MANUAL_ORDER = ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "pitches", "accounts",
+                "personas", "competitors", "key_dates", "reference_links", "brand_kit", "gtm_plans", "keywords", "kpis", "assets", "clients", "retail_audits")
 EXTRA_COLUMNS = {
     "workspaces": [("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
     "memberships": [("client_name", "TEXT DEFAULT ''")],
@@ -75,8 +78,7 @@ EXTRA_COLUMNS = {
     "board_items": [("x", "INTEGER DEFAULT -1"), ("y", "INTEGER DEFAULT -1"), ("w", "INTEGER DEFAULT 240"), ("h", "INTEGER DEFAULT 170"), ("z", "INTEGER DEFAULT 1")],
     # a manual within-column order for every kanban-enabled module, so cards can be dragged into a custom
     # order inside one column (not just dragged between columns) - see kanban() / m_reorder() in views.py
-    **{k: [("sort_order", "INTEGER DEFAULT 0")] for k in
-       ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "pitches", "accounts")},
+    **{k: [("sort_order", "INTEGER DEFAULT 0")] for k in MANUAL_ORDER},
 }
 
 

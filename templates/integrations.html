@@ -2,7 +2,7 @@
 <div class="head"><h1>🔌 Integrations</h1></div>
 <div class="card"><b>🌐 Website lead capture form</b><p class="muted">Share this link, or embed it on your site, to collect leads straight into your Leads list &mdash; no code required.</p>
 <p><code>{{ form_url }}</code></p>
-<textarea readonly rows="3" style="width:100%;max-width:560px" onclick="this.select()">&lt;iframe src="{{ form_url }}" width="100%" height="480" style="border:0"&gt;&lt;/iframe&gt;</textarea></div>
+<textarea readonly aria-label="Calendar feed link" rows="3" style="width:100%;max-width:560px" onclick="this.select()">&lt;iframe src="{{ form_url }}" width="100%" height="480" style="border:0"&gt;&lt;/iframe&gt;</textarea></div>
 
 <div class="card"><b>🪝 Webhook (Zapier / Make / your own code)</b><p class="muted">POST a JSON body (name + email or phone, optionally source) to this URL from Zapier, Make, a form builder, or your own code, and it lands straight in Leads. No authentication header needed &mdash; the URL itself is the secret, so reset it if it ever leaks.</p>
 <p><code>{{ hook_url }}</code></p>
@@ -14,7 +14,7 @@
 {% for k in keys %}<div class="news"><b>{{ k['name'] }}</b> <span class="badge">{{ k['scope'] }}</span> <span class="tag">{{ k['prefix'] }}&hellip;</span> <span class="muted">{{ 'used ' ~ k['last_used'] if k['last_used'] else 'never used' }}</span>
 <form method="post" action="{{ url_for('ws.api_key_revoke', kid=k['id']) }}" style="display:inline" onsubmit="return confirm('Revoke this key? Anything using it will stop working immediately.')"><button class="btn danger sm">Revoke</button></form></div>
 {% else %}<p class="muted">No API keys yet.</p>{% endfor %}
-<form method="post" action="{{ url_for('ws.api_key_create') }}" class="filters" style="max-width:none;margin-top:10px"><input name="name" placeholder="Key name (e.g. Zapier)" maxlength="60"><select name="scope"><option value="read">Read-only</option><option value="write">Read &amp; write</option></select><button class="btn sm">Create key</button></form>
+<form method="post" action="{{ url_for('ws.api_key_create') }}" class="filters" style="max-width:none;margin-top:10px"><input name="name" placeholder="Key name (e.g. Zapier)" maxlength="60"><select name="scope" aria-label="Access level"><option value="read">Read-only</option><option value="write">Read &amp; write</option></select><button class="btn sm">Create key</button></form>
 {% else %}
 <p class="muted">The REST API is included in the Team and Agency plans. <a href="{{ url_for('billing.billing') }}">See plans</a>.</p>
 {% endif %}

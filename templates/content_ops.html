@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block body %}
 <div class="head"><h1>📊 Content Ops Dashboard</h1><div><a class="btn" href="{{ url_for('m_new', key='content_orders') }}">+ New order</a>
-<a class="btn ghost" href="{{ url_for('kanban', key='content_orders') }}">Order board</a> <a class="btn ghost" href="{{ apply_url }}" target="_blank">Creator apply form ↗</a></div></div>
+<a class="btn ghost" href="{{ url_for('kanban', key='content_orders') }}">Order board</a> <a class="btn ghost" href="{{ apply_url }}" target="_blank" rel="noopener">Creator apply form ↗</a></div></div>
 <p class="muted">Your content marketplace/agency workflow: Client → Brief → Match creator → Draft → QA → Client review → Delivery → Invoice.</p>
 <div class="grid" style="margin:14px 0">
 <div class="tile"><span class="muted">Orders</span><b>{{ n_orders }}</b></div>

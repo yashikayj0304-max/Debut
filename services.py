@@ -577,11 +577,22 @@ def _lift(hexcolor, need=3.2):
     return c
 
 
-def _text_on(c1, c2):
+def _text_on(c1, c2, need=3.4):
     """White or dark text, whichever reads on BOTH ends of a gradient; None if neither does."""
     for ink in ("#ffffff", DARK_INK):
-        if min(contrast(ink, c1), contrast(ink, c2)) >= 3.4:
+        if min(contrast(ink, c1), contrast(ink, c2)) >= need:
             return ink
+    return None
+
+
+def _crisp(pri, sec):
+    """Try for comfortably readable text (4.5:1) by nudging the light end only a little toward the primary;
+    returns (ink, gradient end) or None when that would change the look too much."""
+    for t in (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6):
+        g = _mix(sec, _rgb(pri), t) if t else sec
+        ink = _text_on(pri, g, 4.5)
+        if ink:
+            return ink, g
     return None
 
 
@@ -602,6 +613,9 @@ def hex_shades(hexcolor, secondary=None):
     sec = secondary.lower() if secondary and HEX_RE.match(secondary) else primary_tint_fallback
     on = _text_on(hexcolor, sec)
     sec_g = sec
+    cr = _crisp(hexcolor, sec)
+    if cr:
+        on, sec_g = cr
     t = 0.0
     while on is None and t < 1.0:
         t = round(t + 0.1, 1)
@@ -612,6 +626,9 @@ def hex_shades(hexcolor, secondary=None):
     pri_dm = _lift(hexcolor)
     sec_dm = _lift(sec, 3.0)
     sec_g_dm, on_dm = sec_dm, _text_on(pri_dm, sec_dm)
+    cr = _crisp(pri_dm, sec_dm)
+    if cr:
+        on_dm, sec_g_dm = cr
     t = 0.0
     while on_dm is None and t < 1.0:
         t = round(t + 0.1, 1)

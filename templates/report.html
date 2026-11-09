@@ -2,7 +2,7 @@
 <div class="report">
 <div class="head"><div><h1>📑 {{ ws['name'] }}: marketing report</h1><span class="muted">{{ r.label }}</span></div>
 <div class="noprint"><a class="btn ghost sm" href="?month={{ prev_m }}">◀ {{ prev_m }}</a> <a class="btn ghost sm" href="?month={{ next_m }}">{{ next_m }} ▶</a> <button class="btn sm" onclick="window.print()">Print / save PDF</button></div></div>
-{% if share %}<div class="card noprint"><b>Share with your client</b> <span class="muted">— read-only link, no login needed. Reset it any time from Calendar → Reset link.</span><input readonly value="{{ share }}" onclick="this.select()"></div>{% endif %}
+{% if share %}<div class="card noprint"><b>Share with your client</b> <span class="muted">— read-only link, no login needed. Reset it any time from Calendar → Reset link.</span><input readonly aria-label="Share link" value="{{ share }}" onclick="this.select()"></div>{% endif %}
 <div class="grid" style="margin:12px 0"><div class="tile"><span class="muted">Content published</span><b>{{ r.published }}</b></div><div class="tile"><span class="muted">Content scheduled this month</span><b>{{ r.content|length }}</b></div>
 <div class="tile"><span class="muted">New leads</span><b>{{ r.leads|length }}</b></div><div class="tile"><span class="muted">Campaign spend</span><b>₹{{ '{:,.0f}'.format(r.spent) }}</b><span class="tag">of ₹{{ '{:,.0f}'.format(r.budget) }} budget</span></div></div>
 <h3>KPIs</h3>{% if r.kpis %}<table><tr><th>Metric</th><th>Channel</th><th>Latest</th><th>Target</th><th>Progress</th></tr>

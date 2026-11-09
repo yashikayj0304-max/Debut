@@ -1,23 +1,94 @@
 {% extends "base.html" %}{% block body %}
-<div class="head"><h1>{{ m.icon }} {{ m.title }} — Board</h1><div><a class="btn" href="{{ url_for('m_new', key=key) }}"{% if key in ('tasks','kpis') %} onclick="return openOverlay(this.href,'')"{% endif %}>+ New</a>
-{% if has_due %}<a class="btn ghost" href="?sort={{ '' if sort_due else 'due' }}">{{ '✓ Sorted by due date' if sort_due else 'Sort by due date' }}</a>{% endif %}
+{% set pop = key in ('tasks','kpis') %}
+<div class="head"><h1>{{ m.icon }} {{ m.title }} — Board</h1><div class="acts">{% if can_drag %}<a class="btn" href="{{ url_for('m_new', key=key) }}"{% if pop %} onclick="return openOverlay(this.href,'')"{% endif %}>+ New</a>{% endif %}
 <a class="btn ghost" href="{{ url_for('m_list', key=key) }}">List view</a></div></div>
-<p class="muted">Drag a card by its handle (⠿) to move it between columns, or drop it on another card to reorder within a column — or use the dropdown.</p>
-<div class="kan">{% for o in opts %}<div class="col" data-status="{{ o }}" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="dropCard(event,'{{ key }}','{{ o }}')"><h3>{{ o }} <span class="muted">({{ rows|selectattr(field, 'equalto', o)|list|length }})</span></h3>
-{% for r in rows if r[field] == o %}<div class="kcard" draggable="true" data-id="{{ r['id'] }}" ondragstart="event.dataTransfer.setData('text/plain','{{ r['id'] }}');event.stopPropagation()" ondragend="document.querySelectorAll('.col.dragover,.kcard.dragover').forEach(function(c){c.classList.remove('dragover')})" ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.stopPropagation();dropCard(event,'{{ key }}','{{ o }}','{{ r['id'] }}')">
-<span class="khandle" title="Drag to move or reorder">⠿</span><a href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{% if key in ('tasks','kpis') %} onclick="return openOverlay(this.href,'')"{% endif %}><b>{{ r[title_f]|truncate(60) }}</b></a>
-<div class="muted">{{ r[sub_f] }}</div>
-<form method="post" action="{{ url_for('m_status', key=key, rid=r['id']) }}"><input type="hidden" name="next" value="{{ url_for('kanban', key=key) }}{{ '?sort=due' if sort_due else '' }}">
-<select name="value" onchange="this.form.submit()">{% for p in opts %}<option {% if p == o %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></form></div>{% endfor %}</div>{% endfor %}</div>
+<form class="boardbar" method="get" id="boardbar">
+ <label class="sortpick"><span>↕ Sort</span><select name="sort" aria-label="Sort cards" onchange="this.form.submit()">{% for c, l in choices %}<option value="{{ c }}"{% if c == sort %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+ {% if groups|length > 1 %}<label class="sortpick"><span>▦ Group by</span><select name="by" aria-label="Group columns by" onchange="this.form.submit()">{% for n, l, o in groups %}<option value="{{ n }}"{% if n == field %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>{% endif %}
+</form>
+<p class="muted howto" id="kanHelp">{% if not can_drag %}Read-only: you can look but not move cards.{% elif manual %}Grab a card anywhere and drop it where you want it — across columns or up and down. On a phone, hold the ⠿ grip. Prefer the keyboard? Focus a card and press Alt + arrow keys.{% else %}Sorted by <b>{{ (choices|selectattr(0, 'equalto', sort)|first)[1] }}</b>. You can still drag cards between columns. Pick <b>✋ My order</b> to arrange cards by hand.{% endif %}</p>
+<div class="kan" id="kan" data-key="{{ key }}" data-by="{{ field }}" data-sort="{{ sort }}" data-drag="{{ 1 if can_drag else 0 }}" data-prio="{{ prio|join(',') }}">
+{% for o in opts %}<section class="col" data-status="{{ o }}" aria-label="{{ o }}"><h3><span class="ct">{{ o }}</span> <span class="cnt" data-cnt>{{ rows|selectattr(field, 'equalto', o)|list|length }}</span>{% if can_drag %}<a class="cadd" href="{{ url_for('m_new', key=key, **{field: o}) }}"{% if pop %} onclick="return openOverlay(this.href,'')"{% endif %} title="Add to {{ o }}" aria-label="Add to {{ o }}">+</a>{% endif %}</h3>
+<div class="klist" role="list">{% for r in rows if r[field] == o %}<div class="kcard" role="listitem" data-id="{{ r['id'] }}" data-t="{{ (r[title_f] or '')|lower }}" data-due="{{ r['due_date'] if 'due_date' in r.keys() and r['due_date'] else '' }}" data-pr="{{ r['priority'] if 'priority' in r.keys() and r['priority'] else '' }}" tabindex="{{ 0 if can_drag else -1 }}"{% if can_drag %} aria-roledescription="draggable card"{% endif %}>
+{% if can_drag %}<span class="khandle" title="Drag to move" aria-hidden="true">⠿</span>{% endif %}<a class="kt" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{% if pop %} onclick="return openOverlay(this.href,'')"{% endif %}><b>{{ r[title_f]|truncate(60) }}</b></a>
+{% if r[sub_f] %}<div class="muted ks">{{ r[sub_f]|string|truncate(48) }}</div>{% endif %}
+{% if ('priority' in r.keys() and r['priority']) or ('due_date' in r.keys() and r['due_date']) %}<div class="kmeta">{% if 'priority' in r.keys() and r['priority'] %}<span class="badge b-{{ r['priority']|lower }}">{{ r['priority'] }}</span>{% endif %}{% if 'due_date' in r.keys() and r['due_date'] %}<span class="kdue">⏰ {{ r['due_date'] }}</span>{% endif %}</div>{% endif %}
+{% if can_drag %}<form method="post" action="{{ url_for('m_status', key=key, rid=r['id']) }}" class="kmove"><input type="hidden" name="by" value="{{ field }}"><input type="hidden" name="next" value="{{ request.full_path|trim('?') }}">
+<select name="value" aria-label="Move this card to" onchange="this.form.submit()">{% for p in opts %}<option {% if p == o %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></form>{% endif %}</div>{% endfor %}</div></section>{% endfor %}</div>
+<div id="kanLive" class="sr-only" aria-live="polite"></div>
 {% endblock %}
 {% block scripts %}<script>
-// dropped on empty column background (beforeId omitted) -> appended to the end of that column
-// dropped on another card (beforeId set) -> inserted right before that card, in that card's column
-function dropCard(e,key,status,beforeId){
- e.preventDefault();e.currentTarget.classList.remove('dragover');
- var rid=e.dataTransfer.getData('text/plain');if(!rid||rid===beforeId)return;
- var f=document.createElement('form');f.method='post';f.action='/m/'+key+'/'+rid+'/reorder';
- [['status',status],['before_id',beforeId||''],['next',location.pathname+location.search],['csrf_token',window.CSRF]].forEach(function(p){var i=document.createElement('input');i.type='hidden';i.name=p[0];i.value=p[1];f.appendChild(i);});
- document.body.appendChild(f);f.submit();
-}
+(function(){
+var kan=document.getElementById("kan");if(!kan)return;
+var KEY=kan.dataset.key,BY=kan.dataset.by,SORT=kan.dataset.sort,CAN=kan.dataset.drag==="1",MANUAL=SORT==="manual";
+var live=document.getElementById("kanLive");function say(t){if(live)live.textContent=t;}
+try{var sel=document.querySelector('#boardbar select[name=sort]');if(sel)sel.addEventListener("change",function(){localStorage.setItem("ksort:"+KEY,sel.value);});
+ if(!/[?&]sort=/.test(location.search)){var sv=localStorage.getItem("ksort:"+KEY);if(sv&&sv!==SORT&&sel&&[].some.call(sel.options,function(o){return o.value===sv;})){var u=new URL(location.href);u.searchParams.set("sort",sv);location.replace(u.pathname+u.search);return;}}}catch(e){}
+function cols(){return [].slice.call(kan.querySelectorAll(".col"));}
+function lst(c){return c.querySelector(".klist");}
+function count(){cols().forEach(function(c){c.querySelector("[data-cnt]").textContent=lst(c).querySelectorAll(".kcard").length;});}
+var PRL=(kan.dataset.prio||"").split(",");function prRank(v){var i=PRL.indexOf(v);return i<0?99:PRL.length-i;}
+function cmp(a,b){var A=a.dataset,B=b.dataset;
+ if(SORT==="az")return A.t<B.t?-1:A.t>B.t?1:0;if(SORT==="za")return A.t<B.t?1:A.t>B.t?-1:0;
+ if(SORT==="old")return (+A.id)-(+B.id);if(SORT==="due"||SORT==="date"){var x=A.due||"~",y=B.due||"~";return x<y?-1:x>y?1:(+B.id)-(+A.id);}
+ if(SORT==="priority")return prRank(A.pr)-prRank(B.pr)||(+B.id)-(+A.id);return (+B.id)-(+A.id);}
+function slot(list,card,y){ // where does the dragged card go in this column?
+ var items=[].slice.call(list.querySelectorAll(".kcard:not(.dragging)"));
+ if(!MANUAL){for(var i=0;i<items.length;i++){if(cmp(card,items[i])<0)return items[i];}return null;}
+ for(var j=0;j<items.length;j++){var r=items[j].getBoundingClientRect();if(y<r.top+r.height/2)return items[j];}return null;}
+if(!CAN)return;
+var drag=null,ghost=null,raf=0,lastX=0,lastY=0;
+function begin(card,e){var r=card.getBoundingClientRect();
+ drag={card:card,parent:card.parentNode,next:card.nextElementSibling,dx:e.clientX-r.left,dy:e.clientY-r.top,pid:e.pointerId};
+ ghost=card.cloneNode(true);ghost.classList.add("kghost");ghost.style.width=r.width+"px";ghost.removeAttribute("id");[].forEach.call(ghost.querySelectorAll("select,form"),function(n){n.remove();});document.body.appendChild(ghost);
+ card.classList.add("dragging");document.body.classList.add("kdragging");try{card.setPointerCapture(e.pointerId);}catch(_){}
+ move(e);loop();}
+function move(e){lastX=e.clientX;lastY=e.clientY;ghost.style.transform="translate("+(e.clientX-drag.dx)+"px,"+(e.clientY-drag.dy)+"px) rotate(2.5deg)";
+ ghost.style.visibility="hidden";var el=document.elementFromPoint(e.clientX,e.clientY);ghost.style.visibility="";
+ var col=el&&el.closest&&el.closest(".col");cols().forEach(function(c){c.classList.toggle("dragover",c===col);});
+ if(!col)return;var list=lst(col),same=drag.card.parentNode===list;
+ if(same&&!MANUAL)return; // sorted view: a card can't be hand-placed inside its own column
+ var before=slot(list,drag.card,e.clientY);
+ if(before!==drag.card.nextElementSibling||drag.card.parentNode!==list){list.insertBefore(drag.card,before);}}
+function loop(){if(!drag)return;var W=window.innerHeight,x=lastX,y=lastY;
+ if(y<80)window.scrollBy(0,-Math.min(18,(80-y)/3));else if(y>W-80)window.scrollBy(0,Math.min(18,(y-(W-80))/3));
+ var kr=kan.getBoundingClientRect();if(x<kr.left+60)kan.scrollLeft-=14;else if(x>kr.right-60)kan.scrollLeft+=14;
+ raf=requestAnimationFrame(loop);}
+function end(save){if(!drag)return;cancelAnimationFrame(raf);var d=drag;drag=null;ghost.remove();ghost=null;
+ d.card.classList.remove("dragging");document.body.classList.remove("kdragging");cols().forEach(function(c){c.classList.remove("dragover");});
+ var moved=d.card.parentNode!==d.parent||d.card.nextElementSibling!==d.next;
+ if(!save||!moved){d.parent.insertBefore(d.card,d.next);count();return;}
+ count();persist(d.card,d.parent,d.next);}
+function persist(card,oldParent,oldNext,msg){var col=card.closest(".col"),status=col.dataset.status,nx=card.nextElementSibling;
+ var fd=new URLSearchParams();fd.set("status",status);fd.set("by",BY);fd.set("before_id",nx?nx.dataset.id:"");fd.set("after","0");fd.set("csrf_token",window.CSRF);
+ var sel=card.querySelector(".kmove select");if(sel)sel.value=status;
+ fetch("/m/"+KEY+"/"+card.dataset.id+"/reorder",{method:"POST",headers:{"X-Requested-With":"fetch","X-CSRFToken":window.CSRF},body:fd,credentials:"same-origin"})
+ .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+ .then(function(j){(j.msgs||[]).forEach(function(m){toast(m,4500);});
+   if(j.status!==status){location.reload();return;}
+   var t=card.querySelector(".kt b");toast((msg||"Moved")+" → "+status,1800);say((t?t.textContent:"Card")+" moved to "+status+", position "+([].indexOf.call(lst(col).children,card)+1)+" of "+lst(col).children.length);})
+ .catch(function(){if(oldParent){oldParent.insertBefore(card,oldNext);count();}toast("Couldn't save that move — it's back where it was. Try again.",4500);});}
+kan.addEventListener("pointerdown",function(e){
+ if(e.button!==0)return;var card=e.target.closest&&e.target.closest(".kcard");if(!card||!kan.contains(card))return;
+ if(e.target.closest("select,option,input,textarea,button"))return;
+ var onGrip=!!e.target.closest(".khandle"),touch=e.pointerType==="touch"||e.pointerType==="pen";
+ if(touch&&!onGrip)return; // fingers scroll; the grip is the touch handle
+ if(e.target.closest("a")&&!onGrip&&!touch){} // links still drag; a click without movement still opens them
+ var sx=e.clientX,sy=e.clientY,started=false,id=e.pointerId;
+ function mv(ev){if(ev.pointerId!==id)return;if(!started){if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<(touch?2:6))return;started=true;begin(card,ev);card.__dragged=true;setTimeout(function(){card.__dragged=false;},400);}else{move(ev);}if(touch||started)ev.preventDefault();}
+ function up(ev){if(ev.pointerId!==id)return;document.removeEventListener("pointermove",mv);document.removeEventListener("pointerup",up);document.removeEventListener("pointercancel",cn);if(started)end(true);}
+ function cn(ev){if(ev.pointerId!==id)return;document.removeEventListener("pointermove",mv);document.removeEventListener("pointerup",up);document.removeEventListener("pointercancel",cn);if(started)end(false);}
+ document.addEventListener("pointermove",mv,{passive:false});document.addEventListener("pointerup",up);document.addEventListener("pointercancel",cn);
+});
+kan.addEventListener("click",function(e){var c=e.target.closest&&e.target.closest(".kcard");if(c&&c.__dragged){e.preventDefault();e.stopPropagation();c.__dragged=false;}},true);
+kan.addEventListener("dragstart",function(e){e.preventDefault();}); // the browser's own ghost image would fight ours
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&drag){end(false);return;}
+ var card=document.activeElement&&document.activeElement.classList&&document.activeElement.classList.contains("kcard")?document.activeElement:null;if(!card||!e.altKey)return;
+ var k=e.key,col=card.closest(".col"),list=lst(col),oldParent=card.parentNode,oldNext=card.nextElementSibling,all=cols(),ci=all.indexOf(col);
+ if(k==="ArrowUp"&&MANUAL&&card.previousElementSibling){list.insertBefore(card,card.previousElementSibling);}
+ else if(k==="ArrowDown"&&MANUAL&&card.nextElementSibling){list.insertBefore(card,card.nextElementSibling.nextElementSibling);}
+ else if((k==="ArrowLeft"&&ci>0)||(k==="ArrowRight"&&ci<all.length-1)){var t=lst(all[ci+(k==="ArrowRight"?1:-1)]);t.insertBefore(card,MANUAL?null:slot(t,card,0));}
+ else return;
+ e.preventDefault();card.focus();count();persist(card,oldParent,oldNext);});
+})();
 </script>{% endblock %}

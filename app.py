@@ -212,11 +212,20 @@ def create_app(config=None, init=True, database_url=None):
                 for lbl, ep, kw, extra, _vis in hb["tabs"]:
                     href = url_for(ep, **kw)
                     vis = url_for("m_list", key=kw["key"]) if ep == "kanban" else href
-                    if vis not in _label_of:
+                    if _vis == "mgr":      # team pages: owners, admins and leads
+                        if g.role not in C.TEAM_MANAGERS:
+                            continue
+                    elif _vis == "nc":     # everyone except portal clients
+                        if g.role == "client":
+                            continue
+                    elif _vis == "rep":    # the client report: everyone who reports, not creators or clients
+                        if g.role in ("creator", "client", None):
+                            continue
+                    elif vis not in _label_of:
                         continue
                     _seen.add(vis)
                     path = href.split("?")[0]
-                    tabs.append(dict(label=lbl + (" 🔒" if _label_of[vis].endswith("🔒") else ""), href=href, paths=[path] + extra, on=False))
+                    tabs.append(dict(label=lbl + (" 🔒" if (_label_of.get(vis, "").endswith("🔒") or (ep == "team_hub" and "group" not in g.plan["features"])) else ""), href=href, paths=[path] + extra, on=False))
                 if tabs:
                     _hubs.append(dict(key=hb["key"], icon=hb["icon"], label=hb["label"], lv=hb["lv"], href=tabs[0]["href"], tabs=tabs, on=False))
             _rest = [(lbl, h) for h, lbl in _label_of.items() if h not in _seen]
@@ -234,7 +243,7 @@ def create_app(config=None, init=True, database_url=None):
             d["HUBS"] = _hubs
             d["HUB_CUR"] = _cur
             d["HUB_TABS"] = _cur["tabs"] if _cur and len(_cur["tabs"]) > 1 else []
-            d["TOOLS"] = [dict(g=hb["label"], i=hb["icon"], items=[[t["label"], t["href"]] for t in hb["tabs"]]) for hb in _hubs] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
+            d["TOOLS"] = [dict(g=hb["label"], k=hb["key"], i=hb["icon"], items=[[t["label"], t["href"]] for t in hb["tabs"]]) for hb in _hubs] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])
                 d["ESSENTIALS"] = []

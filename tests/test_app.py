@@ -3758,3 +3758,43 @@ def test_all_tools_live_in_the_search_finder_not_the_sidebar(app):
     assert 'id="finder"' in h and "Find any tool" in h and "openFinder" in h
     assert '"/m/leads"' in h and "Trackable links (UTM)" in h  # every tool is in the finder data
     assert 'id="allBtn"' in h and 'toggleAll' not in h  # old accordion toggle is gone
+
+
+def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
+    import re, json
+    o = signup(app, "hubs@x.com")
+    h = o.get("/app").data.decode()
+    aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    assert aside.count('class="hub') == 9 or aside.count('class="hub') == 10
+    for name in ("Content", "Brand &amp; Ideas", "Tasks", "News &amp; AI", "Plan", "Campaigns", "Results"):
+        assert name in aside, name
+    assert "gtile" not in aside and "More tools" not in h  # no stray tiles, and no page left outside a hub
+    tools = json.loads(re.search(r"var TOOLS=(\[.*?\]);\n", h, re.S).group(1))
+    in_hubs = {href for g in tools for _, href in g["items"]}
+    hidden = set(re.findall(r'<a href="([^"]+)">', h.split('id="allTools" hidden>', 1)[1].split("</details>", 1)[0]))
+    # every page the old sidebar offered is reachable through a hub tab
+    allnav = set(re.findall(r'<a href="(/[^"]*)"', h.split('id="allTools" hidden>', 1)[1].split('<details class="ngrp side-foot"', 1)[0]))
+    assert allnav and allnav <= in_hubs | {"/m/utm_links"}, sorted(allnav - in_hubs)
+    # a page inside a hub shows the tab bar, with the current tab marked
+    p = o.get("/calendar").data.decode()
+    assert 'class="hubtabs"' in p and 'class="ht on"' in p and "Board" in p and "List" in p and "Key dates" in p
+    assert 'class="hubtabs"' in o.get("/m/leads").data.decode()
+    assert 'class="hubtabs"' not in o.get("/m/tasks").data.decode()  # a hub with one tab shows no bar
+    for u in ("/kanban/content_items", "/m/content_items", "/m/key_dates", "/m/assets", "/moodboards", "/ideas", "/ai", "/pulse", "/analytics", "/m/personas", "/m/campaigns", "/utm", "/content-ops", "/discover"):
+        assert o.get(u).status_code == 200, u
+
+
+def test_hubs_respect_roles(app, mails):
+    o = signup(app, "hubrole@x.com")
+    for role, gone, here in (("creator", ("Sales", "Campaigns", "Plan", "Rate card", "Invoices"), ("Content",)), ("viewer", (), ("Content",)), ("manager", (), ("Content", "Campaigns"))):
+        u = _join(app, o, mails, f"hub{role}@x.com", role)
+        h = u.get("/app").data.decode()
+        aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
+        for n in gone:
+            assert n not in aside, (role, n)
+        for n in here:
+            assert n in aside, (role, n)
+        assert u.get("/calendar").status_code == 200
+    cl = _client(app, o, mails, "hubcl@x.com")
+    p = cl.get("/portal").data.decode()
+    assert 'class="hub' not in p and 'class="hubtabs"' not in p

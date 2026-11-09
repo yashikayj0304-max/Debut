@@ -466,3 +466,32 @@ html[data-theme=dark] #finder .fr-w:hover,html[data-theme=dark] #finder a.fr.sel
 .trynext a.tn>span{grid-row:1/3;font-size:26px}
 .trynext a.tn b{font-size:14px}.trynext a.tn small{color:var(--mut);font-size:12.5px;line-height:1.35}
 html[data-theme=dark] .trynext a.tn{background:rgba(124,92,214,.16);border-color:rgba(124,92,214,.35);color:#ece7fb}
+
+/* v24 topic tiles: every group visible in the panel, one tap to open */
+.gtiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 8px}
+.gtile{display:flex;align-items:center;gap:6px;font:inherit;font-size:12.5px;cursor:pointer;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:7px 8px;min-width:0}
+.gtile span{font-size:15px;flex:none}.gtile b{font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gtile i{font-style:normal;font-size:11px;color:var(--mut)}
+.gtile:hover{background:var(--pri2);border-color:var(--pri3)}
+html[data-theme=dark] .gtile{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);color:#ece7fb}
+html[data-theme=dark] .gtile:hover{background:rgba(124,92,214,.25)}
+#finder.fnd-side .fnd-head input{display:none}#finder.fnd-side .fnd-head{justify-content:space-between;align-items:center}
+.fnd-title{cursor:default}
+.gtile{font-size:12px!important;padding:7px 6px!important;gap:5px!important}.gtile span{font-size:14px!important}.gtiles{gap:5px!important}
+
+/* v25 hubs: short sidebar + tab bar on every page inside a hub */
+.ess a.hub{display:flex;align-items:center;gap:10px;font-weight:600}
+.ess a.hub .hi{width:22px;text-align:center;font-size:16px;flex:none}
+.ess a.hub.on{background:var(--pri2);color:var(--pri-d);box-shadow:inset 3px 0 0 var(--pri)}
+html[data-theme=dark] .ess a.hub.on{background:rgba(124,92,214,.25);color:#fff}
+.gtiles{display:none}
+.hubtabs{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:6px 6px 6px 14px;border:1px solid var(--line);background:var(--card);border-radius:18px;overflow:hidden}
+.hubtabs .ht-title{font-weight:700;white-space:nowrap;font-size:14px}
+.hubtabs .ht-row{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1}
+.hubtabs .ht-row::-webkit-scrollbar{display:none}
+.hubtabs a.ht{white-space:nowrap;padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--mut);text-decoration:none!important}
+.hubtabs a.ht:hover{background:var(--pri2);color:var(--pri-d)}
+.hubtabs a.ht.on{background:var(--pri);color:#fff;box-shadow:0 2px 8px rgba(124,92,214,.3)}
+html[data-theme=dark] .hubtabs{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+html[data-theme=dark] .hubtabs a.ht{color:#b8b0d4}html[data-theme=dark] .hubtabs a.ht:hover{background:rgba(124,92,214,.22);color:#fff}html[data-theme=dark] .hubtabs a.ht.on{color:#fff}
+@media(max-width:720px){.hubtabs{flex-direction:column;align-items:stretch;gap:2px;padding:8px 8px 6px}.hubtabs .ht-title{padding-left:6px}}
+#recentRow.recent{flex-wrap:nowrap;overflow:hidden}#recentRow.recent a{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46%}

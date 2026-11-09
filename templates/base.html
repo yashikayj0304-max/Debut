@@ -42,15 +42,16 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if role not in ('viewer',) %}<a class="bn-plus" href="{{ url_for('m_new', key='content_items') }}" aria-label="New content"><i>＋</i></a>{% else %}<a href="{{ url_for('moodboards') }}"><i>🖼️</i>Boards</a>{% endif %}
 <a href="{{ url_for('m_list', key='tasks') }}"><i>✅</i>Tasks</a><a href="#" role="button" aria-label="Open menu" onclick="document.body.classList.toggle('nav-open');return false"><i>☰</i>Menu</a></nav>
 {% endif %}
-<div id="finder" hidden><div class="fnd-head"><span class="fnd-title">🔎 All tools</span><input id="fq" type="search" placeholder="Find a tool or page…" autocomplete="off" aria-label="Find a tool or page"><button type="button" class="fnd-x" aria-label="Close">✕</button></div><div id="fl"></div></div>
+<div id="finder" hidden><div class="fnd-head"><span class="fnd-title" id="fndTitle">🔎 All tools</span><input id="fq" type="search" placeholder="Find a tool or page…" autocomplete="off" aria-label="Find a tool or page"><button type="button" class="fnd-x" aria-label="Close">✕</button></div><div id="fl"></div></div>
 <dialog id="overlayModal" class="overlay-modal"><div class="overlay-head"><button type="button" class="btn ghost sm" onclick="document.getElementById('overlayModal').close()">✕ Close</button></div><div id="overlayBody" class="overlay-body"><p class="muted" style="padding:20px">Loading…</p></div></dialog>
 <div class="appcols">
 <aside>
 {% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
 {% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
-{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div class="navstyle" role="group" aria-label="Sidebar size"><button type="button" data-ns="new" title="Just the basics">🌱 Basics</button><button type="button" data-ns="solo" title="The daily set">⚡ Daily</button><button type="button" data-ns="team" title="Plus team and client pages">🏢 Team</button></div><div id="recentRow" hidden></div>{% for label, href in ESSENTIALS %}<a href="{{ href }}" data-lv="{{ ESS_LV.get(href, 2) }}">{{ label }}</a>{% endfor %}{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
+{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div class="navstyle" role="group" aria-label="Sidebar size"><button type="button" data-ns="new" title="Just the basics">🌱 Basics</button><button type="button" data-ns="solo" title="The daily set">⚡ Daily</button><button type="button" data-ns="team" title="Plus team and client pages">🏢 Team</button></div><div id="recentRow" hidden></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-lv="{{ hb.lv }}" data-hub="{{ hb.key }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span>{{ hb.label }}</a>{% endfor %}{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
 <button type="button" class="alltools-btn" id="allBtn" onclick="openFinder()">🔎 Find any tool <span class="muted">· {{ NAV.values()|map('length')|sum }} pages</span></button>
+
 <div id="allTools" hidden>{% endif %}
 {% for g, items in NAV.items() %}<details class="ngrp" data-g="{{ g }}"><summary title="{{ NAV_TAG.get(g, '') }}"><span class="gi" aria-hidden="true">{{ {'Strategy':'🧭','Content':'✍️','Campaigns':'📣','Promotions & Events':'🎪','Content Ops':'🛠️','Growth':'📈','Intelligence':'📡'}.get(g, '📁') }}</span><span class="gn">{{ g }}</span><span class="gc">{{ items|length }}</span></summary>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</details>{% endfor %}
 {% if ESSENTIALS %}</div>{% endif %}
@@ -72,13 +73,14 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 <main class="pubmain">
 {% endif %}
 {% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
+{% if HUB_TABS %}<nav class="hubtabs" aria-label="{{ HUB_CUR.label }} sections"><span class="ht-title">{{ HUB_CUR.icon }} {{ HUB_CUR.label }}</span><div class="ht-row">{% for t in HUB_TABS %}<a class="ht{{ ' on' if t.on }}" href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}</div></nav>{% endif %}
 {% block body %}{% endblock %}
 {% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><button type="button" class="theme-link" onclick="toggleTheme()">🌙 Dark / light</button><a href="{{ url_for('manual') }}">User manual</a><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
 </main>{% if user and ws and not bare %}</div>{% endif %}
 <script>
 window.CSRF=document.querySelector('meta[name=csrf-token]').content;
 document.querySelectorAll('form').forEach(function(f){if((f.method||'').toLowerCase()==='post'&&!f.querySelector('[name=csrf_token]')){var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);}});
-(function(){var p=location.pathname,best=null;document.querySelectorAll("aside a[href]").forEach(function(a){var h=a.getAttribute("href").split("?")[0];if(h===p||(h!=="/app"&&h.length>1&&p.indexOf(h)===0)){if(!best||h.length>best.getAttribute("href").length)best=a;}});if(best){var bh=best.getAttribute("href");document.querySelectorAll("aside a[href=\""+bh+"\"]").forEach(function(a){a.classList.add("on");});}if(false)best.classList.add("on");})();
+(function(){var p=location.pathname,best=null;document.querySelectorAll("aside a[href]:not(.hub)").forEach(function(a){var h=a.getAttribute("href").split("?")[0];if(h===p||(h!=="/app"&&h.length>1&&p.indexOf(h)===0)){if(!best||h.length>best.getAttribute("href").length)best=a;}});if(best){var bh=best.getAttribute("href");document.querySelectorAll("aside a[href=\""+bh+"\"]").forEach(function(a){a.classList.add("on");});}if(false)best.classList.add("on");})();
 // ---------- sidebar headings are drop-downs (one open at a time): remember the open one, and open the one holding the current page ----------
 (function(){
  var KEY="navOpen1",groups=document.querySelectorAll("aside details.ngrp"),cur="";
@@ -211,7 +213,7 @@ if(window.history && 'scrollRestoration' in history){try{history.scrollRestorati
 // ---------- first-time tour: a few spotlighted tips pointing at where things live ----------
 var TOUR_STEPS=[
  {sel:"[data-tour=dashboard]",title:"🏠 Home",text:"Your home screen. The \'Today\' list at the top auto-builds itself each day from what\'s overdue plus what\'s due today, so you always know what to do next — plus what\'s publishing soon and quick links into every module."},
- {sel:"[data-tour=modules]",title:"Your essentials live here",text:"The pages you use daily sit up top. Tap 🔎 Find any tool (or click the search bar up top) to reach all {{ NAV.values()|map('length')|sum }} pages. Tap ☆ next to any tool to pin it here."},
+ {sel:"[data-tour=modules]",title:"Your essentials live here",text:"Your hubs sit here, and each one has tabs for everything inside it. Each name here is a hub with tabs inside. Tap 🔎 Find any tool (or click the search bar up top) to reach all {{ NAV.values()|map('length')|sum }} pages. Tap ☆ next to any tool to pin it here."},
  {sel:"[data-tour=create]",title:"＋ Create",text:"Drop in content, a task, a campaign, a lead or a key date from anywhere. It pops up, so you never lose your place."},
  {sel:"[data-tour=search]",title:"Search",text:"Type and press Enter to search every record at once. Press Ctrl+K (⌘+K on Mac) to jump here from anywhere, and Esc or ✕ to clear it."},
  {sel:"[data-tour=bell]",title:"Notifications",text:"Someone assigned you work, mentioned you or needs an approval? It shows up here."},
@@ -275,27 +277,30 @@ function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0
  var list=[];try{list=JSON.parse(get("recentTools","[]"))||[];}catch(e){list=[];}
  var h=document.querySelector(".head h1");
  if(isTool&&h){var label=h.textContent.trim().replace(/\s+/g," ").slice(0,28);list=list.filter(function(x){return x.h!==p;});list.unshift({h:p,l:label});list=list.slice(0,4);try{localStorage.setItem("recentTools",JSON.stringify(list));}catch(e){}}
- var shown=list.filter(function(x){return x.h!==p;}).slice(0,3);
+ var shown=list.filter(function(x){return x.h!==p;}).slice(0,2);
  if(shown.length){rr.hidden=false;rr.className="recent";rr.innerHTML="<small>Recent</small>";shown.forEach(function(x){var a=document.createElement("a");a.href=x.h;a.textContent=x.l;rr.appendChild(a);});}
 })();
 
 
 // ---------- tool finder: every page lives in the search bar, not in the sidebar ----------
 var TOOLS={{ TOOLS|tojson }};
-function openFinder(){var F=document.getElementById("finder");if(!F)return;var tb=document.getElementById("tbq");if(tb&&tb.offsetParent){tb.focus();tb.select();}else{document.body.classList.remove("nav-open");F.openIn("sheet");}}
+function openFinder(grp,el){var F=document.getElementById("finder");if(!F)return;window.__fgroup=grp||"";var tb=document.getElementById("tbq");if(grp){document.body.classList.remove("nav-open");F.openIn(window.innerWidth>800?"side":"sheet",el);return;}if(tb&&tb.offsetParent){tb.focus();tb.select();}else{document.body.classList.remove("nav-open");F.openIn("sheet");}}
 (function(){var F=document.getElementById("finder");if(!F)return;
  var L=document.getElementById("fl"),FQ=document.getElementById("fq"),TB=document.getElementById("tbq"),mode="",sel=-1;
  function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
  function pins(){try{return window.__pins?window.__pins():[];}catch(e){return [];}}
  function render(t){t=(t||"").trim().toLowerCase();var h="",n=0,p=pins();
   if(t)h+='<a class="fr fr-s" href="/search?q='+encodeURIComponent(t)+'">🔎 <span>Search your records for “'+esc(t)+'”</span></a>';
-  (window.TOOLS||[]).forEach(function(g){var rows=g.items.filter(function(x){return !t||(x[0]+" "+g.g).toLowerCase().indexOf(t)>-1;});if(!rows.length)return;
+  (window.TOOLS||[]).forEach(function(g){if(window.__fgroup&&g.g!==window.__fgroup)return;var rows=g.items.filter(function(x){return !t||(x[0]+" "+g.g).toLowerCase().indexOf(t)>-1;});if(!rows.length)return;
    h+='<div class="fg">'+g.i+" "+esc(g.g)+"</div>";
    rows.forEach(function(x){n++;var on=p.indexOf(x[1])>-1;h+='<div class="fr-w"><a class="fr" href="'+x[1]+'">'+esc(x[0])+'</a><button type="button" class="fpin'+(on?" on":"")+'" data-h="'+x[1]+'" aria-label="'+(on?"Unpin":"Pin")+' this page">'+(on?"★":"☆")+"</button></div>";});});
   if(!n&&t)h+='<p class="muted fnone">No tool by that name. Press Enter to search your records instead.</p>';
-  L.innerHTML=h;sel=-1;}
+  var ti=document.getElementById("fndTitle");if(ti)ti.textContent=window.__fgroup?"← "+window.__fgroup:"🔎 All tools";L.innerHTML=h;sel=-1;}
  function place(){if(mode!=="desk"||!TB)return;var r=TB.closest("form").getBoundingClientRect();F.style.top=(r.bottom+8)+"px";F.style.right=Math.max(12,window.innerWidth-r.right-40)+"px";F.style.left="auto";}
- function openIn(m){mode=m;F.className="fnd-"+m;F.hidden=false;if(m==="desk"){place();render(TB.value);}else{F.style.cssText="";render(FQ.value);setTimeout(function(){FQ.focus();},30);}}
+ function openIn(m,el){mode=m;F.className="fnd-"+m;F.hidden=false;
+  if(m==="desk"){window.__fgroup="";place();render(TB.value);}
+  else if(m==="side"){var r=el.getBoundingClientRect();F.style.cssText="top:"+Math.max(64,Math.min(r.top-10,window.innerHeight-420))+"px;left:"+(r.right+10)+"px;right:auto";FQ.value="";render("");}
+  else{F.style.cssText="";if(!window.__fgroup)FQ.value=FQ.value;render(FQ.value);if(!window.__fgroup)setTimeout(function(){FQ.focus();},30);}}
  function close(){F.hidden=true;sel=-1;}
  F.openIn=openIn;
  function rows(){return [].slice.call(L.querySelectorAll("a.fr"));}
@@ -303,11 +308,12 @@ function openFinder(){var F=document.getElementById("finder");if(!F)return;var t
  function key(e,inp){if(e.key==="ArrowDown"){e.preventDefault();move(1);}else if(e.key==="ArrowUp"){e.preventDefault();move(-1);}else if(e.key==="Escape"){close();}
   else if(e.key==="Enter"){var r=rows();if(sel>-1&&r[sel]){e.preventDefault();location.href=r[sel].getAttribute("href");}else if(inp===FQ){e.preventDefault();var f=r.filter(function(a){return !a.classList.contains("fr-s");})[0]||r[0];if(f)location.href=f.getAttribute("href");}}}
  if(TB){TB.addEventListener("focus",function(){openIn("desk");});TB.addEventListener("click",function(){if(F.hidden)openIn("desk");});TB.addEventListener("input",function(){if(F.hidden)openIn("desk");render(TB.value);});TB.addEventListener("keydown",function(e){key(e,TB);});window.addEventListener("resize",place);}
- FQ.addEventListener("input",function(){render(FQ.value);});FQ.addEventListener("keydown",function(e){key(e,FQ);});
+ FQ.addEventListener("input",function(){window.__fgroup="";render(FQ.value);});FQ.addEventListener("keydown",function(e){key(e,FQ);});
  F.querySelector(".fnd-x").addEventListener("click",close);
+ var tt=document.getElementById("fndTitle");if(tt)tt.addEventListener("click",function(){if(window.__fgroup){window.__fgroup="";render(FQ.value);}});
  F.addEventListener("click",function(e){var b=e.target.closest(".fpin");if(b){e.preventDefault();if(window.__togglePin)window.__togglePin(b.dataset.h);var on=pins().indexOf(b.dataset.h)>-1;b.classList.toggle("on",on);b.textContent=on?"★":"☆";return;}if(e.target.closest("a.fr"))close();});
  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!F.hidden)close();});
- document.addEventListener("mousedown",function(e){if(F.hidden)return;if(e.target.closest("#finder")||e.target.closest(".tb-search")||e.target.closest("#allBtn"))return;close();});
+ document.addEventListener("mousedown",function(e){if(F.hidden)return;if(e.target.closest("#finder")||e.target.closest(".tb-search")||e.target.closest("#allBtn")||e.target.closest(".gtile"))return;close();});
 })();
 
 // ---------- dark mode, pinned pages, confetti ----------

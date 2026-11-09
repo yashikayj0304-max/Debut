@@ -5,6 +5,7 @@ from flask import Flask, g, request, session, render_template, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config as C
 from modules import HINTS as M_HINTS
+from hubs import HUBS
 import db as D
 import services as S
 import industries as IND
@@ -152,7 +153,7 @@ def create_app(config=None, init=True, database_url=None):
 
     @app.context_processor
     def ctx():
-        d = dict(HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[], ESS_LV={}, ESS_TEAM=[], TOOLS=[], NAV_TAG={})
+        d = dict(HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[], ESS_LV={}, ESS_TEAM=[], TOOLS=[], HUBS=[], HUB_CUR=None, HUB_TABS=[], NAV_TAG={})
         if g.get("user") and g.get("ws"):
             d["trial_left"] = S.trial_days_left(g.ws)
             d["plan_key"] = g.plan_key
@@ -202,13 +203,43 @@ def create_app(config=None, init=True, database_url=None):
                 _team += [("👑 Team hub", url_for("team_hub")), ("👥 Team & roles", url_for("ws.team"))]
             if g.role in ("owner", "admin", "lead", "manager"):
                 _team += [("🧾 Clients", url_for("m_list", key="clients")), ("📑 Client report", url_for("report"))]
-            d["ESS_TEAM"] = _team
-            _gi = {"Strategy": "🧭", "Content": "✍️", "Campaigns": "📣", "Promotions & Events": "🎪", "Content Ops": "🛠️", "Growth": "📈", "Intelligence": "📡"}
-            d["TOOLS"] = [dict(g=k, i=_gi.get(k, "📁"), items=[[lbl, h] for lbl, h in v]) for k, v in d["NAV"].items()] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
+            d["ESS_TEAM"] = []  # team pages already live under Workspace
+            # ---- hubs: the short sidebar. Each hub is tabs over existing pages (see hubs.py) ----
+            _label_of = {h: lbl for items in d["NAV"].values() for lbl, h in items}
+            _seen, _hubs, _cur, _best = set(), [], None, -1
+            for hb in HUBS:
+                tabs = []
+                for lbl, ep, kw, extra, _vis in hb["tabs"]:
+                    href = url_for(ep, **kw)
+                    vis = url_for("m_list", key=kw["key"]) if ep == "kanban" else href
+                    if vis not in _label_of:
+                        continue
+                    _seen.add(vis)
+                    path = href.split("?")[0]
+                    tabs.append(dict(label=lbl + (" 🔒" if _label_of[vis].endswith("🔒") else ""), href=href, paths=[path] + extra, on=False))
+                if tabs:
+                    _hubs.append(dict(key=hb["key"], icon=hb["icon"], label=hb["label"], lv=hb["lv"], href=tabs[0]["href"], tabs=tabs, on=False))
+            _rest = [(lbl, h) for h, lbl in _label_of.items() if h not in _seen]
+            if _rest:
+                _hubs.append(dict(key="more", icon="🧰", label="More tools", lv=3, href=_rest[0][1], tabs=[dict(label=l, href=h, paths=[h.split("?")[0]], on=False) for l, h in _rest], on=False))
+            _p = request.path
+            for hb in _hubs:
+                for t in hb["tabs"]:
+                    for pp in t["paths"]:
+                        if (_p == pp or _p.startswith(pp.rstrip("/") + "/")) and len(pp) > _best:
+                            _best, _cur, _curtab = len(pp), hb, t
+            if _cur:
+                _cur["on"] = True
+                _curtab["on"] = True
+            d["HUBS"] = _hubs
+            d["HUB_CUR"] = _cur
+            d["HUB_TABS"] = _cur["tabs"] if _cur and len(_cur["tabs"]) > 1 else []
+            d["TOOLS"] = [dict(g=hb["label"], i=hb["icon"], items=[[t["label"], t["href"]] for t in hb["tabs"]]) for hb in _hubs] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])
                 d["ESSENTIALS"] = []
                 d["TOOLS"] = []
+                d["HUBS"], d["HUB_CUR"], d["HUB_TABS"] = [], None, []
         return d
 
     @app.after_request

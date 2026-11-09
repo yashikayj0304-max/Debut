@@ -3739,3 +3739,22 @@ def test_find_tools_and_jargon_buster(app):
     assert "UTM link" in g and "ICP" in g and "Jargon buster" in g
     assert "/glossary" in o.get("/help").data.decode()
     assert "Jump to a tool" in o.get("/search?q=stuck").data.decode()
+
+
+def test_whatnow_page_actually_renders_and_sidebar_sizes_are_wired(app):
+    o = signup(app, "idkwork@x.com")
+    r = o.get("/whatnow")
+    html = r.data.decode()
+    assert r.status_code == 200 and "Idk what to do" in html and "Do this now" in html and "Give me another" in html
+    assert "<h2>" in html.split('class="card whatnow"')[1]  # a real pick is shown, not a blank page
+    assert o.get("/whatnow?n=3").status_code == 200
+    app_html = o.get("/app").data.decode()
+    assert app_html.count('data-lv="') >= 7 and 'data-ns="team"' in app_html and "navStyle" in app_html and "recentTools" in app_html
+
+
+def test_all_tools_live_in_the_search_finder_not_the_sidebar(app):
+    o = signup(app, "finder2@x.com")
+    h = o.get("/app").data.decode()
+    assert 'id="finder"' in h and "Find any tool" in h and "openFinder" in h
+    assert '"/m/leads"' in h and "Trackable links (UTM)" in h  # every tool is in the finder data
+    assert 'id="allBtn"' in h and 'toggleAll' not in h  # old accordion toggle is gone

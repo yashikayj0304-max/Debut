@@ -387,3 +387,82 @@ html[data-motion=reduce] *,html[data-motion=reduce] *::before,html[data-motion=r
 
 /* v18 jargon buster + tool finder */
 .gq{width:100%;max-width:520px;margin:6px 0 14px}.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.gloss .card{margin:0}.gloss .card[hidden]{display:none}.gloss p{margin:6px 0 8px}
+
+/* v19 sidebar size + recent */
+.navstyle{display:flex;gap:4px;margin:4px 0 8px;flex-wrap:wrap}
+.navstyle button{font:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:4px 10px}
+.navstyle button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.ess a[hidden]{display:none!important}
+#recentRow.recent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
+#recentRow.recent[hidden]{display:none}
+#recentRow.recent small{color:var(--mut);font-weight:600}
+#recentRow.recent a{font-size:12px;border:1px dashed var(--pri3);border-radius:999px;padding:2px 9px;background:var(--pri2);color:var(--pri-d)}
+/* v20 "Idk what to do" button + page */
+aside a.lostbtn{display:flex;align-items:center;gap:8px;margin:6px 0 4px;padding:9px 12px;border-radius:14px;font-weight:700;color:var(--pri-d)!important;background:var(--pri2)!important;border:var(--bw,1px) solid var(--out,var(--pri3))!important;box-shadow:var(--hard-sm,none)}
+aside a.lostbtn:hover,aside a.lostbtn.on{background:var(--pri)!important;color:#fff!important}
+.card.whatnow{max-width:560px;margin:10px auto;text-align:center;padding:28px 24px}
+.whatnow .wn-ic{font-size:56px;line-height:1;margin:6px 0}.whatnow h2{margin:6px 0 4px}.whatnow p{margin:6px 0 14px}
+.whatnow .btn{margin:4px}
+
+/* v21 calmer sidebar: one-line groups, segmented size switch, thin scrollbar */
+aside .ngrp>summary{display:flex!important;align-items:center;gap:10px;padding:8px 10px!important;font-size:14px!important;font-weight:600!important;color:var(--ink)!important;border-radius:12px;white-space:nowrap}
+aside .ngrp>summary .gi{width:22px;text-align:center;font-size:15px;flex:none}
+aside .ngrp>summary .gn{flex:1;overflow:hidden;text-overflow:ellipsis}
+aside .ngrp>summary .gc{font-size:11px;font-weight:600;color:var(--mut);background:var(--pri2);border-radius:999px;padding:1px 8px;flex:none}
+aside .ngrp>summary::after{content:"";width:7px;height:7px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:rotate(-45deg);transition:transform .15s;flex:none;margin-right:2px}
+aside .ngrp[open]>summary::after{transform:rotate(45deg)}
+aside .ngrp>summary:hover{background:var(--pri2)!important}
+aside .ngrp[open]>summary{background:var(--pri2)!important;color:var(--pri-d)!important}
+aside .ngrp[open]{margin-bottom:4px}
+aside .ngrp>a,aside .ngrp .nrow{margin-left:22px!important;padding-left:12px!important;border-left:2px solid var(--pri3);border-radius:0 10px 10px 0;font-size:13.5px}
+aside .ngtag{display:none!important}
+html[data-theme=dark] aside .ngrp>summary{color:#e6e0f7!important}
+html[data-theme=dark] aside .ngrp>summary .gc{background:rgba(255,255,255,.08);color:#b8b0d4}
+html[data-theme=dark] aside .ngrp[open]>summary,html[data-theme=dark] aside .ngrp>summary:hover{background:rgba(124,92,214,.22)!important;color:#fff!important}
+html[data-theme=dark] aside .ngrp>a,html[data-theme=dark] aside .ngrp .nrow{border-left-color:rgba(255,255,255,.14)}
+/* Basics | Daily | Team as one segmented control */
+.navstyle{display:grid!important;grid-template-columns:repeat(3,1fr);gap:0!important;padding:3px;background:var(--pri2);border-radius:999px;margin:6px 0 10px!important;border:1px solid var(--pri3)}
+.navstyle button{border:0!important;background:transparent!important;color:var(--mut)!important;border-radius:999px!important;padding:6px 4px!important;font-size:12px!important;font-weight:700!important;white-space:nowrap;box-shadow:none!important}
+.navstyle button.on{background:var(--pri)!important;color:#fff!important;box-shadow:0 2px 8px rgba(124,92,214,.35)!important}
+html[data-theme=dark] .navstyle{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12)}
+html[data-theme=dark] .navstyle button{color:#b8b0d4!important}
+html[data-theme=dark] .navstyle button.on{color:#fff!important}
+.alltools-btn{border:1px solid var(--pri3)!important;border-style:solid!important;box-shadow:none!important;background:var(--pri2)!important;font-weight:700}
+html[data-theme=dark] .alltools-btn{background:rgba(124,92,214,.18)!important;border-color:rgba(124,92,214,.4)!important;color:#e6e0f7!important}
+aside{scrollbar-width:thin;scrollbar-color:var(--pri3) transparent}
+aside::-webkit-scrollbar{width:6px}aside::-webkit-scrollbar-thumb{background:var(--pri3);border-radius:6px}
+
+/* v22 tool finder (search bar dropdown on desktop, full sheet on phones) */
+#finder{position:fixed;z-index:70;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 50px rgba(43,36,66,.28);width:min(400px,calc(100vw - 24px));max-height:min(72vh,580px);overflow:auto;padding:8px}
+#finder[hidden]{display:none}
+#finder.fnd-desk .fnd-head input{display:none}
+#finder.fnd-desk .fnd-head{justify-content:space-between;align-items:center}
+#finder.fnd-sheet .fnd-title{display:none}
+.fnd-title{font-weight:700;padding-left:8px;color:var(--ink)}
+html[data-theme=dark] .fnd-title{color:#ece7fb}
+.fnd-x{min-width:36px;height:36px}
+#finder.fnd-sheet{inset:0;width:auto;max-height:none;border-radius:0;padding:12px 14px 80px}
+.fnd-head{display:flex;gap:8px;margin-bottom:8px;position:sticky;top:0;background:var(--card);padding-bottom:6px;z-index:1}
+.fnd-head input{flex:1;border-radius:999px;padding:10px 16px;font-size:16px}
+.fnd-x{border:0;background:var(--pri2);color:var(--pri-d);border-radius:999px;width:40px;font-size:15px;cursor:pointer}
+#finder .fg{font-size:12px;font-weight:700;color:var(--mut);padding:10px 10px 4px}
+#finder .fr-w{display:flex;align-items:center;border-radius:12px}
+#finder .fr-w:hover,#finder .fr-w:has(.sel){background:var(--pri2)}
+#finder a.fr{flex:1;padding:8px 10px;color:var(--ink);font-weight:600;font-size:14px;border-radius:12px}
+#finder a.fr.sel{background:var(--pri2);box-shadow:inset 0 0 0 2px var(--pri)}
+#finder a.fr-s{display:flex;gap:8px;margin:2px 0 4px;color:var(--pri-d);background:var(--pri2)}
+#finder .fpin{border:0;background:transparent;color:var(--mut);font-size:16px;cursor:pointer;padding:6px 10px;border-radius:10px}
+#finder .fpin.on{color:#f5b301}
+#finder .fnone{padding:10px}
+html[data-theme=dark] #finder{background:#1a1530;border-color:rgba(255,255,255,.12)}
+html[data-theme=dark] .fnd-head{background:#1a1530}
+html[data-theme=dark] #finder a.fr{color:#ece7fb}
+html[data-theme=dark] #finder .fr-w:hover,html[data-theme=dark] #finder a.fr.sel,html[data-theme=dark] #finder a.fr-s{background:rgba(124,92,214,.25)}
+/* v23 finder links without underline + "Ready for your next tool?" cards */
+#finder a,#finder a:hover{text-decoration:none!important}
+.trynext .tn-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:10px}
+.trynext a.tn{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-decoration:none!important;color:var(--ink);background:var(--pri2);border:1px solid var(--pri3);border-radius:16px;padding:12px 14px;transition:transform .12s,box-shadow .12s}
+.trynext a.tn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(124,92,214,.18)}
+.trynext a.tn>span{grid-row:1/3;font-size:26px}
+.trynext a.tn b{font-size:14px}.trynext a.tn small{color:var(--mut);font-size:12.5px;line-height:1.35}
+html[data-theme=dark] .trynext a.tn{background:rgba(124,92,214,.16);border-color:rgba(124,92,214,.35);color:#ece7fb}

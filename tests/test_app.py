@@ -3155,7 +3155,9 @@ def test_account_page_links_to_connected_accounts_for_owner(app):
 def test_dashboard_today_card_shows_all_caught_up_when_nothing_is_due(app):
     o = signup(app, "today1@x.com")
     html = o.get("/app").data.decode()
-    assert "📋 Today" in html and "You're all caught up" in html
+    # a brand-new workspace is not "caught up" - it has not started; it is pointed at the next step instead
+    assert "📋 Today" in html and "Nothing is due yet" in html and "You're all caught up" not in html
+    assert "Pick your industry" in html and "More on your dashboard" in html
 
 
 def test_dashboard_today_card_surfaces_overdue_task_and_overdue_content(app):
@@ -3674,3 +3676,42 @@ def test_viewers_cannot_drag_or_reorder(app, mails):
     assert v.post(f"/m/tasks/{rid}/reorder", data=dict(status="Done"), headers={"X-Requested-With": "fetch"}).status_code == 403
     assert v.post("/m/tasks/reorder-list", data=dict(ids=str(rid))).status_code == 403
     assert dbq(app, "SELECT status FROM tasks WHERE id=?", (rid,), one=True)["status"] == "To do"
+
+
+# =====================================================================  pricing cards that sell the next step, unlock page, comfort settings, page address
+def test_plan_cards_show_only_what_each_step_adds(app):
+    import config as C
+    cards = {c["key"]: c for c in C.plan_cards()}
+    assert [c["key"] for c in C.plan_cards()] == ["free", "starter", "team", "agency"]
+    assert cards["starter"]["base"] == "Free" and "KPI tracking & analytics" in cards["starter"]["adds"]
+    assert "KPI tracking & analytics" not in cards["team"]["adds"]            # already in Starter, so Team does not repeat it
+    assert "Content Ops: creator network, orders, invoices" in cards["team"]["adds"] and cards["team"]["popular"] is True
+    assert any("5 → 25" in a for a in cards["agency"]["adds"])
+    # billing mode compares against the customer's CURRENT plan, so Agency from Free lists everything it adds
+    from_free = {c["key"]: c for c in C.plan_cards("free")}
+    assert "CSV import" in from_free["agency"]["adds"] and from_free["agency"]["base"] == "Free"
+    assert all(len(r[1]) == 4 for r in C.plan_matrix())
+    page = app.test_client().get("/pricing").data.decode()
+    assert page.count("Most popular") <= 1 and "Everything in <b>Starter</b>, plus:" in page and "Compare every plan side by side" in page
+
+
+def test_unlock_page_explains_the_benefit_and_keeps_a_way_back(app):
+    o = signup(app, "o@x.com")
+    import config as C
+    C.PLANS["trial"]["features"] = C.PLANS["trial"]["features"] - {"analytics"}
+    try:
+        r = o.get("/marketing-health")
+    finally:
+        C.PLANS["trial"]["features"] = C.PLANS["trial"]["features"] | {"analytics"}
+    page = r.data.decode()
+    assert r.status_code == 403 and "KPI tracking &amp; analytics is one step up" in page and "Upgrade to Starter" in page and "Back to my work" in page
+    assert "₹999" in page
+
+
+def test_comfort_settings_and_page_address(app):
+    o = signup(app, "o@x.com")
+    acct = o.get("/account").data.decode()
+    assert 'id="comfort"' in acct and "Calmer screens" in acct and 'data-size="large"' in acct
+    home = o.get("/pricing", headers={"Host": "debut-test.onrender.com"}).data.decode()
+    assert 'rel="canonical" href="http://debut-test.onrender.com/pricing"' in home       # never the 127.0.0.1 development default on a live host when APP_URL is unset
+    o.post("/account/verify", headers={"Host": "debut-test.onrender.com"})

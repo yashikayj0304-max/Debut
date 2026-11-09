@@ -1,23 +1,13 @@
-<div class="plans">{% for k, p in plans.items() if k != 'trial' %}
-<div class="plan {{ 'cur' if cur == k }} {{ 'pop' if k == 'team' and cta != 'billing' }}"><h3>{{ p.name }}</h3><div class="muted">{{ p.blurb }}</div>
-{% if p.price == 0 %}<div class="price">₹0</div><div class="per">free forever</div>
-{% else %}<div class="price">₹{{ '{:,}'.format(p.price) }}</div><div class="per">per month {{ C.PRICE_NOTE }}</div>{% endif %}
-{% set cp = plans.get(cur) if (cta == 'billing' and cur in plans and cur != 'trial') else None %}
-{% macro num(label, v, cv, text, big) %}<li class="{{ 'hl' if cp and v != cv }}">{% set _b = ('<b class="kn">' ~ big ~ '</b>')|safe %}{{ text|e|replace(big|e, _b, 1) }}{% if cp and v != cv %} <span class="dlt {{ 'up' if v > cv else 'down' }}">{{ '▲ more' if v > cv else '▼ less' }}</span>{% endif %}</li>{% endmacro %}
-{% macro feat(on, con, text) %}<li class="{{ 'n' if not on }} {{ 'hl' if cp and on != con }}">{{ text }}{% if cp and on != con %} <span class="dlt {{ 'up' if on else 'down' }}">{{ '▲ added' if on else '▼ not included' }}</span>{% endif %}</li>{% endmacro %}
-<ul>{{ num('seats', p.seats, cp.seats if cp else 0, p.seats ~ ' team seat' ~ ('s' if p.seats > 1 else ''), p.seats|string) }}
-{{ num('credits', p.ai_credits, cp.ai_credits if cp else 0, p.ai_credits ~ ' AI credits / month', p.ai_credits|string) }}
-{{ num('records', p.records, cp.records if cp else 0, 'Up to ' ~ '{:,}'.format(p.records) ~ ' records', '{:,}'.format(p.records)) }}
-{{ num('boards', p.boards, cp.boards if cp else 0, ('Unlimited' if p.boards >= 999 else p.boards) ~ ' mood boards', ('Unlimited' if p.boards >= 999 else p.boards|string)) }}
-{{ num('watch', p.watch, cp.watch if cp else 0, 'Market Pulse: live news, trends & videos for ' ~ p.watch ~ ' topics', p.watch|string) }}
-<li>Calendar, GTM plans, personas, competitors, brand kit, launch checklist, tasks, campaigns, leads, references, news feed</li>
-{{ feat('influencers' in p.features, 'influencers' in cp.features if cp else False, 'Influencer discovery & outreach') }}
-{{ feat('analytics' in p.features, 'analytics' in cp.features if cp else False, 'KPI tracking & analytics') }}
-{{ feat('import' in p.features, 'import' in cp.features if cp else False, 'CSV import') }}
-{{ feat('content_ops' in p.features, 'content_ops' in cp.features if cp else False, 'Content Ops (creator network, orders, invoices)') }}
-{{ feat(p.clients > 0, (cp.clients > 0) if cp else False, 'Client portal' ~ (': ' ~ p.clients ~ ' client seats' if p.clients else '')) }}
-{{ feat('api' in p.features, 'api' in cp.features if cp else False, 'REST API & integrations') }}
-{{ feat('group' in p.features, 'group' in cp.features if cp else False, 'Group mode: Team Lead role, team hub, approvals') }}
-{{ feat('promo_events' in p.features, 'promo_events' in cp.features if cp else False, 'Promotions & events (online + offline)') }}</ul>
-{% if cta == 'billing' %}{% if cur == k %}<span class="pill">Current plan</span>{% elif k != 'free' and can_buy %}<button class="btn" onclick="subscribe('{{ k }}')">{{ 'Switch to' if cur_paid else 'Choose' }} {{ p.name }}</button>{% endif %}
-{% else %}<a class="btn {{ 'ghost' if k == 'free' }}" href="{{ url_for('auth.signup') }}">{{ 'Start free' if k == 'free' else 'Get started' }}</a>{% endif %}</div>{% endfor %}</div>
+{% set _billing = (cta == 'billing') %}{% set _cards = C.plan_cards(cur if _billing else '') %}{% set _currank = (_cards|selectattr('key', 'equalto', cur)|map(attribute='rank')|first) if (_billing and cur in ('free','starter','team','agency')) else -1 %}
+<div class="plans">{% for c in _cards %}
+<div class="plan {{ 'cur' if cur == c.key }} {{ 'pop' if c.popular and not _billing }}"><h3>{{ c.name }}</h3><div class="pwho">{{ c.who }}</div>
+{% if c.price == 0 %}<div class="price">₹0</div><div class="per">free forever</div>
+{% else %}<div class="price">₹{{ '{:,}'.format(c.price) }}</div><div class="per">per month {{ C.PRICE_NOTE }}</div>{% endif %}
+<div class="pnums">{% for big, label, delta in c.nums %}<div><b>{{ big }}</b><span>{{ label }}</span>{% if delta %}<i>{{ delta }}</i>{% endif %}</div>{% endfor %}</div>
+<div class="pincl">{% if c.base %}Everything in <b>{{ c.base }}</b>, plus:{% else %}What you get:{% endif %}</div>
+<ul>{% if not c.base %}<li>Calendar, mood boards, GTM plans, tasks, campaigns, leads and more</li>{% endif %}{% for a in c.adds %}<li>{{ a }}</li>{% endfor %}</ul>
+{% if c.nudge and not (_billing and cur == c.key) %}<div class="pnudge">✨ {{ c.nudge }}</div>{% endif %}
+{% if _billing %}{% if cur == c.key %}<span class="pill">Current plan</span>{% elif c.key != 'free' and can_buy %}<button class="btn" onclick="subscribe('{{ c.key }}')">{{ ('Upgrade to' if c.rank > _currank else 'Switch to') if cur_paid or _currank >= 0 else 'Choose' }} {{ c.name }}</button>{% if _currank > c.rank %}<small class="muted pdown">Fewer limits than your current plan</small>{% endif %}{% endif %}
+{% else %}<a class="btn {{ 'ghost' if c.key == 'free' }}" href="{{ url_for('auth.signup') }}">{{ 'Start free' if c.key == 'free' else 'Get started' }}</a>{% endif %}</div>{% endfor %}</div>
+<details class="compare"><summary>Compare every plan side by side</summary><div class="cmpwrap"><table class="cmp"><tr><th></th>{% for c in _cards %}<th>{{ c.name }}</th>{% endfor %}</tr>
+{% for label, vals in C.plan_matrix() %}<tr><td>{{ label }}</td>{% for v in vals %}<td class="{{ 'yes' if v == '✓' else ('no' if v == '—' else '') }}">{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div></details>

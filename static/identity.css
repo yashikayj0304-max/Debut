@@ -335,3 +335,35 @@ tr.rdrag,.trow.rdrag,.citemcard.rdrag{opacity:.4;outline:2px dashed var(--pri);o
 .boardbar .sortpick,.filters .sortpick{margin:0}
 @media(max-width:640px){.boardbar{gap:8px}.boardbar .sortpick{flex:1 1 150px;justify-content:space-between}.boardbar .sortpick select{max-width:130px}}
 @media(max-width:640px){form.filters{gap:8px}form.filters select{flex:1 1 120px;min-width:0}form.filters .sortpick{flex:1 1 150px;justify-content:space-between}form.filters .sortpick select{flex:0 1 auto;max-width:130px}}
+
+/* v16 pricing: each card shows what it adds over the plan below */
+.plan .pwho{font-size:13px;color:var(--mut);margin-top:2px}
+.plan .pnums{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
+.plan .pnums div{background:var(--pri2);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;line-height:1.15}
+.plan .pnums b{font-size:19px;font-weight:800;color:var(--pri-d)}.plan .pnums span{font-size:11.5px;color:var(--mut);margin-top:2px}
+.plan .pnums i{font-style:normal;font-size:11px;font-weight:700;color:#15803d;margin-top:3px}
+html[data-theme=dark] .plan .pnums b{color:var(--ink)}html[data-theme=dark] .plan .pnums i{color:#6ee7a0}
+.plan .pincl{font-size:12.5px;font-weight:700;margin:12px 0 0;color:var(--ink)}
+.plan .pnudge{font-size:12.5px;line-height:1.35;background:linear-gradient(135deg,var(--pri2),var(--pri3));border-radius:12px;padding:9px 11px;margin:0 0 14px;color:var(--ink);font-weight:600}
+.plan .pdown{display:block;text-align:center;margin-top:6px}
+details.compare{margin:0 0 24px;border:1.5px solid var(--soft);border-radius:16px;background:var(--card);padding:4px 16px}
+details.compare summary{cursor:pointer;font-weight:700;padding:12px 0;color:var(--pri-d)}
+html[data-theme=dark] details.compare summary{color:var(--ink)}
+.cmpwrap{overflow-x:auto;padding-bottom:10px}table.cmp{width:100%;min-width:520px;border-collapse:collapse;box-shadow:none!important;border:0!important}
+table.cmp th,table.cmp td{padding:9px 10px;text-align:center;border-bottom:1px solid var(--soft);font-size:13.5px}table.cmp th:first-child,table.cmp td:first-child{text-align:left;font-weight:600}
+table.cmp td.yes{color:#16a34a;font-weight:800}table.cmp td.no{color:var(--mut)}
+.plan .pnums b{font-size:18px}.plan .pnums span{white-space:nowrap}
+
+.unlock{max-width:560px;margin:40px auto;text-align:center}.unlock-ic{font-size:44px;line-height:1}.unlock h1{margin:8px 0}
+.unlock-lead{font-size:17px;font-weight:600;margin:6px 0 10px}
+.unlock-list{list-style:none;padding:0;margin:14px 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.unlock-list li{background:var(--pri2);border-radius:99px;padding:6px 14px;font-size:13px}
+.unlock-act{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:16px 0 8px}.small{font-size:12.5px}
+
+details.dmore{margin-top:6px}details.dmore>summary{cursor:pointer;font-weight:800;font-size:15px;padding:10px 4px;list-style:none}
+details.dmore>summary::-webkit-details-marker{display:none}details.dmore>summary::before{content:"▸ ";color:var(--pri)}details.dmore[open]>summary::before{content:"▾ "}
+
+html[data-text=large] body{font-size:16px!important}html[data-text=xl] body{font-size:18px!important}
+html[data-text=large] .muted,html[data-text=xl] .muted{font-size:inherit}
+html[data-motion=reduce] *,html[data-motion=reduce] *::before,html[data-motion=reduce] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+#comfort .chip.on{background:var(--pri);color:var(--on,#fff);border-color:var(--pri)}

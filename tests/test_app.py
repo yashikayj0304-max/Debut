@@ -1,3 +1,4 @@
+import re
 import io, os, re, json, hmac, hashlib, datetime as dt
 import pytest
 import config as C
@@ -1162,7 +1163,7 @@ def test_client_portal_shows_only_that_clients_work(app, mails):
     o, lead, ids = _agency(app, mails)
     cl = _client(app, o, mails)
     assert cl.get("/app").status_code == 302 and cl.get("/app").headers["Location"].endswith("/portal")
-    page = cl.get("/portal").data.decode()
+    page = re.sub(r"\?v=\d+", "", cl.get("/portal").data.decode())  # ignore cache-busting stamps (they are file mtimes and can contain any digits)
     for ok in ("Welcome, Grand Orchid", "A-Review reel", "A-Approved post", "A-Festive push", "10 bookings"):
         assert ok in page, ok
     for secret in ("B-Zen reel", "C-Untagged draft", "Zen Cafe", "B-Latte", "5555", "1234", "7777", "88888", "INTERNAL", "Lena Lead"):
@@ -2589,11 +2590,15 @@ def test_pulse_watch_inline_add_remove_and_no_separate_nav_tab(app):
 def test_kanban_drag_markup_and_sort_by_due_date(app):
     o = signup(app, "o@x.com")
     page = o.get("/kanban/launch_checklist").data.decode()
-    assert 'draggable="true"' in page and "dropCard(event" in page and "Sort by due date" in page
+    # pointer-based drag (mouse + touch), a sort picker, and a group-by picker for modules with more than one select field
+    assert 'class="kcard"' in page and "pointerdown" in page and 'name="sort"' in page and 'name="by"' in page
+    assert "My order" in page and "Due date" in page and "Priority" not in page.split('name="sort"')[1].split("</select>")[0]
     rid = dbq(app, "SELECT id FROM launch_checklist ORDER BY id LIMIT 1", one=True)["id"]
     dbx(app, "UPDATE launch_checklist SET due_date='2020-01-01' WHERE id=?", (rid,))
     sorted_page = o.get("/kanban/launch_checklist?sort=due").data.decode()
-    assert "✓ Sorted by due date" in sorted_page
+    assert '<option value="due" selected>' in sorted_page
+    first = re.search(r'class="kcard"[^>]*data-id="(\d+)"', sorted_page)
+    assert first and int(first.group(1)) == rid        # earliest due date leads its column
     # the move itself reuses the existing status-change endpoint, so dragging a card works the same way the dropdown already does
     assert o.post(f"/m/launch_checklist/{rid}/status", data=dict(value="Done")).status_code == 302
     assert dbq(app, "SELECT status FROM launch_checklist WHERE id=?", (rid,), one=True)["status"] == "Done"
@@ -3595,3 +3600,77 @@ def test_standalone_survey_collects_without_login_and_only_admin_reads(app, monk
     rows = boss.get("/admin/survey/data").get_json()
     assert len(rows) == 1 and rows[0]["nps"] == 9
     assert b"var A=true" in boss.get("/admin/survey").data
+
+
+# =====================================================================  drag-and-drop ordering + sorting (boards and lists)
+def test_reorder_ajax_answers_json_and_group_by_phase(app):
+    o = signup(app, "o@x.com")
+    rows = dbq(app, "SELECT id FROM launch_checklist WHERE status='To do' ORDER BY id LIMIT 3")
+    a, b, c = [r["id"] for r in rows]
+    r = o.post(f"/m/launch_checklist/{c}/reorder", data=dict(status="To do", before_id=str(a), after="0"), headers={"X-Requested-With": "fetch"})
+    assert r.status_code == 200 and r.get_json()["ok"] is True and r.get_json()["status"] == "To do"
+    order = [x["id"] for x in dbq(app, f"SELECT id FROM launch_checklist WHERE id IN ({a},{b},{c}) ORDER BY sort_order ASC, id ASC")]
+    assert order[0] == c
+    # dropping AFTER a card (after=1) lands behind it
+    r = o.post(f"/m/launch_checklist/{c}/reorder", data=dict(status="To do", before_id=str(b), after="1"), headers={"X-Requested-With": "fetch"})
+    order = [x["id"] for x in dbq(app, f"SELECT id FROM launch_checklist WHERE id IN ({a},{b},{c}) ORDER BY sort_order ASC, id ASC")]
+    assert order.index(c) == order.index(b) + 1
+    # grouped by phase: moving a card changes its PHASE, not its status
+    phase = dbq(app, "SELECT phase FROM launch_checklist WHERE id=?", (a,), one=True)["phase"]
+    other = next(x for x in dbq(app, "SELECT DISTINCT phase FROM launch_checklist") if x["phase"] != phase)["phase"]
+    st = dbq(app, "SELECT status FROM launch_checklist WHERE id=?", (a,), one=True)["status"]
+    r = o.post(f"/m/launch_checklist/{a}/reorder", data=dict(status=other, by="phase", before_id=""), headers={"X-Requested-With": "fetch"})
+    assert r.status_code == 200
+    row = dbq(app, "SELECT phase, status FROM launch_checklist WHERE id=?", (a,), one=True)
+    assert row["phase"] == other and row["status"] == st
+    assert b"Group by" in o.get("/kanban/launch_checklist?by=phase").data
+    # a made-up grouping field or value is refused, never run as SQL
+    assert o.post(f"/m/launch_checklist/{a}/reorder", data=dict(status="x", by="phase")).status_code == 400
+    assert o.get("/kanban/launch_checklist?by=id;drop").status_code == 200
+
+
+def test_list_reorder_sort_and_isolation(app):
+    o = signup(app, "o@x.com")
+    for i in range(4):
+        o.post("/m/tasks/save", data=dict(title=f"T{i}", status="To do", priority=["Low", "Urgent", "Medium", "High"][i], due_date=f"2026-12-0{i + 1}"))
+    ids = [r["id"] for r in dbq(app, "SELECT id FROM tasks ORDER BY id")]
+    # default list is the hand-made order, newest first until someone drags
+    page = o.get("/m/tasks").data.decode()
+    assert re.findall(r'class="trow[^"]*" data-rid="(\d+)"', page) == [str(i) for i in reversed(ids)]
+    assert 'class="rgrip"' in page
+    # reorder what is on screen
+    new = [ids[0], ids[2], ids[1], ids[3]]
+    r = o.post("/m/tasks/reorder-list", data=dict(ids=",".join(map(str, new))), headers={"X-Requested-With": "fetch"})
+    assert r.status_code == 200
+    assert re.findall(r'data-rid="(\d+)"', o.get("/m/tasks").data.decode()) == [str(i) for i in new]
+    # sorting: priority puts the most urgent first, due date earliest first, A-Z by title; sorted views are not draggable
+    pri = o.get("/m/tasks?sort=priority").data.decode()
+    titles = re.findall(r"<b>(T\d)</b>", pri)
+    assert titles[0] == "T1" and "rgrip" not in pri
+    assert re.findall(r"<b>(T\d)</b>", o.get("/m/tasks?sort=due").data.decode()) == ["T0", "T1", "T2", "T3"]
+    assert re.findall(r"<b>(T\d)</b>", o.get("/m/tasks?sort=za").data.decode())[0] == "T3"
+    assert o.get("/m/tasks?sort=col:title&dir=desc").status_code == 200
+    # unknown sort / column names fall back safely (no SQL from the URL)
+    assert o.get("/m/tasks?sort=col:id;DROP TABLE tasks").status_code == 200 and o.get("/m/tasks?sort=zzz").status_code == 200
+    assert o.post("/m/tasks/reorder-list", data=dict(ids="")).status_code == 400
+    assert o.post("/m/key_dates_nope/reorder-list", data=dict(ids="1")).status_code == 404
+    # another workspace's rows are untouchable
+    other = signup(app, "z@x.com", ws="Other Co")
+    other.post("/m/tasks/save", data=dict(title="Theirs", status="To do"))
+    theirs = dbq(app, "SELECT id FROM tasks WHERE title='Theirs'", one=True)["id"]
+    o.post("/m/tasks/reorder-list", data=dict(ids=f"{theirs},{ids[0]}"))
+    assert dbq(app, "SELECT sort_order FROM tasks WHERE id=?", (theirs,), one=True)["sort_order"] == 0
+    assert o.post(f"/m/tasks/{theirs}/reorder", data=dict(status="Done")).status_code == 404
+
+
+def test_viewers_cannot_drag_or_reorder(app, mails):
+    o = signup(app, "o@x.com")
+    o.post("/m/tasks/save", data=dict(title="Look only", status="To do"))
+    rid = dbq(app, "SELECT id FROM tasks", one=True)["id"]
+    v = _join(app, o, mails, "v@x.com", "viewer", "Vic Viewer")
+    board = v.get("/kanban/tasks").data.decode()
+    assert 'data-drag="0"' in board and (chr(34) + "khandle" + chr(34)) not in board and "Read-only" in board
+    assert "rgrip" not in v.get("/m/tasks").data.decode()
+    assert v.post(f"/m/tasks/{rid}/reorder", data=dict(status="Done"), headers={"X-Requested-With": "fetch"}).status_code == 403
+    assert v.post("/m/tasks/reorder-list", data=dict(ids=str(rid))).status_code == 403
+    assert dbq(app, "SELECT status FROM tasks WHERE id=?", (rid,), one=True)["status"] == "To do"

@@ -286,3 +286,52 @@ form.filters .btn{flex:none}
 .authbox input:not([type=checkbox]),.authbox select{height:50px;font-size:16px;border-radius:14px;margin-top:6px}
 .authbox button.btn:not(.pweye){width:100%;height:50px;font-size:16px;justify-content:center}
 .authbox a{font-weight:600}
+
+/* v14 hygiene: comfortable tap targets for the small controls */
+.banner.slim button,.banner.slim .btn.sm,.banner.slim .x{min-height:28px;min-width:28px}
+@media(pointer:coarse){.pin-btn{min-width:32px;min-height:32px}.banner.slim button,.banner.slim .btn.sm{min-height:36px;min-width:36px}}
+.pin-btn{min-width:24px;min-height:24px}
+
+/* v15 boards + lists you can move around: sort pills, drag ghost, drop slots */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.boardbar,.listbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 6px}
+.sortpick{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13px;border:2px solid var(--out,#1b1433);border-radius:99px;padding:3px 4px 3px 12px;background:var(--card);box-shadow:2px 2px 0 var(--out,#1b1433)}
+.sortpick select{border:0!important;background:transparent!important;font-weight:700;padding:5px 8px;width:auto;max-width:210px;box-shadow:none!important;margin:0}
+.sortpick:focus-within{outline:3px solid var(--pri2);outline-offset:2px}
+.howto.muted,.kan+.sr-only{margin:4px 0 12px}
+.kan .col h3{display:flex;align-items:center;gap:8px}
+.kan .col h3 .ct{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.kan .cnt{font-size:11px;font-weight:800;border:2px solid currentColor;border-radius:99px;padding:0 8px;line-height:18px;opacity:.85}
+.kan .cadd{width:24px;height:24px;border-radius:50%;border:2px solid currentColor;display:inline-grid;place-items:center;font-weight:800;text-decoration:none;color:inherit;line-height:1;transition:transform .12s}
+.kan .cadd:hover{transform:scale(1.15) rotate(90deg)}
+.klist{min-height:70px;display:flex;flex-direction:column;gap:9px;border-radius:14px}
+.klist:empty::before{content:"Drop a card here";display:grid;place-items:center;min-height:64px;border:2px dashed var(--line,#cfc6f2);border-radius:14px;color:var(--mut);font-size:13px;font-weight:600}
+.klist .kcard{margin:0;position:relative;user-select:none;-webkit-user-select:none;touch-action:pan-y}
+.kcard .khandle{display:inline-grid;place-items:center;min-width:24px;min-height:24px;touch-action:none;font-size:16px;opacity:.55;float:left;margin:-2px 4px 0 -4px;border-radius:8px}
+.kcard:hover .khandle,.kcard:focus-visible .khandle{opacity:1;background:var(--pri2)}
+.kcard .kt{color:inherit;text-decoration:none;-webkit-user-drag:none}
+.kcard .ks{font-size:12px;margin-top:2px;clear:both}
+.kcard .kmeta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.kcard .kdue{font-size:11px;font-weight:700;opacity:.8}
+.kcard:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+.kan .kcard.dragging{opacity:.4;border-style:dashed!important;box-shadow:none!important;transform:none!important}
+.kghost{position:fixed!important;left:0;top:0;z-index:300;pointer-events:none;margin:0!important;opacity:.97;background:var(--card);box-shadow:6px 8px 0 var(--out,#1b1433),0 22px 34px rgba(0,0,0,.28)!important;cursor:grabbing;transition:none!important}
+body.kdragging,body.kdragging *{cursor:grabbing!important;-webkit-user-select:none;user-select:none}
+.kan .col{transition:box-shadow .12s,background .12s}
+.kan .col.dragover{box-shadow:inset 0 0 0 3px var(--pri),var(--hard,3px 3px 0 var(--out))!important}
+@media(prefers-reduced-motion:reduce){.kan .cadd:hover{transform:none}}
+/* sortable table headers + draggable list rows */
+th a.sorth{color:inherit;text-decoration:none;white-space:nowrap}th a.sorth:hover{text-decoration:underline}th a.sorth i{font-style:normal;opacity:.7;margin-left:3px}
+.rgrip{display:inline-grid;place-items:center;min-width:26px;min-height:26px;cursor:grab;opacity:.55;border-radius:8px;touch-action:none;user-select:none;font-size:16px;vertical-align:middle}
+.rgrip:hover,.rgrip:focus-visible{opacity:1;background:var(--pri2)}
+tr.rdrag,.trow.rdrag,.citemcard.rdrag{opacity:.4;outline:2px dashed var(--pri);outline-offset:-2px}
+.rghost{position:fixed!important;z-index:300;pointer-events:none;opacity:.96;background:var(--card);box-shadow:6px 8px 0 var(--out,#1b1433),0 22px 34px rgba(0,0,0,.28);border-radius:14px;margin:0;display:block;overflow:hidden}
+
+#pinnedBox .pgrip{position:absolute;left:-6px;top:50%;transform:translateY(-50%);z-index:2;cursor:grab;opacity:0;font-size:13px;padding:0 3px;touch-action:none;user-select:none;transition:opacity .12s}
+#pinnedBox .nrow:hover .pgrip,#pinnedBox .pgrip:focus-visible{opacity:.7}
+@media(hover:none){#pinnedBox .pgrip{opacity:.5}}
+#pinnedBox .nrow.pdrag{opacity:.55;background:var(--pri2);border-radius:12px;outline:2px dashed var(--pri)}
+
+.boardbar .sortpick,.filters .sortpick{margin:0}
+@media(max-width:640px){.boardbar{gap:8px}.boardbar .sortpick{flex:1 1 150px;justify-content:space-between}.boardbar .sortpick select{max-width:130px}}
+@media(max-width:640px){form.filters{gap:8px}form.filters select{flex:1 1 120px;min-width:0}form.filters .sortpick{flex:1 1 150px;justify-content:space-between}form.filters .sortpick select{flex:0 1 auto;max-width:130px}}

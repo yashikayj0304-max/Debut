@@ -152,7 +152,7 @@ def create_app(config=None, init=True, database_url=None):
 
     @app.context_processor
     def ctx():
-        d = dict(HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[], NAV_TAG={})
+        d = dict(HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[], ESS_LV={}, ESS_TEAM=[], TOOLS=[], NAV_TAG={})
         if g.get("user") and g.get("ws"):
             d["trial_left"] = S.trial_days_left(g.ws)
             d["plan_key"] = g.plan_key
@@ -190,13 +190,25 @@ def create_app(config=None, init=True, database_url=None):
                 groups["Content"].insert(cal_i + 1, groups["Content"].pop(ci_i))
             d["NAV"] = OrderedDict((k, v) for k, v in groups.items() if v)
             d["NAV_TAG"] = {"Strategy": "plan & position", "Content": "make & schedule", "Campaigns": "launch & reach", "Promotions & Events": "sales, drops, events", "Content Ops": "creators & invoices", "Growth": "results & reports", "Intelligence": "news & AI"}
-            # a short, always-visible list of the pages people use every day; everything else lives behind "All tools"
+            # a short, always-visible list of the pages people use every day; everything else is found through the search bar / "Find any tool"
             _all = {h: lbl for items in d["NAV"].values() for lbl, h in items}
             _ess = [url_for(x) for x in ("calendar_view", "moodboards")] + [url_for("m_list", key=k) for k in ("content_items", "tasks", "campaigns", "leads")] + [url_for("ai_studio")]
             d["ESSENTIALS"] = [(_all[h], h) for h in _ess if h in _all]
+            # sidebar size: 1 = Basics (the four everyday pages), 2 = Daily (all seven essentials), 3 = Team (plus team and client pages)
+            _lv1 = {url_for("calendar_view"), url_for("m_list", key="content_items"), url_for("m_list", key="tasks"), url_for("ai_studio")}
+            d["ESS_LV"] = {h: (1 if h in _lv1 else 2) for _, h in d["ESSENTIALS"]}
+            _team = []
+            if g.role in C.TEAM_MANAGERS:
+                _team += [("👑 Team hub", url_for("team_hub")), ("👥 Team & roles", url_for("ws.team"))]
+            if g.role in ("owner", "admin", "lead", "manager"):
+                _team += [("🧾 Clients", url_for("m_list", key="clients")), ("📑 Client report", url_for("report"))]
+            d["ESS_TEAM"] = _team
+            _gi = {"Strategy": "🧭", "Content": "✍️", "Campaigns": "📣", "Promotions & Events": "🎪", "Content Ops": "🛠️", "Growth": "📈", "Intelligence": "📡"}
+            d["TOOLS"] = [dict(g=k, i=_gi.get(k, "📁"), items=[[lbl, h] for lbl, h in v]) for k, v in d["NAV"].items()] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])
                 d["ESSENTIALS"] = []
+                d["TOOLS"] = []
         return d
 
     @app.after_request

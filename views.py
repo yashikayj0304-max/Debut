@@ -118,13 +118,13 @@ def refunds():
 @route("/robots.txt")
 def robots():
     return Response("User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /m/\nDisallow: /api/\nDisallow: /hooks/\nDisallow: /r/\nDisallow: /lead/\nDisallow: /apply/\nDisallow: /calendar/\n"
-                    f"Sitemap: {C.APP_URL}/sitemap.xml\n", mimetype="text/plain")
+                    f"Sitemap: {S.app_url()}/sitemap.xml\n", mimetype="text/plain")
 
 
 @route("/sitemap.xml")
 def sitemap():
     urls = ["/", "/pricing", "/terms", "/privacy", "/refunds", "/contact"]
-    body = "".join(f"<url><loc>{C.APP_URL}{u}</loc><changefreq>monthly</changefreq></url>" for u in urls)
+    body = "".join(f"<url><loc>{S.app_url()}{u}</loc><changefreq>monthly</changefreq></url>" for u in urls)
     return Response('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + body + "</urlset>", mimetype="application/xml")
 
 
@@ -180,7 +180,8 @@ def dashboard():
         third = ("Log your first retail audit", cnt("retail_audits") > 0, url_for("m_new", key="retail_audits"))
     else:
         third = ("Add influencer prospects", cnt("influencers") > 0, url_for("discover"))
-    steps = [("Write your first GTM plan", cnt("gtm_plans") > 0, url_for("m_new", key="gtm_plans")),
+    steps = ([("Pick your industry (it tailors everything)", industry not in (None, "", "general"), url_for("ws.account"))] if g.role in ("owner", "admin") else []) + [
+             ("Write your first GTM plan", cnt("gtm_plans") > 0, url_for("m_new", key="gtm_plans")),
              ("Add content to the calendar", cnt("content_items") > 0, url_for("m_new", key="content_items")),
              ("Create a mood board", cnt("boards") > 0, url_for("moodboards")),
              third,
@@ -386,10 +387,10 @@ def m_save(key):
         S.audit("update", f"{key}#{rid}")
     else:
         if S.record_count(W()) >= g.plan["records"]:
-            flash(f"You've reached the {g.plan['name']} plan limit of {g.plan['records']} records. Upgrade to add more (you can still edit, delete or export).")
+            flash(f"You've reached the {g.plan['name']} plan limit of {g.plan['records']} records." + C.upsell(g.plan_key, "records", "records", "records") + " You can still edit, delete or export.")
             return redirect(url_for("billing.billing") if g.role in ("owner", "admin") else url_for("dashboard"))
         if key == "watchlist" and q("SELECT COUNT(*) c FROM watchlist WHERE workspace_id=?", (W(),), one=True)["c"] >= g.plan["watch"]:
-            flash(f"Your {g.plan['name']} plan can track {g.plan['watch']} items in Market Pulse. Remove one or upgrade for more.")
+            flash(f"Your {g.plan['name']} plan can track {g.plan['watch']} items in Market Pulse. Remove one" + (" or upgrade:" + C.upsell(g.plan_key, "watch", "watch", "topics") if C.next_plan(g.plan_key) else "."))
             return redirect(url_for("m_list", key="watchlist"))
         data["workspace_id"] = W()
         rid = ins(key, data)
@@ -751,7 +752,7 @@ def calendar_view():
     key_ = g.ws["ics_key"] or secrets.token_hex(6)
     if not g.ws["ics_key"]:
         ex("UPDATE workspaces SET ics_key=? WHERE id=?", (key_, w))
-    ics = C.APP_URL + url_for("ics_feed", token=URLSafeSerializer(C.SECRET_KEY, salt="ics").dumps([w, key_]))
+    ics = S.app_url() + url_for("ics_feed", token=URLSafeSerializer(C.SECRET_KEY, salt="ics").dumps([w, key_]))
     return render_template("calendar.html", weeks=weeks, by=by, kd=kd, y=y, mth=mth, month_name=pycal.month_name[mth], ch=ch, channels=CHANNELS,
                            py=py, pm=pm, ny=ny, nm=nm, unscheduled=unscheduled, ics=ics)
 
@@ -1638,7 +1639,7 @@ def content_ops():
                            unassigned=[o for o in open_orders if not o["creator"]], stat=Counter(o["status"] for o in orders), creators=creators,
                            money_in=sum(num(p["amount"]) for p in pays if p["direction"].endswith("(in)")), money_out=sum(num(p["amount"]) for p in pays if p["direction"].endswith("(out)")),
                            pc=Counter(c["status"] for c in q("SELECT status FROM creators WHERE workspace_id=?", (w,))), n_orders=len(orders), statuses=ORDER_STATUS,
-                           apply_url=C.APP_URL + url_for("apply_form", slug=slug))
+                           apply_url=S.app_url() + url_for("apply_form", slug=slug))
 
 
 @route("/orders/<int:oid>/match")
@@ -1913,7 +1914,7 @@ def report():
     month = _month(request.args.get("month"))
     share = None
     if "analytics" in g.plan["features"] and g.role in ("owner", "admin", "lead", "manager") and g.ws["ics_key"]:
-        share = C.APP_URL + url_for("report_public", token=report_token())
+        share = S.app_url() + url_for("report_public", token=report_token())
     return render_template("report.html", r=build_report(W(), month), ws=g.ws, share=share, public=False, prev_m=(dt.date.fromisoformat(month + "-01") - dt.timedelta(days=1)).strftime("%Y-%m"),
                            next_m=(dt.date.fromisoformat(month + "-01") + dt.timedelta(days=32)).strftime("%Y-%m"))
 
@@ -2214,7 +2215,7 @@ def pulse_watch_add():
         flash("Enter a keyword, brand, competitor or subreddit to track.")
         return redirect(url_for("pulse_page"))
     if q("SELECT COUNT(*) c FROM watchlist WHERE workspace_id=?", (W(),), one=True)["c"] >= g.plan["watch"]:
-        flash(f"Your {g.plan['name']} plan can track {g.plan['watch']} items in Market Pulse. Remove one or upgrade for more.")
+        flash(f"Your {g.plan['name']} plan can track {g.plan['watch']} items in Market Pulse. Remove one" + (" or upgrade:" + C.upsell(g.plan_key, "watch", "watch", "topics") if C.next_plan(g.plan_key) else "."))
         return redirect(url_for("pulse_page"))
     typ = request.form.get("type", "Keyword")
     region = request.form.get("region", "India")

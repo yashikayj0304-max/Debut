@@ -89,4 +89,11 @@ document.getElementById('pri-input').addEventListener('input',function(){
 <label>Type <code>TRANSFER</code> to confirm<input name="confirm" required></label><button class="btn danger">Transfer ownership</button></form></div>{% endif %}
 {% if role == 'owner' %}<div class="card" style="border-color:var(--bad)"><b>Danger zone 🚨</b><p class="muted">Delete this workspace and everything in it for good. There's no undo. Cancel your subscription first.</p>
 <form method="post" action="{{ url_for('ws.delete_workspace') }}" onsubmit="return confirm('Permanently delete everything in this workspace?')"><label>Type <code>{{ ws['slug'] }}</code> to confirm<input name="confirm"></label><button class="btn danger">Delete workspace</button></form></div>{% endif %}
+<div class="card" id="comfort"><b>👀 Comfort</b> <span class="muted">· saved on this device only</span>
+<p class="muted" style="margin:6px 0">Text size</p><div class="chips" role="group" aria-label="Text size"><button type="button" class="chip" data-size="normal">Normal</button><button type="button" class="chip" data-size="large">Large</button><button type="button" class="chip" data-size="xl">Extra large</button></div>
+<label style="font-weight:500;margin-top:12px;display:flex;gap:8px;align-items:center"><input type="checkbox" id="rmot" style="width:auto"> Calmer screens (turn off animations)</label></div>
+<script>(function(){var d=document.documentElement,box=document.getElementById("comfort");if(!box)return;
+function mark(){var s=d.getAttribute("data-text")||"normal";box.querySelectorAll("[data-size]").forEach(function(b){b.classList.toggle("on",b.dataset.size===s);b.setAttribute("aria-pressed",b.dataset.size===s);});document.getElementById("rmot").checked=d.getAttribute("data-motion")==="reduce";}
+box.querySelectorAll("[data-size]").forEach(function(b){b.onclick=function(){var s=b.dataset.size;if(s==="normal")d.removeAttribute("data-text");else d.setAttribute("data-text",s);try{localStorage.setItem("textSize",s);}catch(e){}mark();};});
+document.getElementById("rmot").onchange=function(){if(this.checked)d.setAttribute("data-motion","reduce");else d.removeAttribute("data-motion");try{localStorage.setItem("reduceMotion",this.checked?"1":"0");}catch(e){}};mark();})();</script>
 {% endblock %}

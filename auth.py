@@ -64,12 +64,12 @@ def dev_link(sent, link):
     # send failure) - not only in dev. Without this, a site with no SMTP set up yet leaves people
     # with no way at all to verify their email or reset a forgotten password, in production too.
     if not sent:
-        flash(("DEV: " if not C.PROD else "") + "We couldn't email this link (mail isn't set up yet), so here it is - open it to continue: " + C.APP_URL + link)
+        flash(("DEV: " if not C.PROD else "") + "We couldn't email this link (mail isn't set up yet), so here it is - open it to continue: " + S.app_url() + link)
 
 
 def send_verify(user):
     link = url_for("auth.verify", token=ser("verify").dumps(user["id"]))
-    sent = S.send_email(user["email"], f"Verify your email for {C.APP_NAME}", f"Hi {user['name'] or ''},\n\nConfirm your email: {C.APP_URL}{link}\n\nThanks,\n{C.APP_NAME}")
+    sent = S.send_email(user["email"], f"Verify your email for {C.APP_NAME}", f"Hi {user['name'] or ''},\n\nConfirm your email: {S.app_url()}{link}\n\nThanks,\n{C.APP_NAME}")
     dev_link(sent, link)
 
 
@@ -268,7 +268,7 @@ def forgot():
         if user:
             tok = ser("reset").dumps({"u": user["id"], "h": S.sha(user["password_hash"])[:16]})
             link = url_for("auth.reset", token=tok)
-            sent = S.send_email(user["email"], f"Reset your {C.APP_NAME} password", f"Reset your password (valid 2 hours): {C.APP_URL}{link}\n\nIf you didn't ask for this, ignore this email.")
+            sent = S.send_email(user["email"], f"Reset your {C.APP_NAME} password", f"Reset your password (valid 2 hours): {S.app_url()}{link}\n\nIf you didn't ask for this, ignore this email.")
             dev_link(sent, link)
         flash("If that email is registered, a reset link is on its way.")
         return redirect(url_for("auth.login"))

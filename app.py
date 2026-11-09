@@ -55,6 +55,8 @@ def create_app(config=None, init=True, database_url=None):
             logging.getLogger("gtm").warning("SENTRY_DSN set but sentry-sdk not installed")
 
     D.init_engine(database_url or C.DATABASE_URL)
+    if C.PROD and ("127.0.0.1" in C.APP_URL or "localhost" in C.APP_URL):
+        app.logger.warning("APP_URL is not set: links in emails and digests will use the development address. Set APP_URL to your site's https address.")
     csrf.init_app(app)
     limiter.init_app(app)
     if init:
@@ -129,8 +131,9 @@ def create_app(config=None, init=True, database_url=None):
             return render_template("error.html", code=403, msg=f"This workspace has more members than the {g.plan['name']} plan allows. Ask the workspace owner to upgrade or remove members."), 403
         feat = FEATURE_EP.get(ep) or MODULE_FEATURE.get(key)
         if feat and feat not in g.plan["features"]:
-            need = next((p["name"] for k, p in C.PLANS.items() if k in C.PAID_PLANS and feat in p["features"]), "a paid")
-            return render_template("upgrade.html", feature=feat, need=need), 403
+            need_key = next((k for k in C.PLAN_ORDER if k in C.PAID_PLANS and feat in C.PLANS[k]["features"]), "")
+            need = C.PLANS[need_key]["name"] if need_key else "a paid"
+            return render_template("upgrade.html", feature=feat, need=need, need_key=need_key, pitch=C.FEATURE_PITCH.get(feat)), 403
 
     def _forbidden():
         if request.path.startswith("/api/"):
@@ -149,7 +152,7 @@ def create_app(config=None, init=True, database_url=None):
 
     @app.context_processor
     def ctx():
-        d = dict(HINTS=M_HINTS, C=C, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[])
+        d = dict(HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[])
         if g.get("user") and g.get("ws"):
             d["trial_left"] = S.trial_days_left(g.ws)
             d["plan_key"] = g.plan_key

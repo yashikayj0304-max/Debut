@@ -461,8 +461,8 @@ def digest_text(user):
     if not blocks:
         return None
     from itsdangerous import URLSafeSerializer
-    unsub = C.APP_URL + "/unsubscribe/" + URLSafeSerializer(C.SECRET_KEY, salt="unsub").dumps(user["id"])
-    return f"Hi {user['name'] or ''},\n\nHere is what needs you:\n\n" + "\n\n".join(blocks) + f"\n\nOpen {C.APP_NAME}: {C.APP_URL}/app\n\nStop these emails: {unsub}\n"
+    unsub = app_url() + "/unsubscribe/" + URLSafeSerializer(C.SECRET_KEY, salt="unsub").dumps(user["id"])
+    return f"Hi {user['name'] or ''},\n\nHere is what needs you:\n\n" + "\n\n".join(blocks) + f"\n\nOpen {C.APP_NAME}: {app_url()}/app\n\nStop these emails: {unsub}\n"
 
 
 def send_digests():
@@ -594,6 +594,20 @@ def _crisp(pri, sec):
         if ink:
             return ink, g
     return None
+
+
+def app_url():
+    """The site's public address. APP_URL when it is set; otherwise the address this request came in on, so emails and
+    share links never point at the 127.0.0.1 development default on a live site."""
+    base = C.APP_URL
+    if "127.0.0.1" in base or "localhost" in base:
+        try:
+            from flask import request, has_request_context
+            if has_request_context() and request.host and not request.host.startswith(("127.0.0.1", "localhost")):
+                return request.url_root.rstrip("/")
+        except Exception:
+            pass
+    return base
 
 
 def hex_shades(hexcolor, secondary=None):

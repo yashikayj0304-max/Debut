@@ -68,7 +68,7 @@ def _invite_core(email, role, client_name):
     token = secrets.token_urlsafe(24)
     ins("invites", dict(workspace_id=wid, email=email, role=role, client_name=client_name if role == "client" else "", token_hash=S.sha(token), expires=(S.today() + dt.timedelta(days=7)).isoformat()))
     link = url_for("auth.invite", token=token)
-    sent = S.send_email(email, f"{g.user['name']} invited you to {g.ws['name']} on {C.APP_NAME}", (f"You've been invited to the {C.APP_NAME} client portal for {client_name}, where you can review and approve your work.\n\nOpen it: {C.APP_URL}{link}\n\nThe link expires in 7 days." if role == "client" else f"You've been invited as {role}.\n\nJoin: {C.APP_URL}{link}\n\nThe link expires in 7 days."))
+    sent = S.send_email(email, f"{g.user['name']} invited you to {g.ws['name']} on {C.APP_NAME}", (f"You've been invited to the {C.APP_NAME} client portal for {client_name}, where you can review and approve your work.\n\nOpen it: {S.app_url()}{link}\n\nThe link expires in 7 days." if role == "client" else f"You've been invited as {role}.\n\nJoin: {S.app_url()}{link}\n\nThe link expires in 7 days."))
     dev_link(sent, link)
     S.audit("invite", f"{email} as {role}")
     return True, email
@@ -476,8 +476,8 @@ def integrations():
     if not hook:
         hook = secrets.token_hex(12)
         ex("UPDATE workspaces SET hook_key=? WHERE id=?", (hook, ws["id"]))
-    return render_template("integrations.html", keys=keys, has_api="api" in g.plan["features"], form_url=C.APP_URL + url_for("lead_form", slug=ws["slug"]),
-                           hook_url=C.APP_URL + url_for("lead_hook", key=hook), base=C.APP_URL)
+    return render_template("integrations.html", keys=keys, has_api="api" in g.plan["features"], form_url=S.app_url() + url_for("lead_form", slug=ws["slug"]),
+                           hook_url=S.app_url() + url_for("lead_hook", key=hook), base=S.app_url())
 
 
 @bp.route("/integrations/hook-reset", methods=["POST"])
@@ -502,7 +502,7 @@ def api_key_create():
     scope = "write" if request.form.get("scope") == "write" else "read"
     ins("api_keys", dict(workspace_id=g.ws["id"], user_id=g.user["id"], name=S.clean_text(request.form.get("name"), 60) or "API key", prefix=key[:8], key_hash=S.sha(key), scope=scope))
     S.audit("api_key_created", scope)
-    return render_template("api_key_created.html", key=key, scope=scope, base=C.APP_URL)     # shown once; only a hash is stored
+    return render_template("api_key_created.html", key=key, scope=scope, base=S.app_url())     # shown once; only a hash is stored
 
 
 @bp.route("/integrations/api-keys/<int:kid>/revoke", methods=["POST"])
@@ -534,7 +534,7 @@ def transfer_ownership():
     ex("UPDATE memberships SET role='owner' WHERE id=?", (target["mid"],))
     ex("UPDATE workspaces SET owner_id=? WHERE id=?", (target["uid"], g.ws["id"]))
     S.audit("ownership_transferred", f"{u['email']} -> {target['email']}")
-    S.send_email(target["email"], f"You are now the owner of {g.ws['name']} on {C.APP_NAME}", f"{u['name'] or u['email']} transferred ownership of the workspace \"{g.ws['name']}\" to you.\nYou can now manage billing and settings under Plan and Account.\n{C.APP_URL}/app")
+    S.send_email(target["email"], f"You are now the owner of {g.ws['name']} on {C.APP_NAME}", f"{u['name'] or u['email']} transferred ownership of the workspace \"{g.ws['name']}\" to you.\nYou can now manage billing and settings under Plan and Account.\n{S.app_url()}/app")
     flash(f"Ownership transferred to {target['name'] or target['email']}. You are now an Admin.")
     return redirect(url_for("dashboard"))
 

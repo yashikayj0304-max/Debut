@@ -1,3 +1,9 @@
-{% extends "base.html" %}{% block body %}<div class="card" style="max-width:560px;margin:40px auto;text-align:center"><h1>🔒 Upgrade to unlock this</h1>
-<p class="muted">Your {{ plan['name'] }} plan doesn't include <b>{{ feature|replace('_',' ') }}</b>. It is available from the <b>{{ need }}</b> plan upwards.</p>
-{% if role in ('owner','admin') %}<a class="btn" href="{{ url_for('billing.billing') }}">See plans</a>{% else %}<p>Ask your workspace owner to upgrade.</p>{% endif %}</div>{% endblock %}
+{% extends "base.html" %}{% block title %}Unlock {{ pitch[0] if pitch else feature|replace('_',' ') }} — {{ C.APP_NAME }}{% endblock %}{% block body %}
+{% set np = C.PLANS.get(need_key) %}
+<div class="card unlock"><div class="unlock-ic">🔓</div><h1>{{ pitch[0] if pitch else feature|replace('_',' ')|title }} is one step up</h1>
+{% if pitch %}<p class="unlock-lead">{{ pitch[1] }}</p>{% endif %}
+<p class="muted">Your {{ plan['name'] }} plan doesn't include it. It switches on with <b>{{ need }}</b>{% if np %} (₹{{ '{:,}'.format(np.price) }}/mo {{ C.PRICE_NOTE }}){% endif %}.</p>
+{% if np %}<ul class="unlock-list"><li><b>{{ np.seats }}</b> team seat{{ 's' if np.seats > 1 }}</li><li><b>{{ np.ai_credits }}</b> AI credits a month</li><li><b>{{ '{:,}'.format(np.records) }}</b> records</li></ul>{% endif %}
+<div class="unlock-act">{% if role in ('owner','admin') %}<a class="btn" href="{{ url_for('billing.billing') }}">Upgrade to {{ need }}</a>{% else %}<p>Ask your workspace owner to upgrade — it takes them a minute.</p>{% endif %}
+<a class="btn ghost" href="{{ url_for('dashboard') }}">Back to my work</a></div>
+<p class="muted small">Nothing you've added is lost. You can keep using everything on {{ plan['name'] }}.</p></div>{% endblock %}

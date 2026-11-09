@@ -130,9 +130,95 @@ PLANS = OrderedDict([
                     blurb="Agencies & content businesses", rzp_env="RAZORPAY_PLAN_AGENCY")),
 ])
 PAID_PLANS = [k for k in PLANS if k not in ("free", "trial")]
+
+
+# ---- pricing cards: each plan shows what it ADDS over the one below, so the next step up is easy to see
+FEATURE_LABELS = [("ai", "AI Studio drafts"), ("influencers", "Influencer discovery & outreach"), ("analytics", "KPI tracking & analytics"), ("import", "CSV import"),
+                  ("group", "Team hub, Lead role & approvals"), ("content_ops", "Content Ops: creator network, orders, invoices"),
+                  ("promo_events", "Promotions & events, online + offline"), ("api", "REST API & integrations")]
+PLAN_PITCH = {"free": ("Try it, no card needed", "Need AI drafts, analytics or influencers? Starter switches them on."),
+              "starter": ("For one marketer going solo", "Working with a team or clients? Team adds seats, approvals and a client portal."),
+              "team": ("For brands and small agencies", "Running many clients? Agency triples the seats and gives 25 client logins."),
+              "agency": ("For agencies and content businesses", "")}
+PLAN_ORDER = ["free", "starter", "team", "agency"]
+
+
+def _fmt(n, key=""):
+    return "Unlimited" if (key == "boards" and n >= 999) else f"{n:,}"
+
+
+def plan_cards(cur=""):
+    """Cards for the pricing grid. `cur` (a plan key) turns on billing mode: plans above it list what you'd gain over it."""
+    cards = []
+    for i, k in enumerate(PLAN_ORDER):
+        p = PLANS[k]
+        base_k = PLAN_ORDER[i - 1] if i else None
+        if cur in PLAN_ORDER and PLAN_ORDER.index(cur) < i:
+            base_k = cur                                      # billing: compare against what the customer has now
+        b = PLANS[base_k] if base_k else None
+        adds = []
+        for f, label in FEATURE_LABELS:
+            if f in p["features"] and (b is None or f not in b["features"]):
+                adds.append(label)
+        if p["clients"] and (b is None or not b["clients"]):
+            adds.append(f"Client portal ({p['clients']} client logins)")
+        elif b and p["clients"] > b["clients"]:
+            adds.append(f"Client logins: {b['clients']} → {p['clients']}")
+        if b is None:
+            adds.append(f"Market Pulse: live news & trends for {p['watch']} topics")
+        elif p["watch"] > b["watch"]:
+            adds.append(f"Market Pulse topics: {b['watch']} → {p['watch']}")
+        nums = []
+        for key, label in (("seats", "team seats"), ("ai_credits", "AI credits / mo"), ("records", "records"), ("boards", "mood boards")):
+            v = p[key]
+            if b is None:
+                nums.append((_fmt(v, key), label, False))
+            elif v > b[key]:
+                nums.append((_fmt(v, key), label, f"{_fmt(b[key], key)} → {_fmt(v, key)}"))
+        cards.append(dict(key=k, name=p["name"], blurb=p["blurb"], price=p["price"], base=PLANS[base_k]["name"] if base_k else "",
+                          adds=adds, nums=nums, who=PLAN_PITCH[k][0], nudge=PLAN_PITCH[k][1], popular=(k == "team"), rank=i))
+    return cards
+
+
+def plan_matrix():
+    """Rows for the full side-by-side comparison."""
+    rows = [(label, [_fmt(PLANS[k][key], key) for k in PLAN_ORDER]) for key, label in (("seats", "Team seats"), ("clients", "Client logins"), ("ai_credits", "AI credits / month"),
+            ("records", "Records"), ("boards", "Mood boards"), ("watch", "Market Pulse topics"))]
+    rows = [(l, [("—" if v == "0" else v) for v in vals]) for l, vals in rows]
+    rows += [(label, ["✓" if f in PLANS[k]["features"] else "—" for k in PLAN_ORDER]) for f, label in FEATURE_LABELS]
+    return rows
 AI_COST = {"calendar": 3, "gtm_plan": 2, "report": 2, "event_plan": 2, "blog": 2, "competitor": 2, "pulse_brief": 2, "research_market": 2, "research_competitor": 2, "research_trends": 2,
            "problem_assessment": 2, "ask_debut": 1}
 ROLES = ["owner", "admin", "lead", "manager", "creator", "viewer", "client"]
 # Who may assign / change / remove whom: an actor can only touch roles ranked strictly below their own (owner is never assignable).
 RANK = {"owner": 5, "admin": 4, "lead": 3, "manager": 2, "creator": 1, "viewer": 0, "client": -1}
 TEAM_MANAGERS = ("owner", "admin", "lead")
+
+
+# ---- what each locked feature does, shown on the "unlock this" page
+FEATURE_PITCH = {
+    "ai": ("AI Studio", "Draft calendars, GTM plans, reports and posts in seconds."),
+    "influencers": ("Influencer discovery & outreach", "Find creators, track every outreach and reply, and never lose a lead to a buried DM."),
+    "analytics": ("KPI tracking & analytics", "See what is working with KPIs, experiments and trends in one place."),
+    "import": ("CSV import", "Bring your spreadsheets in with one upload instead of retyping."),
+    "content_ops": ("Content Ops", "Run a creator network: orders, deadlines, invoices and payouts."),
+    "promo_events": ("Promotions & events", "Plan online promos and offline events with budgets and checklists."),
+    "group": ("Team hub & approvals", "Add a Team Lead, see everyone's workload and approve work before it goes out."),
+    "api": ("REST API & integrations", "Push data in and out of Debut from your other tools."),
+}
+
+
+def next_plan(plan_key):
+    """The next paid plan up from plan_key, or None."""
+    order = PLAN_ORDER
+    i = order.index(plan_key) if plan_key in order else 0
+    return next((k for k in order[i + 1:]), None)
+
+
+def upsell(plan_key, what, key, label):
+    """One friendly sentence naming the next step up, for limit messages."""
+    nk = next_plan(plan_key)
+    if not nk:
+        return ""
+    n = PLANS[nk]
+    return f" {n['name']} (₹{n['price']:,}/mo) raises it to {_fmt(n[key], key)} {label}."

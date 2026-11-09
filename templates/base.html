@@ -49,7 +49,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
 {% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
-{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div class="navstyle" role="group" aria-label="Sidebar size"><button type="button" data-ns="new" title="Just the basics">🌱 Basics</button><button type="button" data-ns="solo" title="The daily set">⚡ Daily</button><button type="button" data-ns="team" title="Plus team and client pages">🏢 Team</button></div><div id="recentRow" hidden></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-lv="{{ hb.lv }}" data-hub="{{ hb.key }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span>{{ hb.label }}</a>{% endfor %}{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
+{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div id="recentRow" hidden></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-hub="{{ hb.key }}" data-label="{{ hb.label }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span><span class="hl">{{ hb.label }}</span></a>{% endfor %}<span id="hubEnd"></span><div class="hubedit"><button type="button" id="hubEdit" aria-pressed="false">✎ Edit menu</button><button type="button" id="hubReset" hidden>↺ Reset</button></div>{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
 <button type="button" class="alltools-btn" id="allBtn" onclick="openFinder()">🔎 Find any tool <span class="muted">· {{ NAV.values()|map('length')|sum }} pages</span></button>
 
 <div id="allTools" hidden>{% endif %}
@@ -57,9 +57,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if ESSENTIALS %}</div>{% endif %}
 <details class="ngrp side-foot" data-g="Workspace"><summary><span class="gi" aria-hidden="true">⚙️</span><span class="gn">Workspace</span></summary>
 {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">💳 Plan: <span class="pill">{{ plan['name'] }}</span></a>{% endif %}
-{% if role not in ('client',) %}<a href="{{ url_for('kudos') }}">🎉 Kudos</a>{% endif %}
-{% if role in TEAM_MANAGERS %}<a href="{{ url_for('team_hub') }}">👑 Team hub{{ ' 🔒' if 'group' not in plan['features'] }}</a><a href="{{ url_for('ws.team') }}">👥 Team &amp; roles</a><a href="{{ url_for('ws.activity') }}">🕘 Activity</a>{% endif %}
-{% if role in ('owner','admin','lead','manager') %}<a href="{{ url_for('report') }}">📑 Client report</a><a href="{{ url_for('ws.integrations') }}">🔌 Integrations</a><a href="{{ url_for('ws.export_zip') }}">⬇ Export data</a>{% elif role not in ('creator', 'client') %}<a href="{{ url_for('report') }}">📑 Report</a>{% endif %}
+{% if role in ('owner','admin','lead','manager') %}<a href="{{ url_for('ws.integrations') }}">🔌 Integrations</a><a href="{{ url_for('ws.export_zip') }}">⬇ Export data</a>{% endif %}
 {% if is_admin %}<a href="{{ url_for('admin.index') }}">🛠 Admin</a>{% elif admin_needs_2fa %}<a href="{{ url_for('ws.twofa') }}">🔐 Turn on 2FA to unlock Admin</a>{% endif %}
 </details></aside>
 <main>
@@ -73,7 +71,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 <main class="pubmain">
 {% endif %}
 {% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
-{% if HUB_TABS %}<nav class="hubtabs" aria-label="{{ HUB_CUR.label }} sections"><span class="ht-title">{{ HUB_CUR.icon }} {{ HUB_CUR.label }}</span><div class="ht-row">{% for t in HUB_TABS %}<a class="ht{{ ' on' if t.on }}" href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}</div></nav>{% endif %}
+{% if HUB_TABS %}<nav class="hubtabs" data-hub="{{ HUB_CUR.key }}" aria-label="{{ HUB_CUR.label }} sections"><span class="ht-title">{{ HUB_CUR.icon }} <span class="ht-name">{{ HUB_CUR.label }}</span></span><div class="ht-row">{% for t in HUB_TABS %}<a class="ht{{ ' on' if t.on }}" href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}</div></nav>{% endif %}
 {% block body %}{% endblock %}
 {% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><button type="button" class="theme-link" onclick="toggleTheme()">🌙 Dark / light</button><a href="{{ url_for('manual') }}">User manual</a><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
 </main>{% if user and ws and not bare %}</div>{% endif %}
@@ -244,7 +242,7 @@ function tourStep(i){
   var pop=document.createElement('div');pop.className='tour-pop';
   var top=Math.min(window.innerHeight-160,Math.max(10,r.bottom+12));
   var left=Math.min(window.innerWidth-300,Math.max(10,r.left));
-  // never sit on top of the sidebar's own buttons (Idk what to do, Basics/Daily/Team): put the card beside it on wide screens
+  // never sit on top of the sidebar's own buttons (Idk what to do and Edit menu): put the card beside it on wide screens
   if(window.innerWidth>=900&&r.left<260){left=270;top=Math.max(70,r.top);}
   pop.style.cssText='position:fixed;left:'+left+'px;top:'+top+'px;max-width:280px;background:#fff;border-radius:12px;box-shadow:var(--shadow-lg);padding:14px 16px;z-index:9999;font-size:13px';
   pop.innerHTML='<b style="color:var(--pri-d)">'+st.title+'</b><p style="margin:6px 0 10px;color:var(--mut)">'+st.text+'</p><div style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:11px">'+(i+1)+' / '+TOUR_STEPS.length+'</span><span><button id="tourSkip" class="btn ghost sm" style="margin-right:6px">Skip</button><button id="tourNext" class="btn sm">'+(i+1<TOUR_STEPS.length?'Next':'Done')+'</button></span></div>';
@@ -263,14 +261,35 @@ function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0
 
 
 
-// ---------- sidebar size (Basics / Daily / Team) + recently used tools ----------
+// ---------- your menu: rename and reorder hubs (saved in this browser) + recently used tools ----------
 (function(){var box=document.querySelector(".ess");if(!box)return;
- var btns=box.querySelectorAll(".navstyle button"),LV={new:1,solo:2,team:3};
  function get(k,d){try{return localStorage.getItem(k)||d;}catch(e){return d;}}
- function apply(ns){var lv=LV[ns]||2;box.querySelectorAll("a[data-lv]").forEach(function(a){a.hidden=(+a.dataset.lv)>lv;});
-  btns.forEach(function(b){var on=b.dataset.ns===ns;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");});}
- btns.forEach(function(b){b.addEventListener("click",function(){try{localStorage.setItem("navStyle",b.dataset.ns);}catch(e){}apply(b.dataset.ns);});});
- apply(get("navStyle","solo"));
+ function put(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+ var prefs={order:[],names:{}};try{prefs=Object.assign(prefs,JSON.parse(get("hubPrefs","{}")));}catch(e){}
+ var hubs=function(){return [].slice.call(box.querySelectorAll("a.hub"));};
+ var defaults={};hubs().forEach(function(a){defaults[a.dataset.hub]=a.dataset.label||a.textContent.trim().replace(/^\S+\s*/,"");});
+ function label(a){return prefs.names[a.dataset.hub]||defaults[a.dataset.hub];}
+ function apply(){var anchor=box.querySelector("#hubEnd");var list=hubs();
+  var ord=prefs.order.filter(function(k){return list.some(function(a){return a.dataset.hub===k;});});
+  list.sort(function(a,b){var ia=ord.indexOf(a.dataset.hub),ib=ord.indexOf(b.dataset.hub);if(ia<0&&ib<0)return 0;if(ia<0)return 1;if(ib<0)return -1;return ia-ib;});
+  list.forEach(function(a){anchor.parentNode.insertBefore(a,anchor);var t=a.querySelector(".hl");if(t&&!a.querySelector("input"))t.textContent=label(a);});
+  (window.TOOLS||[]).forEach(function(g){if(g.k&&prefs.names[g.k])g.g=prefs.names[g.k];});
+  document.querySelectorAll(".hubtabs").forEach(function(n){var k=n.dataset.hub,t=n.querySelector(".ht-name");if(t&&prefs.names[k])t.textContent=prefs.names[k];});}
+ function save(){put("hubPrefs",JSON.stringify(prefs));}
+ var edit=false,btn=document.getElementById("hubEdit"),reset=document.getElementById("hubReset");
+ function decorate(){hubs().forEach(function(a){var old=a.querySelector(".hctl");if(old)old.remove();if(!edit)return;
+   var c=document.createElement("span");c.className="hctl";
+   function mk(t,tt,fn){var s=document.createElement("button");s.type="button";s.textContent=t;s.title=tt;s.setAttribute("aria-label",tt);s.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();fn();});c.appendChild(s);}
+   mk("▲","Move up",function(){move(a,-1);});mk("▼","Move down",function(){move(a,1);});mk("✎","Rename",function(){rename(a);});a.appendChild(c);});}
+ function move(a,d){var l=hubs(),i=l.indexOf(a),j=i+d;if(j<0||j>=l.length)return;prefs.order=l.map(function(x){return x.dataset.hub;});var k=prefs.order;var t=k[i];k[i]=k[j];k[j]=t;save();apply();decorate();}
+ function rename(a){var t=a.querySelector(".hl"),cur=label(a);var inp=document.createElement("input");inp.className="hrename";inp.value=cur;inp.maxLength=28;inp.setAttribute("aria-label","Hub name");t.textContent="";t.appendChild(inp);inp.focus();inp.select();
+  var fin=false;function done(ok){if(fin)return;fin=true;var v=inp.value.trim();if(ok&&v&&v!==defaults[a.dataset.hub]){prefs.names[a.dataset.hub]=v;}else if(ok&&(!v||v===defaults[a.dataset.hub])){delete prefs.names[a.dataset.hub];}save();try{inp.remove();}catch(x){}apply();}
+  inp.addEventListener("keydown",function(e){e.stopPropagation();if(e.key==="Enter"){e.preventDefault();done(true);}else if(e.key==="Escape"){done(false);}});inp.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();});inp.addEventListener("blur",function(){done(true);});}
+ function setEdit(v){edit=v;box.classList.toggle("editing",v);if(btn){btn.textContent=v?"✓ Done":"✎ Edit menu";btn.setAttribute("aria-pressed",v?"true":"false");}if(reset)reset.hidden=!v;decorate();}
+ if(btn)btn.addEventListener("click",function(){setEdit(!edit);});
+ if(reset)reset.addEventListener("click",function(){prefs={order:[],names:{}};save();location.reload();});
+ box.addEventListener("click",function(e){if(edit&&e.target.closest("a.hub"))e.preventDefault();},true);
+ apply();
  // recent: remember the last few tool pages visited and show them as quick chips
  var rr=document.getElementById("recentRow");if(!rr)return;
  var p=location.pathname,isTool=/^\/(m\/[a-z_]+|calendar|moodboards|ideas|ai|analytics|pulse|updates|discover|utm|report|marketing-health|recap)\/?$/.test(p)||/^\/m\/[a-z_]+$/.test(p);

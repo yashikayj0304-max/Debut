@@ -495,3 +495,16 @@ html[data-theme=dark] .hubtabs{background:rgba(255,255,255,.04);border-color:rgb
 html[data-theme=dark] .hubtabs a.ht{color:#b8b0d4}html[data-theme=dark] .hubtabs a.ht:hover{background:rgba(124,92,214,.22);color:#fff}html[data-theme=dark] .hubtabs a.ht.on{color:#fff}
 @media(max-width:720px){.hubtabs{flex-direction:column;align-items:stretch;gap:2px;padding:8px 8px 6px}.hubtabs .ht-title{padding-left:6px}}
 #recentRow.recent{flex-wrap:nowrap;overflow:hidden}#recentRow.recent a{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46%}
+
+/* v26 editable menu */
+.hubedit{display:flex;gap:6px;margin:6px 0 2px}
+.hubedit button{font:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1px dashed var(--pri3);background:transparent;color:var(--pri-d);border-radius:999px;padding:4px 10px}
+.hubedit button:hover{background:var(--pri2)}
+html[data-theme=dark] .hubedit button{color:#cfc6f5;border-color:rgba(255,255,255,.2)}
+.ess.editing a.hub{cursor:default}
+.ess a.hub .hl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hctl{display:flex;gap:2px;flex:none}.hctl button{border:0;background:var(--pri2);color:var(--pri-d);border-radius:8px;width:24px;height:24px;font-size:11px;cursor:pointer;padding:0}
+.hctl button:hover{background:var(--pri);color:#fff}
+html[data-theme=dark] .hctl button{background:rgba(255,255,255,.1);color:#ece7fb}
+.hrename{width:100%;font:inherit;font-size:14px;padding:3px 8px;border-radius:8px;border:1px solid var(--pri)}
+.gtiles,.navstyle{display:none!important}

@@ -3749,7 +3749,8 @@ def test_whatnow_page_actually_renders_and_sidebar_sizes_are_wired(app):
     assert "<h2>" in html.split('class="card whatnow"')[1]  # a real pick is shown, not a blank page
     assert o.get("/whatnow?n=3").status_code == 200
     app_html = o.get("/app").data.decode()
-    assert app_html.count('data-lv="') >= 7 and 'data-ns="team"' in app_html and "navStyle" in app_html and "recentTools" in app_html
+    assert app_html.count('class="hub') >= 8 and "recentTools" in app_html and "hubPrefs" in app_html
+    assert 'data-ns="' not in app_html and "Basics" not in app_html  # the Basics / Daily / Team size switch is gone
 
 
 def test_all_tools_live_in_the_search_finder_not_the_sidebar(app):
@@ -3765,22 +3766,30 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     o = signup(app, "hubs@x.com")
     h = o.get("/app").data.decode()
     aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert aside.count('class="hub') == 9 or aside.count('class="hub') == 10
-    for name in ("Content", "Brand &amp; Ideas", "Tasks", "News &amp; AI", "Plan", "Campaigns", "Results"):
+    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) == 11
+    for name in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
         assert name in aside, name
-    assert "gtile" not in aside and "More tools" not in h  # no stray tiles, and no page left outside a hub
+    # the sidebar order is the intended day-to-day order
+    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
+    assert pos == sorted(pos)
+    assert "gtile" not in aside and "More tools" not in h  # no stray tiles, no page left outside a hub
+    # team pages live in the Team hub, not in the Workspace block
+    ws = aside.split('data-g="Workspace"', 1)[1]
+    for gone in ("Kudos", "Team hub", "Team &amp; roles", "Activity", "Client report"):
+        assert gone not in ws, gone
     tools = json.loads(re.search(r"var TOOLS=(\[.*?\]);\n", h, re.S).group(1))
     in_hubs = {href for g in tools for _, href in g["items"]}
-    hidden = set(re.findall(r'<a href="([^"]+)">', h.split('id="allTools" hidden>', 1)[1].split("</details>", 1)[0]))
-    # every page the old sidebar offered is reachable through a hub tab
     allnav = set(re.findall(r'<a href="(/[^"]*)"', h.split('id="allTools" hidden>', 1)[1].split('<details class="ngrp side-foot"', 1)[0]))
     assert allnav and allnav <= in_hubs | {"/m/utm_links"}, sorted(allnav - in_hubs)
-    # a page inside a hub shows the tab bar, with the current tab marked
     p = o.get("/calendar").data.decode()
     assert 'class="hubtabs"' in p and 'class="ht on"' in p and "Board" in p and "List" in p and "Key dates" in p
-    assert 'class="hubtabs"' in o.get("/m/leads").data.decode()
-    assert 'class="hubtabs"' not in o.get("/m/tasks").data.decode()  # a hub with one tab shows no bar
-    for u in ("/kanban/content_items", "/m/content_items", "/m/key_dates", "/m/assets", "/moodboards", "/ideas", "/ai", "/pulse", "/analytics", "/m/personas", "/m/campaigns", "/utm", "/content-ops", "/discover"):
+    sales = o.get("/m/leads").data.decode()
+    assert 'class="hubtabs"' in sales and "Client report" in sales and "Clients" in sales  # client report sits with clients
+    team = o.get("/team-hub").data.decode()
+    for t in ("Team hub", "Team &amp; roles", "Activity", "Kudos wall"):
+        assert t in team, t
+    assert 'class="hubtabs"' not in o.get("/m/tasks").data.decode()
+    for u in ("/kanban/content_items", "/m/content_items", "/m/key_dates", "/m/assets", "/moodboards", "/ideas", "/ai", "/pulse", "/analytics", "/m/personas", "/m/campaigns", "/utm", "/content-ops", "/discover", "/report", "/kudos", "/team", "/activity", "/team-hub"):
         assert o.get(u).status_code == 200, u
 
 

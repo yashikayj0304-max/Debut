@@ -1,4 +1,4 @@
-"""Ops commands:  python manage.py init-db | list | verify-user <email> | reset-2fa <email> | send-digests | refresh-pulse | set-plan <slug> <plan> | extend-trial <slug> <days>"""
+"""Ops commands:  python manage.py init-db | list | verify-user <email> | reset-2fa <email> | delete-user <email> --yes | send-digests | refresh-pulse | set-plan <slug> <plan> | extend-trial <slug> <days>"""
 import sys, datetime as dt
 from app import create_app
 import services as S
@@ -30,6 +30,17 @@ with app.app_context():
     elif cmd == "reset-2fa" and len(sys.argv) == 3:
         n = ex("UPDATE users SET totp_on=0, totp_secret='', recovery='', totp_last=0 WHERE email=?", (sys.argv[2].strip().lower(),))
         print("2FA reset" if n else "no such user")
+    elif cmd == "delete-user" and len(sys.argv) >= 3:
+        email = sys.argv[2].strip().lower()
+        u = q("SELECT id FROM users WHERE email=?", (email,), one=True)
+        if not u:
+            print("no such user")
+        elif "--yes" not in sys.argv:
+            ws = q("SELECT slug FROM workspaces WHERE owner_id=?", (u["id"],))
+            print(f"This permanently deletes {email} and every workspace they own ({', '.join(w['slug'] for w in ws) or 'none'}). Run again with --yes to confirm.")
+        else:
+            S.delete_user(u["id"])
+            print("deleted", email)
     elif cmd == "verify-user" and len(sys.argv) == 3:
         n = ex("UPDATE users SET email_verified=1 WHERE email=?", (sys.argv[2].strip().lower(),))
         print("verified" if n else "no such user")

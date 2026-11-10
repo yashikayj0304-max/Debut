@@ -4037,3 +4037,10 @@ def test_idea_bank_is_a_tab_right_after_calendar(app):
     assert r.status_code in (302, 303)
     row = dbq(app, "SELECT title, publish_date, status FROM content_items", one=True)
     assert row["publish_date"] == "2026-11-12" and row["title"] == "Behind the scenes reel"
+
+
+def test_css_links_are_versioned_and_old_saved_menus_are_dropped(app):
+    o = signup(app, "cache@x.com")
+    h = o.get("/app").data.decode()
+    assert re.search(r"identity\.css\?v=\d+", h) and re.search(r"style\.css\?v=\d+", h)    # a redeploy is never hidden by a cached stylesheet
+    assert "MENU_VER=3" in h and "prefs.ver!==MENU_VER" in h                                 # menus saved by older versions are reset once

@@ -37,6 +37,15 @@ FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order
               "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "marketing_health": "analytics", "ai_studio": "ai", "api_ai": "ai"}
 
 
+def _asset_v():
+    """Version stamp for the css links, so a redeploy is picked up straight away instead of the browser reusing its cached copy."""
+    try:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+        return int(max(os.path.getmtime(os.path.join(base, f)) for f in ("style.css", "polish.css", "identity.css")))
+    except OSError:
+        return 0
+
+
 def create_app(config=None, init=True, database_url=None):
     app = Flask(__name__)
     app.url_map.converters["int"] = SafeInt
@@ -153,7 +162,7 @@ def create_app(config=None, init=True, database_url=None):
 
     @app.context_processor
     def ctx():
-        d = dict(HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[], ESS_LV={}, ESS_TEAM=[], TOOLS=[], HUBS=[], HUB_CUR=None, HUB_TABS=[], NAV_TAG={})
+        d = dict(ASSET_V=_asset_v(), HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[], ESS_LV={}, ESS_TEAM=[], TOOLS=[], HUBS=[], HUB_CUR=None, HUB_TABS=[], NAV_TAG={})
         if g.get("user") and g.get("ws"):
             d["trial_left"] = S.trial_days_left(g.ws)
             d["plan_key"] = g.plan_key

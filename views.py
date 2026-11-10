@@ -95,7 +95,8 @@ def privacy():
 def health():
     try:
         q("SELECT 1 AS ok", one=True)
-        return jsonify(status="ok")
+        from app import _asset_v
+        return jsonify(status="ok", build=_asset_v(), menu="single-v3", switch=False)
     except Exception:
         return jsonify(status="db_error"), 503
 

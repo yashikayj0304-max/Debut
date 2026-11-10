@@ -1,0 +1,124 @@
+{% extends "base.html" %}{% block title %}User manual — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="manual">
+<div class="head"><h1>📖 {{ C.APP_NAME }} user manual</h1><div class="noprint"><button class="btn ghost" onclick="window.print()">🖨️ Print / save as PDF</button> <a class="btn" href="{{ url_for('static', filename='guides/Debut-User-Manual.pdf') }}" target="_blank" rel="noopener">Download PDF</a></div></div>
+<p class="muted">Last updated 7 Nov 2026. Everything you need, from creating your account to inviting a team. Jump to: <a href="#start">Sign up</a> · <a href="#around">Find your way around</a> · <a href="#week">First week</a> · <a href="#forms">Adding &amp; editing</a> · <a href="#utm">UTM &amp; Experiments</a> · <a href="#calendar">Calendar</a> · <a href="#boards">Mood boards</a> · <a href="#team">Team &amp; roles</a> · <a href="#clients">Clients</a> · <a href="#plans">Plans</a> · <a href="#colours">Colours</a> · <a href="#security">Security</a> · <a href="#keys">Shortcuts</a> · <a href="#faq">Troubleshooting</a></p>
+
+<div class="card" id="start"><h2>1. Sign up (about 2 minutes)</h2>
+<ol>
+<li>Open <b>Create account</b>. Enter your name, work email, a workspace / company name (up to 80 characters; your team sees it at the top of the app) and your industry.</li>
+<li>Leave <b>Load my industry starter kit</b> ticked to get personas, a launch checklist, key dates and news feeds for your industry. You can add or delete all of it later.</li>
+<li>Choose a password. It needs <b>at least 8 characters, one UPPERCASE letter and one special character</b> (for example ! @ # $ %). A strength bar and checklist below the box turn green as you meet each rule, and the 👁 icon shows or hides what you typed. Easy-to-guess passwords (your email name, “password”, “123456”, long repeats) are refused.</li>
+<li>Tick the Terms / Privacy box and press <b>Create account</b>. You land on your Home screen with a {{ C.TRIAL_DAYS }}-day trial of every feature. After that you keep the <b>Free forever</b> plan; nothing is deleted. No card needed.</li>
+<li><b>Verify your email</b> from the link we send (the yellow banner has a Resend button). AI features and some settings need a verified email.</li></ol>
+<p><b>Were you invited?</b> Use the link in your invitation email. The page shows the company and your role, your email is already filled in and locked, and you only set a name and password. <b>Already have a Debut account?</b> Log in with the same email and accept the invite: the company workspace is added next to your own free one, which stays exactly as it is. Switch between them from the workspace name at the top left.</p></div>
+
+<div class="card" id="around"><h2>2. Find your way around</h2>
+<table><tr><th>Where</th><th>What it does</th></tr>
+<tr><td>🏠 <b>Home</b> (top left)</td><td>Your dashboard: a greeting, set-up progress, the “Today” list (what is overdue or due), counts of everything, what publishes this week, budget, pipeline and funnel.</td></tr>
+<tr><td><b>Side menu</b></td><td>A short list of <b>hubs</b> in the order you usually work: ✍️ Content &amp; Calendar, ✅ Tasks, 💡 Idea Bank, 🎨 Brand &amp; Ideas, 🧭 Strategy &amp; Launch, 📣 Campaigns &amp; Events, 🤳 Influencers &amp; PR, 🧲 Leads &amp; Clients (Client report lives here), 💸 Creators &amp; Payments, 📈 Results &amp; Insights, 🤖 AI &amp; Market News and 👥 Team (Team hub, Team &amp; roles, Activity and the Kudos wall). The <b>Basics / Team</b> switch above it picks what you see: <b>Basics</b> shows every hub for your marketing work, and <b>Team</b> shows only the team side (Team hub, Team &amp; roles, Activity and the Kudos wall). Open a hub and its <b>tabs</b> run along the top of the page, so everything inside is one tap away. Tap <b>✎ Edit menu</b> to rename hubs, reorder hubs and tabs with ▲ ▼, or move any tab (say Idea bank or Client report) into a different hub. <b>↺ Reset everything</b> undoes it; your changes are saved in this browser. The <b>search bar</b> (or <b>🔎 Find any tool</b> on a phone) lists every page, and ☆ pins a page to the top. Stuck? Tap <b>🫠 Idk what to do</b>. A 🔒 means the item belongs to a higher plan.</td></tr>
+<tr><td><b>Search box</b> (top bar)</td><td>Type and press Enter to search all your records at once. The ✕ in the box (or the Esc key) clears it. On the results page, <b>✕ Close search</b> takes you back. Press <kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘</kbd>+<kbd>K</kbd> on Mac) to jump to the box from anywhere.</td></tr>
+<tr><td><b>＋ Create</b></td><td>Starts a new content item, task, campaign, lead or key date in a pop-up form, or opens mood boards and the Idea Bank. Which options you see depends on your role.</td></tr>
+<tr><td>✨ <b>Pick your vibe</b></td><td>Account → Pick your vibe (owners and admins). One tap recolours the whole app. Fine-tune or reset under Brand colours.</td></tr>
+<tr><td>🏆 <b>Trophy shelf</b></td><td>Bottom of Your Recap. Eight badges unlock as you ship content, start campaigns, catch leads, finish tasks, keep a streak and send kudos.</td></tr>
+<tr><td>👀 <b>Who's here</b></td><td>Open a record and a yellow pill shows teammates viewing it right now. Tap a name above the comment box to @ them.</td></tr>
+<tr><td>🎉 <b>Kudos wall</b></td><td>Workspace → Kudos. Pick a teammate, pick an emoji, say what they nailed. They get a notification and it lands on the wall for everyone.</td></tr>
+<tr><td>👏 <b>Reactions</b></td><td>Open any record (a task, a campaign, a content item) and tap 👏 🔥 ❤️ 🎉 👀 under the details. Tap again to undo.</td></tr>
+<tr><td>▦ <b>Cards / Table</b></td><td>People lists (leads, creators, contacts) show as avatar cards, campaigns show a budget bar, tasks are a tick-off checklist. Flip to Table any time for the classic spreadsheet view.</td></tr>
+<tr><td>📱 <b>Phone calendar</b></td><td>On a phone the month grid turns into an agenda: just the days that have something planned, in order.</td></tr>
+<tr><td>✨ <b>Your Recap</b></td><td>On the dashboard (or search for it). A shareable card with your last 30 days: content made, tasks finished, leads caught, campaigns started, your vibe and your 🔥 streak. Share it, copy the text or save it as an image.</td></tr>
+<tr><td>🔥 Streak</td><td>Counts the days in a row you did something in Debut. Miss a day and it starts again from zero.</td></tr>
+<tr><td>🌙 / ☀️</td><td>Switches between light and dark mode. Debut remembers your choice on this device (and follows your phone or computer setting the first time).</td></tr>
+<tr><td>❓ · 🔔</td><td>Help and guides; your notifications (assignments, mentions, approvals).</td></tr>
+<tr><td><b>Your name</b> (top right)</td><td>Profile, Send feedback and Log out. Your role (Owner, Admin, Lead, Manager, Creator, Viewer) shows under your name.</td></tr>
+<tr><td><b>On a phone</b></td><td>A bar at the bottom gives Home, Calendar, a big ＋ (new content), Tasks and Menu (the side menu). Tables turn into easy-to-read cards.</td></tr></table></div>
+
+<div class="card" id="week"><h2>3. Your first week</h2>
+<ol><li><b>Day 1:</b> follow the “Get started” checklist on Home: write a GTM plan, add content to the calendar, create a mood board, add an influencer, capture a lead, invite a teammate, verify your email. The bar at the top of Home fills as you go.</li>
+<li><b>Day 2:</b> open Strategy &gt; Brand Kit and add your colours, fonts and voice. In Account you can scan an existing brand deck to pull them in.</li>
+<li><b>Day 3:</b> fill the Calendar for the next 2 weeks (use the Idea Bank when stuck).</li>
+<li><b>Day 4:</b> set a target in KPIs and log the first numbers.</li>
+<li><b>Day 5:</b> invite your team and set the right roles.</li>
+<li><b>Every day:</b> open Home and work through the “Today” list. Once a week check Growth &gt; Marketing Health for gaps.</li></ol></div>
+
+<div class="card" id="forms"><h2>4. Adding and editing things</h2>
+<ul><li>Every “New” and “Edit” opens a <b>pop-up form</b> over the page, so you never lose your place. Save returns you to the same page.</li>
+<li>Each form starts with what it is for. Fields marked <span style="color:var(--bad)">*</span> are required; a field’s hint is shown under it. Some fields allow several choices (for example an influencer’s platforms are tick-boxes).</li>
+<li>Lists show a <b>Budget used</b> bar for campaigns and promotions; it turns red when spend passes the budget.</li>
+<li>Lists have <b>Export to Excel</b> and a blank Excel template, so you can fill in bulk data and import it. Boards and lists can be put in your own order: grab a card (or the ⠿ grip on a phone) and drop it where you want, and use <b>Sort</b> and <b>Group by</b> to look at the same work another way.</li>
+<li>Deleting asks you to confirm. Everything you do is recorded in the Activity log (owners/admins can export it as CSV).</li></ul></div>
+
+<div class="card" id="utm"><h2>Tracking links (UTM Builder) and Experiments</h2>
+<ul><li><b>UTM Builder</b> (Campaigns): press <b>＋ New UTM link</b>. A pop-up asks for a label, the page you are linking to, where the link will be posted (source, for example instagram), the channel type (medium, for example social) and the campaign. The finished link builds itself as you type; press <b>Copy</b> and paste it into your post, ad or email. Saved links are listed with a Copy button.</li>
+<li><b>Experiments</b> (Campaigns) is for A/B tests: change <b>one thing</b>, measure <b>one number</b>. Fill in: <b>Hypothesis</b> (“If we [change], then [result], because [reason]”), <b>Channel</b>, <b>Success metric</b> (the one number you will watch, for example saves or click-through rate), <b>Variant A</b> (what you do today), <b>Variant B</b> (the one thing you change), <b>Status</b> (Idea, Running, Concluded) and, once finished, <b>Result / decision</b> (what happened and whether you keep, drop or retest it).</li></ul></div>
+
+<div class="card" id="calendar"><h2>5. Calendar</h2>
+<ul><li>Shows content by publish date and your key dates (festivals, sales, events) in orange. Use ◀ ▶ for months and the channel filter at the top.</li>
+<li>Click any date to open that day. In the pop-up, press <b>💡 Pick an idea for this day</b> to drop an Idea Bank idea straight onto it, or <b>＋ Add content</b> to write your own. On a computer, hover a day to see shortcuts to the Idea Bank and Mood Boards.</li>
+<li><b>Drag a chip</b> to another day to reschedule it.</li>
+<li>Use the private link under the title to see the calendar in Google, Apple or Outlook Calendar. Keep it secret; press Reset link if it leaks.</li></ul></div>
+
+<div class="card" id="boards"><h2>6. Mood boards</h2>
+<ul><li>Start from a <b>template</b> (product launch, festive, social campaign and more) or a blank board. Drop images, add colour swatches, notes and links, and drag everything into place.</li>
+<li>Buttons on a board: <b>Share</b>, <b>Rename</b>, <b>Duplicate</b> and <b>Save colours</b> (adds the board’s colours to your Brand Kit).</li>
+<li><b>Share</b> gives two kinds of link: a <i>team link</i> (people must sign in) and a <i>public view-only link</i> that anyone can open without an account. You can make a fresh link or turn the public link off at any time. Public pages are hidden from search engines.</li></ul></div>
+
+<div class="card" id="team"><h2>7. Team and roles</h2>
+<table class="roles"><tr><th>Role</th><th>Can do</th><th>Can invite</th></tr>
+<tr><td><b>Owner</b></td><td>Everything, including plan, billing and deleting the workspace. One per workspace.</td><td>Admin, Lead, Manager, Creator, Viewer, Client</td></tr>
+<tr><td><b>Admin</b></td><td>Everything except ownership. Manages team, settings and brand.</td><td>Lead, Manager, Creator, Viewer, Client</td></tr>
+<tr><td><b>Lead</b></td><td>Team hub, approvals and delegation for a group. Needs a Team or Agency plan (or the trial).</td><td>Manager, Creator, Viewer, Client</td></tr>
+<tr><td><b>Manager</b></td><td>Plans, campaigns, content, leads and tasks day to day.</td><td>Creator, Viewer, Client</td></tr>
+<tr><td><b>Creator</b></td><td>Freelancer view: only content items, assets, content orders, tasks, reference links, the calendar, mood boards and the Idea Bank. Never sees prices, margins, billing or the team.</td><td>nobody</td></tr>
+<tr><td><b>Viewer</b></td><td>Read-only, plus comments and their own profile.</td><td>nobody</td></tr>
+<tr><td><b>Client</b></td><td>Only the Client portal: sees their own work, approves or comments.</td><td>nobody</td></tr></table>
+<p>You can only give roles ranked <b>below</b> your own. Use the lowest role that does the job.</p>
+<h3>Inviting people</h3>
+<ol><li>Open <b>Team &amp; roles</b> &gt; <b>Invite someone</b>.</li>
+<li><b>Several people, one role:</b> paste as many emails as you like (separated by commas, spaces or new lines), choose the role and press invite. Each gets their own link.</li>
+<li><b>Different roles:</b> download the <b>CSV template</b>, fill in email and role (and client name for clients), upload it. Rows with problems are listed with the reason; good rows still go through.</li>
+<li>Pending invites show on the page. <b>Revoke</b> cancels one; it is written to the Activity log. Invites stop at your plan’s seat limit.</li></ol></div>
+
+<div class="card" id="clients"><h2>8. Clients and the portal</h2>
+<p>Invite someone with the <b>Client</b> role and type their client name exactly as you use it in the “Client” field of your content. They get a clean portal with their own content to <b>approve, request changes on or comment</b> on, plus their campaigns. They cannot see other clients, prices, your team or any other page. Use <b>Preview</b> next to a client on the Team page to see what they see. You can also send a read-only <b>Client report</b> link.</p></div>
+
+<div class="card" id="plans"><h2>9. Plans and billing</h2>
+<p>Every new workspace gets {{ C.TRIAL_DAYS }} days of the full feature set, then moves to <b>Free forever</b> unless you upgrade. Nothing is deleted when you downgrade; paid-only items just show a 🔒.</p>
+<table><tr><th>Plan</th><th>Price / month</th><th>Seats</th><th>AI credits / month</th><th>Records</th><th>Mood boards</th></tr>
+{% for k, p in C.PLANS.items() %}<tr><td><b>{{ p['name'] }}</b></td><td>{{ '₹{:,}'.format(p['price']) if p['price'] else 'Free' }}</td><td>{{ p['seats'] }}</td><td>{{ p['ai_credits'] }}</td><td>{{ '{:,}'.format(p['records']) }}</td><td>{{ p['boards'] if p['boards'] < 999 else 'Unlimited' }}</td></tr>{% endfor %}</table>
+<p class="muted">Prices exclude GST. On the Plan page, what changes compared with your current plan is highlighted (credits, seats, features), with ✓ for included and ✗ for not included. In demo mode no real payment is taken.</p></div>
+
+<div class="card" id="colours"><h2>10. Make it yours: colours</h2>
+<p>Go to <b>Account</b>. Pick a <b>primary colour</b> (your brand colour) and a <b>secondary colour</b>. The secondary colour is yours to choose: it colours buttons, the active menu item, your avatar, the Create button, the dashboard banner and highlights, blended with your primary. Press <b>Use auto</b> to let Debut choose a matching lighter shade. Upload your logo in the same place. The preview strip shows the combination before you press <b>Apply</b>.</p></div>
+
+<div class="card" id="security"><h2>11. Account and security</h2>
+<ul><li><b>Password:</b> 8+ characters, one capital, one special character; change it under Account. Resetting uses an emailed link.</li>
+<li><b>Two-factor login:</b> turn it on in Account with an authenticator app. Save your <b>recovery codes</b>; one of them lets you in if you lose your phone.</li>
+<li><b>Verify email:</b> unlocks AI features and sensitive settings.</li>
+<li><b>Your data:</b> “Export data” downloads everything as spreadsheets; owners can delete the workspace under Account.</li></ul></div>
+
+<div class="card" id="intel"><h2>12. News, Market Pulse and AI</h2>
+<ul><li><b>Latest Updates</b> shows live news from your feeds. If your server cannot reach the internet it shows a saved snapshot dated 1 Nov 2026 instead, and you can search it.</li>
+<li><b>Market Pulse</b> follows trends, videos and competitors for your industry (competitor watch-list size depends on your plan).</li>
+<li><b>AI Studio</b> drafts calendars, plans, blogs and reports. Each use costs credits from your monthly allowance. Debut does not post to social platforms for you: you post, then mark the item Published.</li></ul></div>
+
+<div class="card" id="keys"><h2>13. Shortcuts</h2>
+<table><tr><th>Do this</th><th>To get this</th></tr>
+<tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd></td><td>Jump to the search box</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>Clear the search box, or close a pop-up form</td></tr>
+<tr><td>Drag a calendar chip</td><td>Reschedule to another day</td></tr>
+<tr><td>Drag a board card or the ⠿ in a list</td><td>Move it or reorder it (Alt + arrow keys also works)</td></tr>
+<tr><td>Bottom ＋ on phones</td><td>New content in one tap</td></tr></table></div>
+
+<div class="card" id="faq"><h2>14. Troubleshooting</h2>
+<table><tr><th>Problem</th><th>Fix</th></tr>
+<tr><td>No verification or invite email</td><td>Check spam. Use Resend link on the banner. Pending invites can be revoked and sent again.</td></tr>
+<tr><td>“Too many attempts”</td><td>Sign-up, login and reset are rate limited for safety (for example 10 sign-ups per hour from one network). Wait and try again.</td></tr>
+<tr><td>Password refused</td><td>Add a capital letter and a special character, avoid your email name or common words.</td></tr>
+<tr><td>Menu item is locked 🔒 or a button says upgrade</td><td>It belongs to a higher plan, or you reached a limit (seats, records, boards, AI credits). Open Plan to compare.</td></tr>
+<tr><td>I can’t see a page my colleague can</td><td>Your role does not include it. Ask an owner or admin to change your role.</td></tr>
+<tr><td>Lost my phone (two-factor)</td><td>Use a recovery code on the code screen, or contact us.</td></tr>
+<tr><td>News says “could not load”</td><td>The live feed could not be reached. The saved snapshot is shown; try again later.</td></tr>
+<tr><td>Anything else</td><td>Profile menu &gt; Send feedback (it includes the page you were on), or the Contact page.</td></tr></table></div>
+</div>
+<style>.manual h2{margin:0 0 8px;font-size:19px}.manual h3{margin:14px 0 6px}.manual .card{margin-bottom:14px}.manual tr,.manual h2,.manual h3{break-inside:avoid;break-after:avoid-page}.manual tr{break-after:auto}.manual kbd{background:var(--bg2);border:1px solid var(--pri3);border-radius:5px;padding:1px 6px;font-size:12px}.manual li{margin:4px 0}.manual p{max-width:80ch}@media print{.manual .card{box-shadow:none;border:1px solid #ddd}}.manual td,.manual th{overflow-wrap:normal;word-break:normal}.manual table.roles td:first-child,.manual table.roles th:first-child{white-space:nowrap;width:90px}</style>
+{% endblock %}

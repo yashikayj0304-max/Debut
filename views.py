@@ -6,7 +6,7 @@ from email.utils import parsedate_to_datetime
 from urllib.parse import quote, quote_plus
 from xml.etree import ElementTree as ET
 import requests
-from flask import g, render_template, request, redirect, url_for, flash, jsonify, abort, Response, send_from_directory, make_response
+from flask import g, render_template, request, redirect, url_for, flash, jsonify, abort, Response, send_from_directory, make_response, session
 import secrets
 from itsdangerous import URLSafeSerializer, BadSignature
 import config as C
@@ -412,11 +412,79 @@ def m_save(key):
 @route("/m/<key>/<int:rid>/delete", methods=["POST"])
 def m_delete(key, rid):
     mod(key)
-    row_or_404(key, rid)
+    row = row_or_404(key, rid)
     ex(f"DELETE FROM {key} WHERE id=? AND workspace_id=?", (rid, W()))
     S.audit("delete", f"{key}#{rid}")
+    snap = {k: row[k] for k in row.keys() if k not in ("id", "workspace_id") and row[k] is not None}
+    if len(json.dumps(snap, default=str)) < 2500:      # keep the cookie small; bigger records just can't be undone
+        session["undo"] = {"key": key, "row": snap, "w": W()}
     flash("Deleted. 🗑️")
     return redirect(safe_next(url_for("m_list", key=key)))
+
+
+@route("/ideas/schedule", methods=["POST"])
+def ideas_schedule():
+    """One click: turn an Idea Bank idea into a content record that sits on a chosen day of the calendar."""
+    f = request.form
+    title = (f.get("title") or "").strip()[:200]
+    try:
+        day = dt.date.fromisoformat(f.get("date", ""))
+    except ValueError:
+        flash("Pick a date first, then schedule the idea.")
+        return redirect(safe_next(url_for("ideas")))
+    if not title:
+        abort(400)
+    if S.record_count(W()) >= g.plan["records"]:
+        flash("You're at your plan's record limit, so I can't add this idea.")
+        return redirect(safe_next(url_for("ideas")))
+    m = mod("content_items")
+    opts = {n: o for n, _l, t, o, *_ in [(x[0], x[1], x[2], x[3] if len(x) > 3 else None) for x in m["fields"]] if t == "select"}
+    ch, fm = f.get("channel", ""), f.get("format", "")
+    row = dict(workspace_id=W(), title=title, status="Planned", publish_date=day.isoformat(),
+               channel=ch if ch in (opts.get("channel") or []) else "Other",
+               format=fm if fm in (opts.get("format") or []) else "Post",
+               notes=("Idea pillar: " + f["pillar"][:80]) if f.get("pillar") else "")
+    nid = ins("content_items", row)
+    S.audit("create", f"content_items#{nid} (from idea)")
+    flash(f"Scheduled for {day.strftime('%a %d %b')}. 📅")
+    return redirect(safe_next(url_for("calendar_view", d=day.isoformat())))
+
+
+@route("/m/undo", methods=["POST"])
+def m_undo():
+    u = session.pop("undo", None)
+    if not u or u.get("w") != W() or u["key"] not in MODULES:
+        flash("Nothing to undo.")
+        return redirect(safe_next(url_for("dashboard")))
+    key = u["key"]
+    if S.record_count(W()) >= g.plan["records"]:
+        flash("Can't restore: you're at your plan's record limit.")
+        return redirect(safe_next(url_for("m_list", key=key)))
+    cols = {x[0] for x in mod(key)["fields"]}
+    row = {k: v for k, v in u["row"].items() if k in cols and re.match(r"^[a-z_0-9]+$", k)}
+    row["workspace_id"] = W()
+    ins(key, row)
+    S.audit("restore", key)
+    flash("Restored. ↩️")
+    return redirect(safe_next(url_for("m_list", key=key)))
+
+
+@route("/m/<key>/<int:rid>/duplicate", methods=["POST"])
+def m_duplicate(key, rid):
+    m = mod(key)
+    row = row_or_404(key, rid)
+    if S.record_count(W()) >= g.plan["records"]:
+        flash("You're at your plan's record limit, so I can't make a copy.")
+        return redirect(safe_next(url_for("m_list", key=key)))
+    data = {n: row[n] for n, *_ in m["fields"] if row[n] is not None}
+    first = m["fields"][0][0]
+    if data.get(first):
+        data[first] = (str(data[first])[:90] + " (copy)")
+    data["workspace_id"] = W()
+    nid = ins(key, data)
+    S.audit("create", f"{key}#{nid} (copy of {rid})")
+    flash("Copied. ⧉ Edit the copy below.")
+    return redirect(url_for("m_edit", key=key, rid=nid))
 
 
 def _csv_safe(v):
@@ -795,10 +863,14 @@ def search():
 @route("/calendar")
 def calendar_view():
     w, today = W(), S.today()
+    sel = today
     try:
-        y, mth = int(request.args.get("y", today.year)), int(request.args.get("m", today.month))
+        if request.args.get("d"):
+            sel = dt.date.fromisoformat(request.args["d"])
+        y = int(request.args.get("y", sel.year if request.args.get("d") else today.year))
+        mth = int(request.args.get("m", sel.month if request.args.get("d") else today.month))
         weeks = pycal.Calendar(0).monthdatescalendar(y, mth)
-    except (ValueError, pycal.IllegalMonthError):
+    except (ValueError, OverflowError, pycal.IllegalMonthError):
         abort(400)
     ch = request.args.get("channel", "")
     start, end = weeks[0][0].isoformat(), weeks[-1][-1].isoformat()
@@ -827,7 +899,9 @@ def calendar_view():
         ex("UPDATE workspaces SET ics_key=? WHERE id=?", (key_, w))
     ics = S.app_url() + url_for("ics_feed", token=URLSafeSerializer(C.SECRET_KEY, salt="ics").dumps([w, key_]))
     return render_template("calendar.html", weeks=weeks, by=by, kd=kd, y=y, mth=mth, month_name=pycal.month_name[mth], ch=ch, channels=CHANNELS,
-                           py=py, pm=pm, ny=ny, nm=nm, unscheduled=unscheduled, ics=ics)
+                           py=py, pm=pm, ny=ny, nm=nm, unscheduled=unscheduled, ics=ics, sel=sel.isoformat(), open_day=request.args.get("open") == "1",
+                           ideas=(IND.get(g.ws["industry"]) or {}).get("ideas", []),
+                           years=list(range(max(1970, y - 6), min(2100, y + 7))), months=[(i, pycal.month_name[i]) for i in range(1, 13)])
 
 
 @route("/calendar/<token>.ics")

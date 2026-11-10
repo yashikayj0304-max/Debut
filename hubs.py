@@ -1,4 +1,4 @@
-"""Hubs: ten short sidebar entries, each one a set of tabs over the existing pages.
+"""Hubs: eleven short sidebar entries, each one a set of tabs over the existing pages.
 
 Nothing here owns data or routes. A hub is only a way of grouping pages that already exist, so every
 feature, URL, role rule and plan lock keeps working. A tab is shown only when the page it points to is
@@ -13,10 +13,11 @@ HUBS = [
         ("🗓️ Key dates", "m_list", {"key": "key_dates"}, [], None),
         ("📚 Library", "m_list", {"key": "assets"}, [], None),
         ("🔎 Keywords", "m_list", {"key": "keywords"}, [], None)]),
+    dict(key="ideas", icon="💡", label="Idea Bank", lv=1, tabs=[
+        ("💡 Idea bank", "ideas", {}, [], None)]),
     dict(key="brand", icon="🎨", label="Brand & Ideas", lv=1, tabs=[
         ("🖼️ Mood boards", "moodboards", {}, [], None),
         ("🎨 Brand kit", "m_list", {"key": "brand_kit"}, [], None),
-        ("💡 Idea bank", "ideas", {}, [], None),
         ("🔗 References", "m_list", {"key": "reference_links"}, [], None)]),
     dict(key="tasks", icon="✅", label="Tasks", lv=1, tabs=[
         ("✅ Tasks", "m_list", {"key": "tasks"}, [], None)]),
@@ -67,5 +68,5 @@ HUBS = [
 ]
 
 # Default sidebar order: a day's work first, then planning and launching, then growing, then people.
-ORDER = ["content", "tasks", "brand", "plan", "campaigns", "people", "sales", "money", "results", "news", "team"]
+ORDER = ["content", "tasks", "ideas", "brand", "plan", "campaigns", "people", "sales", "money", "results", "news", "team"]
 HUBS.sort(key=lambda x: ORDER.index(x["key"]))

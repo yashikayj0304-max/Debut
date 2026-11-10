@@ -1,0 +1,62 @@
+{% extends "base.html" %}{% set CH = {"Instagram":"#ec4899","Email":"#f59e0b","Blog":"#16a34a","LinkedIn":"#2563eb","YouTube":"#ef4444","Facebook":"#3b82f6","X":"#64748b","Twitter":"#38bdf8","WhatsApp":"#22c55e","TikTok":"#14b8a6","Pinterest":"#e11d48"} %}{% block body %}
+<div class="head"><h1>📅 Content Calendar</h1><div class="calnav">
+<div class="cn-grp" role="group" aria-label="Month and year"><a class="btn ghost" id="mPrev" href="?y={{ py }}&m={{ pm }}&channel={{ ch }}" aria-label="Previous month" title="Previous month">«</a>
+<select id="calM" aria-label="Month">{% for n, nme in months %}<option value="{{ n }}" {% if n == mth %}selected{% endif %}>{{ nme }}</option>{% endfor %}</select>
+<select id="calY" aria-label="Year">{% for yy in years %}<option value="{{ yy }}" {% if yy == y %}selected{% endif %}>{{ yy }}</option>{% endfor %}</select>
+<a class="btn ghost" id="mNext" href="?y={{ ny }}&m={{ nm }}&channel={{ ch }}" aria-label="Next month" title="Next month">»</a></div>
+<div class="cn-grp" role="group" aria-label="Day"><button type="button" class="btn ghost" id="dPrev" aria-label="Previous day" title="Previous day">◀</button><button type="button" class="btn ghost" id="dToday">Today</button><button type="button" class="btn ghost" id="dNext" aria-label="Next day" title="Next day">▶</button></div>
+{% if role != 'viewer' %}<a class="btn" href="{{ url_for('m_new', key='content_items', next=request.full_path) }}">+ Content</a>{% endif %}
+<a class="btn ghost" href="{{ url_for('kanban', key='content_items') }}">Pipeline</a></div></div>
+<div class="cal-bar"><form class="filters" method="get"><input type="hidden" name="y" value="{{ y }}"><input type="hidden" name="m" value="{{ mth }}">
+<select name="channel" aria-label="Channel" onchange="this.form.submit()"><option value="">All channels</option>{% for c in channels %}<option {% if c == ch %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></form>
+<span class="cal-hint">Click a date for its details. Drag a post to another day to reschedule. <span class="kd-key">★</span> marks key dates.</span>
+<details class="cal-sync"><summary>📲 Sync to your calendar</summary><div class="cal-sync-in"><p class="muted">Add this private link to Google, Apple or Outlook Calendar. Keep it secret.</p><div class="cal-sync-row"><input readonly value="{{ ics }}" aria-label="Calendar link" onclick="this.select()">{% if role in ('owner','admin','lead','manager') %}<form method="post" action="{{ url_for('ics_reset') }}" onsubmit="return confirm('Old link stops working. Continue?')"><button class="btn ghost sm">Reset link</button></form>{% endif %}</div></div></details></div>
+<div class="cal-legend">{% for c, col in CH.items() %}{% if c in channels %}<span style="--cc:{{ col }}"><i></i>{{ c }}</span>{% endif %}{% endfor %}<b>{% set _n = namespace(v=0) %}{% for k, v in by.items() %}{% set _n.v = _n.v + v|length %}{% endfor %}{{ _n.v }} post{{ '' if _n.v == 1 else 's' }} this view</b></div>
+<table class="cal"><tr>{% for d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<th>{{ d }}</th>{% endfor %}</tr>
+{% for w in weeks %}<tr>{% for d in w %}{% set iso = d.isoformat() %}<td class="{{ 'out' if d.month != mth }} {{ 'today' if iso == today }}" data-date="{{ iso }}">
+<div class="d"><span>{{ d.day }}</span><span class="daylinks"><a href="{{ url_for('ideas') }}" title="Idea Bank">💡</a><a href="{{ url_for('moodboards') }}" title="Mood Boards">🖼</a>{% if role != 'viewer' %}<a href="{{ url_for('m_new', key='content_items', publish_date=iso, next=request.full_path) }}" title="Add content">+</a>{% endif %}</span></div>
+{% for n in kd.get(iso, []) %}<div class="kd">★ {{ n }}</div>{% endfor %}
+{% for r in by.get(iso, []) %}<a class="chip {{ r['status'] }}" style="--cc:{{ CH.get(r['channel'], '#7c5cd6') }}" draggable="true" data-id="{{ r['id'] }}" title="{{ r['channel'] }} · {{ r['status'] }}" href="{{ url_for('m_edit', key='content_items', rid=r['id'], next=request.full_path) }}"><i class="cdot"></i>{{ r['title'] }}</a>{% endfor %}</td>{% endfor %}</tr>{% endfor %}</table>
+<div class="agenda" aria-label="Agenda view">{% for w in weeks %}{% for d in w %}{% set iso = d.isoformat() %}{% if d.month == mth and (by.get(iso) or kd.get(iso)) %}<div class="ag-day{{ ' today' if iso == today }}"><div class="ag-date"><b>{{ d.day }}</b><small>{{ d.strftime('%a') }}</small></div><div class="ag-items">{% for n in kd.get(iso, []) %}<div class="kd">★ {{ n }}</div>{% endfor %}{% for r in by.get(iso, []) %}<a class="chip {{ r['status'] }}" href="{{ url_for('m_edit', key='content_items', rid=r['id'], next=request.full_path) }}">{{ r['channel'][:2] }} · {{ r['title'] }}</a>{% endfor %}</div></div>{% endif %}{% endfor %}{% endfor %}{% if not by %}<p class="muted">Nothing scheduled this month{{ '. Add some content to fill it up.' if role != 'viewer' else '.' }}</p>{% endif %}</div>
+<dialog id="dayDlg" class="daydlg" aria-labelledby="dayTitle"><div class="dd-top"><button type="button" class="btn ghost sm" id="ddPrev" aria-label="Previous day">◀</button><h2 id="dayTitle"></h2><button type="button" class="btn ghost sm" id="ddNext" aria-label="Next day">▶</button><button type="button" class="btn ghost sm" id="ddClose" aria-label="Close">✕</button></div><div id="ddBody"></div>
+{% if role != 'viewer' and ideas %}<details class="dd-ideas"><summary>💡 Pick from your ideas</summary><div class="dd-ilist">{% for pillar, group in ideas|groupby(0) %}<h4>{{ pillar }}</h4>{% for i in group %}<form method="post" action="{{ url_for('ideas_schedule') }}" class="dd-idea"><input type="hidden" name="title" value="{{ i[1] }}"><input type="hidden" name="channel" value="{{ i[2] }}"><input type="hidden" name="format" value="{{ i[3] }}"><input type="hidden" name="pillar" value="{{ i[0] }}"><input type="hidden" name="date" class="ddDate"><input type="hidden" name="next" value="{{ url_for('calendar_view') }}"><span>{{ i[1] }} <small class="muted">{{ i[2] }} · {{ i[3] }}</small></span><button class="btn sm">＋ Put on this day</button></form>{% endfor %}{% endfor %}</div></details>{% endif %}
+<div class="dd-act">{% if role != 'viewer' %}<a class="btn" id="ddAdd" href="#">＋ Add content on this day</a>{% endif %}<a class="btn ghost" href="{{ url_for('ideas') }}">💡 Ideas</a><a class="btn ghost" href="{{ url_for('moodboards') }}">🖼 Mood boards</a></div></dialog>
+{% if unscheduled %}<div class="card" style="margin-top:16px"><b>Unscheduled ({{ unscheduled|length }})</b> <span class="muted">— open and set a publish date</span><br>
+{% for r in unscheduled %}<a class="chip" style="display:inline-block;margin-right:6px" href="{{ url_for('m_edit', key='content_items', rid=r['id'], next=request.full_path) }}">{{ r['title'] }}</a>{% endfor %}</div>{% endif %}
+{% endblock %}
+{% block scripts %}<script>
+let dragId=null;
+document.querySelectorAll('.chip[draggable]').forEach(c=>c.addEventListener('dragstart',e=>{dragId=c.dataset.id}));
+document.querySelectorAll('td[data-date]').forEach(td=>{td.addEventListener('dragover',e=>e.preventDefault());
+td.addEventListener('drop',async e=>{e.preventDefault();if(!dragId)return;await api('/api/reschedule',{id:dragId,date:td.dataset.date});location.reload();});});
+
+(function(){
+var SEL="{{ sel }}",CH={{ ch|tojson }},ADD={{ url_for('m_new', key='content_items')|tojson }},NEXT={{ request.full_path|tojson }},CAN_ADD={{ 'true' if role != 'viewer' else 'false' }};
+var dlg=document.getElementById("dayDlg"),body=document.getElementById("ddBody");
+function cell(iso){return document.querySelector('td[data-date="'+iso+'"]');}
+function addDays(iso,n){var d=new Date(iso+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
+function nice(iso){return new Date(iso+"T12:00:00Z").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});}
+function mark(iso){document.querySelectorAll("td.sel").forEach(function(t){t.classList.remove("sel");});var c=cell(iso);if(c)c.classList.add("sel");}
+function go(iso,open){var c=cell(iso);if(!c){var u=new URL(location.href);u.search="";u.searchParams.set("d",iso);if(CH)u.searchParams.set("channel",CH);if(open)u.searchParams.set("open","1");location.href=u.toString();return;}
+ SEL=iso;mark(iso);if(open)show(iso);else c.scrollIntoView({block:"nearest",behavior:"smooth"});}
+function show(iso){var c=cell(iso);if(!c)return;document.getElementById("dayTitle").textContent=nice(iso)+(iso==="{{ today }}"?" · today":"");
+ body.innerHTML="";var n=0;
+ c.querySelectorAll(".kd").forEach(function(k){var d=document.createElement("div");d.className="kd";d.textContent=k.textContent;body.appendChild(d);n++;});
+ c.querySelectorAll("a.chip").forEach(function(a){var l=a.cloneNode(true);l.removeAttribute("draggable");l.classList.add("dd-item");var st=document.createElement("small");st.textContent=" · "+(a.title||"");l.appendChild(st);body.appendChild(l);n++;});
+ if(!n){var e=document.createElement("p");e.className="muted";e.textContent=CAN_ADD?"Nothing planned for this day yet. Add a post, or grab an idea.":"Nothing planned for this day.";body.appendChild(e);}
+ document.querySelectorAll(".ddDate").forEach(function(i){i.value=iso;});var add=document.getElementById("ddAdd");if(add)add.href=ADD+"?publish_date="+iso+"&next="+encodeURIComponent(NEXT);
+ if(!dlg.open)dlg.showModal();SEL=iso;mark(iso);}
+document.querySelectorAll("td[data-date]").forEach(function(td){td.addEventListener("click",function(e){if(e.target.closest("a,button"))return;show(td.dataset.date);});});
+document.getElementById("dPrev").addEventListener("click",function(){go(addDays(SEL,-1),true);});
+document.getElementById("dNext").addEventListener("click",function(){go(addDays(SEL,1),true);});
+document.getElementById("dToday").addEventListener("click",function(){go("{{ today }}",false);});
+document.getElementById("ddPrev").addEventListener("click",function(){go(addDays(SEL,-1),true);});
+document.getElementById("ddNext").addEventListener("click",function(){go(addDays(SEL,1),true);});
+document.getElementById("ddClose").addEventListener("click",function(){dlg.close();});
+dlg.addEventListener("click",function(e){if(e.target===dlg)dlg.close();});
+dlg.addEventListener("keydown",function(e){if(e.key==="ArrowLeft"){e.preventDefault();go(addDays(SEL,-1),true);}else if(e.key==="ArrowRight"){e.preventDefault();go(addDays(SEL,1),true);}});
+function jump(){var m=document.getElementById("calM").value,y=document.getElementById("calY").value,u=new URL(location.href);u.search="";u.searchParams.set("y",y);u.searchParams.set("m",m);if(CH)u.searchParams.set("channel",CH);location.href=u.toString();}
+document.getElementById("calM").addEventListener("change",jump);document.getElementById("calY").addEventListener("change",jump);
+mark(SEL);{% if open_day %}show(SEL);{% endif %}
+})();
+</script>{% endblock %}

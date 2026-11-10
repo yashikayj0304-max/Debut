@@ -635,3 +635,61 @@ html[data-theme=dark] .tour-pop .muted{color:#f1ecff;opacity:.65}
  aside{height:auto!important;max-height:100%}
  @supports(height:100dvh){aside{height:100dvh!important}}
 }
+
+/* v38 — reliability & polish: notch/home-bar safe areas, keyboard focus, undo toast, reduced motion, help search */
+@supports(padding:max(0px)){
+ .bnav{bottom:max(10px,env(safe-area-inset-bottom))!important;left:max(10px,env(safe-area-inset-left))!important;right:max(10px,env(safe-area-inset-right))!important}
+ .toasts{right:max(16px,env(safe-area-inset-right))}
+ .here{bottom:max(16px,env(safe-area-inset-bottom))}
+ @media(max-width:800px){aside{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  main{padding-bottom:max(0px,env(safe-area-inset-bottom))}}
+}
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid var(--pri);outline-offset:2px;border-radius:8px}
+.flash-undo{margin-left:10px;background:var(--pri);color:var(--on,#fff);border:0;border-radius:999px;padding:4px 12px;font-weight:700;cursor:pointer;min-height:32px}
+.flash-undo:hover{filter:brightness(1.08)}
+.flash form{display:inline}
+.hq{display:block;width:100%;max-width:560px;margin:4px 0 14px;padding:12px 16px;border:2px solid var(--pri3);border-radius:14px;background:var(--card);color:inherit;font-size:16px}
+.hq:focus{border-color:var(--pri);outline:0}
+.hnone{display:none;text-align:center;padding:24px}
+.kbd{display:inline-block;padding:1px 7px;border:1px solid var(--line);border-bottom-width:3px;border-radius:7px;background:var(--card);font:600 .85em ui-monospace,monospace}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.hgrid a.hub{display:block;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--card)}
+.hgrid a.hub:hover{border-color:var(--pri)}
+.hgrid a.hub small{display:block;color:var(--muted);margin-top:4px;line-height:1.5}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+@media(max-width:800px){.flash{display:flex;flex-wrap:wrap;align-items:center;gap:6px}}
+
+.krow{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:space-between;align-items:center}
+.krow>span:first-child{white-space:normal}
+
+/* v39 — calendar navigation + day pop-up */
+.calnav{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.cn-grp{display:inline-flex;align-items:center;gap:6px}
+.cn-grp select{min-width:0;height:40px;font-weight:700;border-radius:12px;padding:0 10px}
+.cn-grp .btn{min-width:40px;justify-content:center}
+.cal td{cursor:pointer}.cal td.sel:not(.today){box-shadow:inset 0 0 0 2.5px var(--accent)!important}
+.cal td:hover{background:color-mix(in srgb,var(--pri) 8%,var(--card))}
+.daydlg{border:var(--bw,2px) solid var(--out,currentColor);border-radius:20px;padding:18px;width:min(520px,92vw);background:var(--card);color:var(--ink,inherit)}
+.daydlg::backdrop{background:rgba(20,16,40,.45)}
+.dd-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}.dd-top h2{flex:1;margin:0;font-size:18px;text-align:center}
+#ddBody{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto;margin-bottom:14px}
+.dd-item{display:block!important;padding:10px 12px!important;white-space:normal!important}
+.dd-act{display:flex;flex-wrap:wrap;gap:8px}
+@media(max-width:800px){.calnav{width:100%}.cn-grp{flex:1 1 auto}.cn-grp select{flex:1}.cal td{cursor:default}}
+.card>table{width:100%}.card td,.card th{white-space:normal}
+
+table.hmap{display:table!important;width:100%;table-layout:auto}
+table.hmap td,table.hmap th{white-space:normal;word-break:break-word}
+@media(max-width:700px){table.hmap,table.hmap tbody{display:block!important;width:100%}table.hmap tr{display:block;padding:10px 0;border-bottom:1px solid var(--line)}table.hmap tr:first-child{display:none}table.hmap td{display:block;padding:2px 0;border:0!important}table.hmap td:first-child{font-weight:700}}
+
+/* v40 — ideas straight onto the calendar */
+.idea-act{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
+.idea-sched{display:inline-flex;gap:6px;align-items:center;margin:0}
+.idea-sched input[type=date]{height:36px;padding:0 8px;border-radius:10px;font-size:14px}
+.dd-ideas{margin:0 0 12px;border:1px dashed var(--line);border-radius:14px;padding:8px 12px}
+.dd-ideas summary{cursor:pointer;font-weight:700}
+.dd-ilist{max-height:34vh;overflow:auto;margin-top:8px}
+.dd-ilist h4{margin:10px 0 4px;color:var(--pri-d)}
+.dd-idea{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);margin:0}
+.dd-idea span{flex:1;min-width:0}
+@media(max-width:800px){.idea-act,.idea-sched{width:100%}.idea-sched input[type=date]{flex:1}.news:has(.idea-act){flex-wrap:wrap}}

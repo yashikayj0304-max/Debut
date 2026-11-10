@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="csrf-token" content="{{ csrf_token() }}"><meta name="theme-color" content="{{ brand.pri if brand else '#7c5cd6' }}">
 {% set _t = self.title() %}{% set _d = (meta_desc or C.APP_NAME ~ " is a go-to-market and marketing workspace for brands, agencies, founders and personal brands: plans, content calendar, mood boards, AI drafting, team approvals and client reports.") %}
 {% set _base = S_app_url() %}<meta name="description" content="{{ _d }}"><link rel="canonical" href="{{ _base }}{{ request.path }}">
@@ -7,7 +7,7 @@
 <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
 <script>(function(){try{var t=localStorage.getItem("theme");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
 <script>(function(){try{var d=document.documentElement,t=localStorage.getItem("textSize"),m=localStorage.getItem("reduceMotion");if(t==="large"||t==="xl")d.setAttribute("data-text",t);if(m==="1")d.setAttribute("data-motion","reduce");}catch(e){}})();</script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='identity.css') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=ASSET_V) }}"><link rel="stylesheet" href="{{ url_for('static', filename='polish.css', v=ASSET_V) }}"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='identity.css', v=ASSET_V) }}">
 {% if brand %}<style>:root{--pri:{{ brand.pri }};--pri-d:{{ brand.pri_d }};--pri2:{{ brand.pri2 }};--pri3:{{ brand.pri3 }};--bg:{{ brand.bg }};--bg2:{{ brand.bg2 }};--accent:{{ brand.accent }};--sec:{{ brand.sec }};--sec-d:{{ brand.sec_d }};--sec-g:{{ brand.sec_g }};--on:{{ brand.on }}}
 html[data-theme=dark]{--pri:{{ brand.pri_dm }};--sec:{{ brand.sec_dm }};--sec-g:{{ brand.sec_g_dm }};--on:{{ brand.on_dm }}}
 aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{% endif %}<script>try{if(localStorage.getItem("sideOff")==="1"&&innerWidth>800)document.documentElement.classList.add("side-off")}catch(e){}</script>
@@ -50,7 +50,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
 {% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
-{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div id="recentRow" hidden></div><div class="sizesw" role="group" aria-label="Menu size"><button type="button" data-size="basic" title="Just the essentials">Basics</button><button type="button" data-size="team" title="Every hub">Team</button></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-hub="{{ hb.key }}" data-label="{{ hb.label }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span><span class="hl">{{ hb.label }}</span></a>{% endfor %}<span id="hubEnd"></span><div class="hubedit"><button type="button" id="hubEdit" aria-pressed="false">✎ Edit menu</button></div>{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
+{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div id="recentRow" hidden></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-hub="{{ hb.key }}" data-label="{{ hb.label }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span><span class="hl">{{ hb.label }}</span></a>{% endfor %}<span id="hubEnd"></span><div class="hubedit"><button type="button" id="hubEdit" aria-pressed="false">✎ Edit menu</button></div>{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
 <button type="button" class="alltools-btn" id="allBtn" onclick="openFinder()">🔎 Find any tool <span class="muted">· {{ NAV.values()|map('length')|sum }} pages</span></button>
 
 <div id="allTools" hidden>{% endif %}
@@ -71,7 +71,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 <button type="button" class="tb-theme" onclick="toggleTheme()" aria-label="Switch dark or light mode" title="Dark / light"></button>{% if user %}<a href="{{ url_for('dashboard') }}">Open app</a>{% else %}<a class="btn ghost hd-login" href="{{ url_for('auth.login') }}">Log in</a><a class="btn" href="{{ url_for('auth.signup') }}">Start free</a>{% endif %}</header>{% endif %}
 <main class="pubmain">
 {% endif %}
-{% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
+{% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}{% if m.startswith('Deleted.') and session.get('undo') %}<form method="post" action="{{ url_for('m_undo') }}?next={{ request.full_path|urlencode }}" style="display:inline"><button class="flash-undo">↩ Undo</button></form>{% endif %}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
 {% if HUB_TABS %}<nav class="hubtabs" data-hub="{{ HUB_CUR.key }}" aria-label="{{ HUB_CUR.label }} sections"><span class="ht-title">{{ HUB_CUR.icon }} <span class="ht-name">{{ HUB_CUR.label }}</span></span><div class="ht-row">{% for t in HUB_TABS %}<a class="ht{{ ' on' if t.on }}" href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}</div></nav>{% endif %}
 {% if HUB_NOW %}<span id="hubSlot" hidden></span>{% endif %}
 {% block body %}{% endblock %}
@@ -264,7 +264,8 @@ function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0
 
 
 window.toggleSide=function(){if(innerWidth<=800){document.body.classList.toggle("nav-open");return;}var h=document.documentElement,off=h.classList.toggle("side-off");try{localStorage.setItem("sideOff",off?"1":"0");}catch(e){}var b=document.getElementById("sideBtn");if(b){b.setAttribute("aria-expanded",off?"false":"true");}};
-document.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==="b"&&document.getElementById("sideBtn")){var t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t&&t.isContentEditable)return;e.preventDefault();toggleSide();}});
+document.addEventListener("keydown",function(e){if(e.key==="?"&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!document.querySelector("dialog[open]")){var t=e.target;if(t&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable))return;if(location.pathname!=="/help")location.href="/help";return;}
+if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==="b"&&document.getElementById("sideBtn")){var t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t&&t.isContentEditable)return;e.preventDefault();toggleSide();}});
 (function(){var b=document.getElementById("sideBtn");if(b&&document.documentElement.classList.contains("side-off"))b.setAttribute("aria-expanded","false");})();
 window.TOOLS={{ TOOLS|tojson }};window.HUBNOW={{ (HUB_NOW or "")|tojson }};
 // ---------- your menu: rename and reorder hubs (saved in this browser) + recently used tools ----------
@@ -272,6 +273,7 @@ window.TOOLS={{ TOOLS|tojson }};window.HUBNOW={{ (HUB_NOW or "")|tojson }};
  function get(k,d){try{return localStorage.getItem(k)||d;}catch(e){return d;}}
  function put(k,v){try{localStorage.setItem(k,v);}catch(e){}}
  var prefs={order:[],names:{},moves:{},tabOrder:{}};try{prefs=Object.assign(prefs,JSON.parse(get("hubPrefs","{}")));}catch(e){}
+ var MENU_VER=3;if(prefs.ver!==MENU_VER){prefs={order:[],names:{},moves:{},tabOrder:{},ver:MENU_VER};try{put("hubPrefs",JSON.stringify(prefs));}catch(e){}}   // menu layout changed: drop menus saved by older versions once
  prefs.order=prefs.order||[];prefs.names=prefs.names||{};prefs.moves=prefs.moves||{};prefs.tabOrder=prefs.tabOrder||{};
  var NOW=window.HUBNOW||"";
  var hubs=function(){return [].slice.call(box.querySelectorAll("a.hub"));};
@@ -319,15 +321,7 @@ window.TOOLS={{ TOOLS|tojson }};window.HUBNOW={{ (HUB_NOW or "")|tojson }};
     a.addEventListener("dragleave",function(){a.classList.remove("dropat");});
     a.addEventListener("drop",function(e){e.preventDefault();a.classList.remove("dropat");var h=e.dataTransfer.getData("text/plain"),hs=barOrder(nav),to=hs.indexOf(a.getAttribute("href"));if(h&&h!==a.getAttribute("href"))moveTab(nav,h,to);});}});}
  function save(){put("hubPrefs",JSON.stringify(prefs));}
- var BASIC={content:1,tasks:1,brand:1,campaigns:1,results:1};
- function size(){var v=get("menuSize","team");return v==="basic"?"basic":"team";}
- function applySize(){var sz=size();
-  hubs().forEach(function(a){var empty=a.dataset.empty==="1",hide=empty||(sz==="basic"&&!BASIC[a.dataset.hub]&&!a.classList.contains("on"));a.hidden=hide;});
-  box.querySelectorAll(".sizesw button").forEach(function(b){var on=b.dataset.size===sz;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");});
-  var n=hubs().filter(function(a){return a.hidden&&a.dataset.empty!=="1";}).length,m=box.querySelector(".sizemore");
-  if(n&&!m){m=document.createElement("button");m.type="button";m.className="sizemore";box.querySelector("#hubEnd").before(m);m.addEventListener("click",function(){put("menuSize","team");applySize();});}
-  if(m){if(n){m.hidden=false;m.textContent="+ "+n+" more (Team)";}else m.hidden=true;}}
- box.querySelectorAll(".sizesw button").forEach(function(b){b.addEventListener("click",function(){put("menuSize",b.dataset.size);applySize();});});
+ function applySize(){hubs().forEach(function(a){a.hidden=a.dataset.empty==="1";});}   // every hub is always listed
  // ---- the menu editor: rename hubs, reorder hubs and tabs, move any tab to any hub
  function dlg(){var d=document.getElementById("menuDlg");if(!d){d=document.createElement("dialog");d.id="menuDlg";d.className="menudlg";d.setAttribute("aria-label","Edit menu");document.body.appendChild(d);
   d.addEventListener("click",function(e){var t=e.target;if(t===d){d.close();return;}var b=t.closest("button[data-a]");if(!b)return;act(b.dataset.a,b);});

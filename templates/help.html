@@ -1,31 +1,37 @@
 {% extends "base.html" %}{% block title %}Help &amp; guides{% endblock %}{% block body %}
 <div class="head"><h1>❓ Help &amp; guides</h1><div>{% if role != 'client' %}<button class="btn ghost" onclick="startTour()">🧭 Take the tour again</button>{% endif %} <a class="btn" href="/feedback?from=/help">💬 Ask us or send feedback</a></div></div>
+<input id="hq" class="hq" type="search" placeholder="Search help: try “invite”, “dark mode”, “undo”, “phone”…" aria-label="Search help" autocomplete="off">
+<div id="hnone" class="card hnone">Nothing matches that. Try a shorter word, or <a href="/feedback?from=/help">ask us</a>.</div>
+{% if HUBS %}<div class="card" data-h><b>🧭 Your menu, hub by hub</b><p class="muted">This is the live map of your side panel, so it always matches what you see. Tap a hub to open it. If you renamed or moved things with ✎ Edit menu, your own names show in the side panel itself.</p>
+<div class="hgrid">{% for h in HUBS %}<a class="hub" href="{{ h.href }}"><b>{{ h.icon }} {{ h.label }}</b><small>{% for t in h.tabs %}{{ t.label }}{{ ' · ' if not loop.last }}{% endfor %}</small></a>{% endfor %}</div></div>{% endif %}
+<div class="card" data-h><b>⌨️ Shortcuts</b><div style="margin-top:8px"><div class="news krow"><span><span class="kbd">Ctrl</span> + <span class="kbd">K</span> (<span class="kbd">⌘</span> + <span class="kbd">K</span> on Mac)</span><span class="muted">Jump to search from anywhere</span></div><div class="news krow"><span><span class="kbd">Ctrl</span> + <span class="kbd">B</span></span><span class="muted">Hide or show the side panel</span></div><div class="news krow"><span><span class="kbd">?</span></span><span class="muted">Open this help page (when you're not typing in a box)</span></div><div class="news krow"><span><span class="kbd">Alt</span> + <span class="kbd">←</span> <span class="kbd">→</span> <span class="kbd">↑</span> <span class="kbd">↓</span></span><span class="muted">Move a focused card between columns or up and down</span></div><div class="news krow"><span><span class="kbd">Esc</span></span><span class="muted">Close a pop-up, the finder or the search results</span></div></div></div>
+<div class="card" data-h><b>↩️ Made a mistake?</b><p class="muted">After you delete a record, an <b>↩ Undo</b> button appears in the pop-up message for a few seconds. Tap it and the record comes straight back. Use <b>⧉</b> on any card or row to make a copy to tweak instead of starting from blank. Bigger changes: <b>Account → Start over</b> wipes the workspace but keeps you and your team.</p></div>
 <div class="card" style="border:1px solid var(--pri3)"><b>📖 User manual</b><p class="muted">Start here. Sign up, find your way around, invite your team, make mood boards, pick your colours, stay secure and fix things when they get weird.</p><a class="btn" href="{{ url_for('manual') }}">Read the manual</a> <a class="btn ghost" href="{{ url_for('static', filename='guides/Debut-User-Manual.pdf') }}" target="_blank" rel="noopener">Download PDF</a></div>
-<div class="card"><b>📖 Jargon buster</b><p class="muted">GTM, UTM, KPI, ICP and friends, explained in plain English with where to find each in the app.</p><a class="btn" href="{{ url_for('glossary') }}">Open the jargon buster</a></div>
-<div class="card"><b>🖼️ Visual tour of the app</b><p class="muted">Real screenshots of every screen and role: dashboards, calendar, Market Pulse, Team hub, the client portal, mobile and more.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Visual-Tour.pdf') }}" target="_blank" rel="noopener">Open PDF</a></div>
-<div class="two"><div class="card"><b>📘 Guide for personal brands</b><p class="muted">Set up in 30 minutes, your first 7 days, AI drafts in your voice, opportunities, leads, KPIs and a weekly rhythm.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Guide-Personal-Branding.pdf') }}" target="_blank" rel="noopener">Open PDF</a></div>
-<div class="card"><b>📗 Guide for agencies &amp; teams</b><p class="muted">Roles, the Team hub, approvals, delegation, agency operations, client work and a leader's weekly routine.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Guide-Agencies-and-Teams.pdf') }}" target="_blank" rel="noopener">Open PDF</a></div></div>
-<div class="card"><b>🗺️ Where is everything?</b><p class="muted">A quick map from "I want to..." to the menu path.</p>
-<table style="box-shadow:none;margin-top:8px"><tr><th>I want to…</th><th>Go to</th></tr>
-<tr><td>See what to do right now, with nothing overdue missed</td><td>🏠 Home button (top left) &gt; the "Today" list at the top</td></tr>
-<tr><td>Check how my marketing is doing &amp; what's left to fix</td><td>Growth &gt; Marketing Health</td></tr>
-<tr><td>Plan a launch or campaign strategy</td><td>Strategy &gt; Launch Plans (GTM)</td></tr>
-<tr><td>See who I'm marketing to</td><td>Strategy &gt; Personas / ICP</td></tr>
-<tr><td>Keep my colours, fonts and voice consistent</td><td>Strategy &gt; Brand Kit</td></tr>
+<div class="card" data-h><b>📖 Jargon buster</b><p class="muted">GTM, UTM, KPI, ICP and friends, explained in plain English with where to find each in the app.</p><a class="btn" href="{{ url_for('glossary') }}">Open the jargon buster</a></div>
+<div class="card" data-h><b>🖼️ Visual tour of the app</b><p class="muted">Real screenshots of every screen and role: dashboards, calendar, Market Pulse, Team hub, the client portal, mobile and more.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Visual-Tour.pdf') }}" target="_blank" rel="noopener">Open PDF</a></div>
+<div class="two"><div class="card" data-h><b>📘 Guide for personal brands</b><p class="muted">Set up in 30 minutes, your first 7 days, AI drafts in your voice, opportunities, leads, KPIs and a weekly rhythm.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Guide-Personal-Branding.pdf') }}" target="_blank" rel="noopener">Open PDF</a></div>
+<div class="card" data-h><b>📗 Guide for agencies &amp; teams</b><p class="muted">Roles, the Team hub, approvals, delegation, agency operations, client work and a leader's weekly routine.</p><a class="btn" href="{{ url_for('static', filename='guides/Debut-Guide-Agencies-and-Teams.pdf') }}" target="_blank" rel="noopener">Open PDF</a></div></div>
+<div class="card" data-h><b>🗺️ Where is everything?</b><p class="muted">A quick map from "I want to..." to the menu path.</p>
+<table class="stack hmap" style="box-shadow:none;margin-top:8px"><tr><th>I want to…</th><th>Go to</th></tr>
+<tr><td>See what to do right now, with nothing overdue missed</td><td>🏠 Home button (top left), then the “Today” list at the top</td></tr>
+<tr><td>Check how my marketing is doing &amp; what's left to fix</td><td>Results &amp; Insights &gt; Marketing health</td></tr>
+<tr><td>Plan a launch or campaign strategy</td><td>Strategy &amp; Launch &gt; Launch plans (GTM)</td></tr>
+<tr><td>See who I'm marketing to</td><td>Strategy &amp; Launch &gt; Ideal customers</td></tr>
+<tr><td>Keep my colours, fonts and voice consistent</td><td>Brand &amp; Ideas &gt; Brand kit</td></tr>
 <tr><td>Pull my logo, colours and font straight from an existing brand deck</td><td>⚙ Account &gt; Brand deck scan</td></tr>
-<tr><td>Schedule posts and see the month at a glance</td><td>Content &gt; Calendar</td></tr>
-<tr><td>Collect visual inspiration for a launch</td><td>Content &gt; Mood Boards</td></tr>
-<tr><td>Get content or campaign ideas for my industry</td><td>Content &gt; Idea Bank (also pops up as "Need an idea?" right inside a new Content Item)</td></tr>
-<tr><td>Draft copy, plans or a calendar with AI</td><td>Intelligence &gt; AI Studio</td></tr>
-<tr><td>See live news and trends for my industry</td><td>Intelligence &gt; Market Pulse</td></tr>
-<tr><td>Find and contact influencers</td><td>Campaigns &gt; Discover Influencers</td></tr>
-<tr><td>Track leads and enquiries</td><td>Growth &gt; Leads</td></tr>
-<tr><td>Log and chart my KPIs</td><td>Growth &gt; Results Log (KPIs) / Analytics</td></tr>
-<tr><td>Run a client's content through review and approval</td><td>Content Ops (agency workflow) / Team hub</td></tr>
-<tr><td>See what my whole team is working on</td><td>👥 Team → Team hub (owners/admins/leads)</td></tr>
-<tr><td>Invite a teammate or a client</td><td>👥 Team &amp; roles</td></tr>
-<tr><td>Send a client a read-only report</td><td>📑 Client report</td></tr>
-<tr><td>Connect a website form, webhook or the REST API</td><td>🔌 Integrations</td></tr>
+<tr><td>Schedule posts and see the month at a glance</td><td>Content &amp; Calendar &gt; Calendar</td></tr>
+<tr><td>Collect visual inspiration for a launch</td><td>Brand &amp; Ideas &gt; Mood boards</td></tr>
+<tr><td>Get content or campaign ideas for my industry</td><td>Content &amp; Calendar &gt; Idea bank, the tab right next to Calendar (also on any calendar day: click the date, then “Pick an idea”; it also pops up as "Need an idea?" right inside a new Content Item)</td></tr>
+<tr><td>Draft copy, plans or a calendar with AI</td><td>AI &amp; Market News &gt; AI Studio</td></tr>
+<tr><td>See live news and trends for my industry</td><td>AI &amp; Market News &gt; Live news</td></tr>
+<tr><td>Find and contact influencers</td><td>Influencers &amp; PR &gt; Find influencers</td></tr>
+<tr><td>Track leads and enquiries</td><td>Leads &amp; Clients &gt; Leads</td></tr>
+<tr><td>Log and chart my KPIs</td><td>Results &amp; Insights &gt; Results log / Analytics</td></tr>
+<tr><td>Run a client's content through review and approval</td><td>Creators &amp; Payments &gt; Ops dashboard, or Team &gt; Team hub</td></tr>
+<tr><td>See what my whole team is working on</td><td>Team &gt; Team hub (owners, admins and leads)</td></tr>
+<tr><td>Invite a teammate or a client</td><td>Team &gt; Team &amp; roles</td></tr>
+<tr><td>Send a client a read-only report</td><td>Leads &amp; Clients &gt; Client report</td></tr>
+<tr><td>Connect a website form, webhook or the REST API</td><td>🔌 Integrations (Account menu)</td></tr>
 <tr><td>See what's needed to bring in real Instagram/Facebook/Google Ads numbers</td><td>⚙ Account &gt; Connected accounts</td></tr>
 <tr><td>Change plan or payment details</td><td>💳 Plan (Billing)</td></tr>
 <tr><td>Add anything fast (content, task, campaign, lead, key date)</td><td>＋ Create (top bar), or the big ＋ at the bottom on a phone</td></tr>
@@ -35,29 +41,39 @@
 <tr><td>Reorder your pins</td><td>With two or more pinned pages, drag the ⠿ next to a pin to reorder them.</td></tr>
 <tr><td>Pin your favourite pages</td><td>Hover a page in the side menu and click ☆. Pinned pages stay at the top under ⭐ Pinned. To rename, reorder or move tabs between hubs use ✎ Edit menu.</td></tr>
 <tr><td>Search everything</td><td>The search box (top bar), or Ctrl+K (⌘+K on Mac) to jump to it</td></tr>
-<tr><td>Make a tracking link for a post or ad</td><td>Campaigns &gt; UTM Builder</td></tr>
-<tr><td>Run an A/B test</td><td>Campaigns &gt; Experiments</td></tr>
+<tr><td>Make a tracking link for a post or ad</td><td>Campaigns &amp; Events &gt; Trackable links</td></tr>
+<tr><td>Run an A/B test</td><td>Campaigns &amp; Events &gt; Experiments</td></tr>
 <tr><td>Send a mood board to someone</td><td>Mood Boards &gt; open a board &gt; 🔗 Share</td></tr>
 <tr><td>Add many teammates at once</td><td>👥 Team &amp; roles &gt; paste emails, or upload the CSV template</td></tr>
 <tr><td>Choose my secondary colour</td><td>⚙ Account &gt; Secondary colour (or "Use auto")</td></tr>
 <tr><td>Turn on two-factor login or change my brand colour</td><td>⚙ Account</td></tr>
 </table></div>
-<div class="card"><b>Quick answers</b>
-<div class="news"><b>Where is everything?</b><div class="muted">🏠 Home (top left) goes to your dashboard. Side-panel headings open and close like dropdowns. Click your name (top right) for Profile, Send feedback and Log out; your role (Owner, Admin, Manager, Lead…) shows under it. ❓ opens these guides and 🔔 your notifications.</div></div>
-<div class="news"><b>How do I invite my team?</b><div class="muted">Team &amp; roles → type or paste as many emails as you like (commas, spaces or new lines) and pick one role for all of them. For different roles per person, download the CSV template, fill it in and upload it. Pending invites can be revoked — it shows in the Activity log.</div></div>
-<div class="news"><b>How do I send a mood board to someone?</b><div class="muted">Open the board → 🔗 Share. Copy the team link (sign-in needed) or create a public view-only link anyone can open. You can make a new link or turn it off any time.</div></div>
-<div class="news"><b>I already have a free account — what happens when my company adds me?</b><div class="muted">Your own free workspace stays exactly as it is. Accepting the company's invite adds you to the company workspace, where you get that workspace's plan and the role they gave you. Switch between them from the workspace name at the top left.</div></div>
-<div class="news"><b>How does search work?</b><div class="muted">Type in the search box (top bar) and press Enter to search everything. The ✕ in the box or Esc clears it, and “✕ Close search” on the results page takes you back. Ctrl+K (⌘+K on Mac) jumps to the box from anywhere.</div></div>
-<div class="news"><b>What do I fill in for Experiments?</b><div class="muted">Change one thing, measure one number. Hypothesis: “If we [change], then [result], because [reason]”. Channel, Success metric (the one number you watch), Variant A (what you do now), Variant B (the one change), Status, and after the test the Result / decision.</div></div>
-<div class="news"><b>How do I make a tracking link?</b><div class="muted">Campaigns &gt; UTM Builder &gt; ＋ New UTM link. Fill the form, watch the finished link build, press Copy.</div></div>
-<div class="news"><b>What do the roles mean?</b><div class="muted">Owner and Admin run everything; Lead and Manager work day to day; Creators see only their own work (no prices); Viewers read only; Clients only see their portal. The full table is in the <a href="{{ url_for('manual') }}#team">user manual</a>.</div></div>
-<div class="news"><b>How do I start?</b><div class="muted">Follow the “Get started” checklist on your Home screen. Each step opens the right page.</div></div>
-<div class="news"><b>What should I actually do each day?</b><div class="muted">Click Home (top left) — the "Today" list at the top auto-builds itself from what's overdue plus what's due today, so you don't have to check every module by hand. For the fuller picture (brand consistency, posting consistency, campaign spend, leads) with a full checklist of gaps, see Marketing Health.</div></div>
-<div class="news"><b>Where did the "More tools" popup go?</b><div class="muted">It's gone for good — every module now shows directly in the sidebar. Pop-ups are kept only for things that genuinely depend on another panel, like "Need an idea?" inside a new Content Item.</div></div>
-<div class="news"><b>Does {{ C.APP_NAME }} post to LinkedIn or Instagram for me?</b><div class="muted">No. You plan and draft here, post on the platform yourself, then mark the item Published.</div></div>
-<div class="news"><b>Why is a menu item locked (🔒)?</b><div class="muted">It's part of a higher plan. You can see everything you have; nothing is deleted if you stay on Free.</div></div>
-<div class="news"><b>AI says I've used my credits.</b><div class="muted">Credits reset each month and depend on your plan. Verify your email to use AI.</div></div>
-<div class="news"><b>How do I add a teammate?</b><div class="muted">Team &amp; roles &gt; Invite someone (Team and Agency plans have more seats). Use the lowest role that works.</div></div>
-<div class="news"><b>How do I get my data out?</b><div class="muted">“Export data” in the menu downloads everything as spreadsheets. You can also delete your workspace under Account.</div></div>
-<div class="news"><b>I lost my phone (two-factor).</b><div class="muted">Use one of your recovery codes on the code screen, or contact us to reset it.</div></div></div>
-<div class="card"><b>Still stuck?</b><p class="muted">Use <b>Send feedback</b> (it includes the page you were on) or see our <a href="{{ url_for('contact') }}">Contact page</a>.</p></div>{% endblock %}
+<div class="card" data-h><b>Quick answers</b>
+<div class="news" data-h><b>Where is everything?</b><div class="muted">🏠 Home (top left) goes to your dashboard. The side panel lists your hubs; the ☰ button in the corner hides or shows it. Click your name (top right) for Profile, Send feedback and Log out; your role (Owner, Admin, Manager, Lead…) shows under it. ❓ opens these guides and 🔔 your notifications.</div></div>
+<div class="news" data-h><b>How do I invite my team?</b><div class="muted">Team &gt; Team &amp; roles: type or paste as many emails as you like (commas, spaces or new lines) and pick one role for all of them. For different roles per person, download the CSV template, fill it in and upload it. Pending invites can be revoked — it shows in the Activity log.</div></div>
+<div class="news" data-h><b>How do I send a mood board to someone?</b><div class="muted">Open the board → 🔗 Share. Copy the team link (sign-in needed) or create a public view-only link anyone can open. You can make a new link or turn it off any time.</div></div>
+<div class="news" data-h><b>I already have a free account — what happens when my company adds me?</b><div class="muted">Your own free workspace stays exactly as it is. Accepting the company's invite adds you to the company workspace, where you get that workspace's plan and the role they gave you. Switch between them from the workspace name at the top left.</div></div>
+<div class="news" data-h><b>How does search work?</b><div class="muted">Type in the search box (top bar) and press Enter to search everything. The ✕ in the box or Esc clears it, and “✕ Close search” on the results page takes you back. Ctrl+K (⌘+K on Mac) jumps to the box from anywhere.</div></div>
+<div class="news" data-h><b>What do I fill in for Experiments?</b><div class="muted">Change one thing, measure one number. Hypothesis: “If we [change], then [result], because [reason]”. Channel, Success metric (the one number you watch), Variant A (what you do now), Variant B (the one change), Status, and after the test the Result / decision.</div></div>
+<div class="news" data-h><b>How do I make a tracking link?</b><div class="muted">Campaigns &amp; Events &gt; Trackable links &gt; ＋ New link. Fill the form, watch the finished link build, press Copy.</div></div>
+<div class="news" data-h><b>What do the roles mean?</b><div class="muted">Owner and Admin run everything; Lead and Manager work day to day; Creators see only their own work (no prices); Viewers read only; Clients only see their portal. The full table is in the <a href="{{ url_for('manual') }}#team">user manual</a>.</div></div>
+<div class="news" data-h><b>How do I start?</b><div class="muted">Follow the “Get started” checklist on your Home screen. Each step opens the right page.</div></div>
+<div class="news" data-h><b>What should I actually do each day?</b><div class="muted">Click Home (top left) — the "Today" list at the top auto-builds itself from what's overdue plus what's due today, so you don't have to check every module by hand. For the fuller picture (brand consistency, posting consistency, campaign spend, leads) with a full checklist of gaps, see Marketing Health.</div></div>
+<div class="news" data-h><b>Where did the “More tools” popup go?</b><div class="muted">It's gone for good — every module now shows directly in the sidebar. Pop-ups are kept only for things that genuinely depend on another panel, like "Need an idea?" inside a new Content Item.</div></div>
+<div class="news" data-h><b>Does {{ C.APP_NAME }} post to LinkedIn or Instagram for me?</b><div class="muted">No. You plan and draft here, post on the platform yourself, then mark the item Published.</div></div>
+<div class="news" data-h><b>Why is a menu item locked (🔒)?</b><div class="muted">It's part of a higher plan. You can see everything you have; nothing is deleted if you stay on Free.</div></div>
+<div class="news" data-h><b>AI says I've used my credits.</b><div class="muted">Credits reset each month and depend on your plan. Verify your email to use AI.</div></div>
+<div class="news" data-h><b>How do I add a teammate?</b><div class="muted">Team &gt; Team &amp; roles &gt; Invite someone (Team and Agency plans have more seats). Use the lowest role that works.</div></div>
+<div class="news" data-h><b>How do I get my data out?</b><div class="muted">“Export data” in the menu downloads everything as spreadsheets. You can also delete your workspace under Account.</div></div>
+<div class="news" data-h><b>I lost my phone (two-factor).</b><div class="muted">Use one of your recovery codes on the code screen, or contact us to reset it.</div></div></div>
+<div class="card" data-h><b>Still stuck?</b><p class="muted">Use <b>Send feedback</b> (it includes the page you were on) or see our <a href="{{ url_for('contact') }}">Contact page</a>.</p></div><script>(function(){var q=document.getElementById("hq"),none=document.getElementById("hnone");if(!q)return;
+var cards=[].slice.call(document.querySelectorAll(".card[data-h]"));
+function T(e){return e.textContent.toLowerCase()}
+function run(){var t=q.value.trim().toLowerCase(),shown=0;
+cards.forEach(function(c){var leaves=[].slice.call(c.querySelectorAll(".news,.hub,tr")).filter(function(r){return !r.querySelector("th")});
+if(!t){c.style.display="";leaves.forEach(function(l){l.style.display=""});shown++;return}
+var titleHit=T(c.firstElementChild).indexOf(t)>-1,any=false;
+leaves.forEach(function(l){var ok=titleHit||T(l).indexOf(t)>-1;l.style.display=ok?"":"none";if(ok)any=true});
+var ok=leaves.length?any:T(c).indexOf(t)>-1;c.style.display=ok?"":"none";if(ok)shown++});
+none.style.display=shown?"none":"block"}
+q.addEventListener("input",run)})();</script>{% endblock %}

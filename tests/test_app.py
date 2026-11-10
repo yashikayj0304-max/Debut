@@ -1,4 +1,5 @@
 import re
+import html
 import io, os, re, json, hmac, hashlib, datetime as dt
 import pytest
 import config as C
@@ -3821,7 +3822,8 @@ def test_launch_checklist_and_watchlist_reject_blank_records(app):
 def test_menu_size_switch_and_industry_chip(app):
     o = signup(app, "size@x.com")
     h = o.get("/app").data.decode()
-    assert 'data-size="basic"' in h and 'data-size="team"' in h and "menuSize" in h and "Daily" not in h.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    assert 'data-size="basic"' not in h and 'data-size="team"' not in h and 'class="sizesw"' not in h and "Daily" not in h.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    assert 'data-hub="team"' in h and 'var BASIC' not in h and "teamNav" not in h      # no Basics/Team switch: every hub is listed, Team last
     i = o.get("/ideas").data.decode()
     assert 'href="/account#industry"' in i
     assert 'id="industry"' in o.get("/account").data.decode()
@@ -3865,3 +3867,180 @@ def test_start_over_and_delete_account(app):
     # and the same email can sign up again from scratch
     again = signup(app, "bye@x.com")
     assert again.get("/app").status_code == 200
+
+
+def _mk(o, key="tasks", title="Write the brief"):
+    r = o.post(f"/m/{key}/save", data={"title": title, "status": "To do"}, follow_redirects=False)
+    assert r.status_code in (302, 303)
+
+
+def _ids(app, key):
+    return [x["title"] for x in dbq(app, f"SELECT title FROM {key} ORDER BY id")]
+
+
+def test_delete_can_be_undone(app):
+    o = signup(app, "undo@x.com")
+    _mk(o)
+    rid = dbq(app, "SELECT id FROM tasks", one=True)["id"]
+    r = o.post(f"/m/tasks/{rid}/delete", follow_redirects=True)
+    h = r.data.decode()
+    assert "Deleted" in h and "/m/undo" in h and "Undo" in h
+    assert _ids(app, "tasks") == []
+    r = o.post("/m/undo", follow_redirects=True)
+    assert "Restored" in r.data.decode()
+    assert _ids(app, "tasks") == ["Write the brief"]
+    assert "Nothing to undo" in o.post("/m/undo", follow_redirects=True).data.decode()   # only once
+
+
+def test_undo_never_crosses_workspaces(app):
+    a = signup(app, "ua@x.com")
+    _mk(a)
+    rid = dbq(app, "SELECT id FROM tasks", one=True)["id"]
+    a.post(f"/m/tasks/{rid}/delete")
+    b = signup(app, "ub@x.com")
+    assert "Nothing to undo" in b.post("/m/undo", follow_redirects=True).data.decode()
+    assert _ids(app, "tasks") == []
+
+
+def test_duplicate_record(app):
+    o = signup(app, "dup@x.com")
+    _mk(o)
+    rid = dbq(app, "SELECT id FROM tasks", one=True)["id"]
+    r = o.post(f"/m/tasks/{rid}/duplicate")
+    assert r.status_code in (302, 303)
+    assert _ids(app, "tasks") == ["Write the brief", "Write the brief (copy)"]
+    assert "Duplicate" in o.get("/m/tasks").data.decode()
+
+
+def test_viewer_cannot_delete_duplicate_or_undo(app):
+    o = signup(app, "own@x.com")
+    _mk(o)
+    rid = dbq(app, "SELECT id FROM tasks", one=True)["id"]
+    dbx(app, "UPDATE memberships SET role='viewer'")
+    for u in (f"/m/tasks/{rid}/duplicate", f"/m/tasks/{rid}/delete", "/m/undo"):
+        assert o.post(u).status_code == 403
+    assert _ids(app, "tasks") == ["Write the brief"]
+
+
+def test_help_matches_live_menu_and_has_search(app):
+    o = signup(app, "help@x.com")
+    h = o.get("/help").data.decode()
+    assert 'id="hq"' in h and 'id="hnone"' in h and "Shortcuts" in h and "Undo" in h
+    nav = o.get("/app").data.decode()
+    for lbl in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas"):
+        assert lbl in h, lbl
+    for stale in ("Growth &gt;", "Intelligence &gt;", "Strategy &gt; Brand Kit", "Content &gt; Mood Boards"):
+        assert stale not in h, stale
+
+
+def test_mobile_meta_and_safe_areas(app):
+    o = signup(app, "mob@x.com")
+    h = o.get("/app").data.decode()
+    assert "viewport-fit=cover" in h
+    css = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "identity.css")).read()
+    assert "safe-area-inset-bottom" in css and "focus-visible" in css and "prefers-reduced-motion" in css
+
+
+def test_every_menu_tab_loads_without_errors(app):
+    o = signup(app, "crawl@x.com")
+    html = o.get("/app").data.decode()
+    tabs = re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", html, re.S)
+    hrefs = sorted({it[1] for grp in json.loads(tabs.group(1)) for it in grp["items"]}) if tabs else []
+    assert len(hrefs) > 20
+    for hr in hrefs:
+        r = o.get(hr, follow_redirects=True)
+        assert r.status_code == 200, hr
+        assert "Traceback" not in r.data.decode(), hr
+
+
+def test_friendly_404_and_health(app):
+    c = app.test_client()
+    r = c.get("/definitely-not-a-page")
+    assert r.status_code == 404 and "Traceback" not in r.data.decode() and "404" in r.data.decode()
+    assert c.get("/health").get_json()["status"] == "ok"
+    for p in ("/pricing", "/privacy", "/terms", "/contact", "/refunds"):
+        assert c.get(p).status_code == 200, p
+
+
+def test_calendar_day_popup_and_navigation(app):
+    o = signup(app, "calnav@x.com")
+    h = o.get("/calendar?y=2026&m=11").data.decode()
+    for hook in ('id="dayDlg"', 'id="dPrev"', 'id="dNext"', 'id="dToday"', 'id="calM"', 'id="calY"', 'id="mPrev"', 'id="mNext"', 'data-date="2026-11-12"'):
+        assert hook in h, hook
+    assert '<option value="2026" selected>' in h and '<option value="11" selected>' in h
+    assert 'href="?y=2026&m=10' in h and 'href="?y=2026&m=12' in h          # month before / after
+    r = o.get("/calendar?d=2026-03-31&open=1").data.decode()               # deep link to a day opens its pop-up and shows that month
+    assert '<option value="3" selected>' in r and "show(SEL)" in r
+    assert o.get("/calendar?d=nonsense").status_code == 400
+    assert o.get("/calendar?d=2026-12-31&y=2026&m=12").status_code == 200
+
+
+def test_menu_team_mode_only_team_hub(app):
+    o = signup(app, "teamonly@x.com")
+    h = o.get("/app").data.decode()
+    assert 'data-hub="team"' in h and "teamNav" not in h and "menuSize" not in h and 'class="sizesw"' not in h
+
+
+def test_help_phone_friendly_table(app):
+    h = signup(app, "helpphone@x.com").get("/help").data.decode()
+    assert 'class="stack hmap"' in h and 'class="news krow"' in h
+    assert "<title>Help" in h and "<script>" not in h.split("</title>")[0]      # the search script must never leak into the page title
+    assert h.count('getElementById("hq")') == 1
+
+
+def test_presence_heartbeat_does_not_depend_on_script_order(app):
+    o = signup(app, "pres@x.com")
+    _mk(o)
+    rid = dbq(app, "SELECT id FROM tasks", one=True)["id"]
+    h = o.get(f"/m/tasks/{rid}/edit").data.decode()
+    assert "meta[name=csrf-token]" in h.split("presence", 1)[1][:900] or "meta[name=csrf-token]" in h   # first ping can run before window.CSRF exists
+    assert o.post(f"/m/tasks/{rid}/presence").status_code == 200
+
+
+def test_idea_goes_straight_onto_calendar(app):
+    o = signup(app, "ideacal@x.com")
+    ih = o.get("/ideas").data.decode()
+    assert "/ideas/schedule" in ih and 'type="date"' in ih and "Schedule" in ih
+    idea = re.search(r'name="title" value="([^"]+)"', ih).group(1)
+    r = o.post("/ideas/schedule", data={"title": idea, "channel": "Instagram", "format": "Reel / Short", "pillar": "P", "date": "2026-11-12", "next": "/calendar"}, follow_redirects=True)
+    assert r.status_code == 200 and "Scheduled for" in r.data.decode()
+    row = dbq(app, "SELECT * FROM content_items", one=True)
+    assert row["title"] == html.unescape(idea) and row["publish_date"] == "2026-11-12" and row["status"] == "Planned" and row["channel"] == "Instagram"
+    cal = o.get("/calendar?y=2026&m=11").data.decode()
+    assert 'data-date="2026-11-12"' in cal and "Pick from your ideas" in cal and "ddDate" in cal
+    assert html.unescape(idea) in html.unescape(cal)                      # it is now a chip on the 12th
+
+
+def test_idea_schedule_rejects_bad_input_and_viewers(app):
+    o = signup(app, "ideabad@x.com")
+    r = o.post("/ideas/schedule", data={"title": "x", "date": "not-a-date"}, follow_redirects=True)
+    assert "Pick a date" in r.data.decode() and dbq(app, "SELECT COUNT(*) c FROM content_items", one=True)["c"] == 0
+    assert o.post("/ideas/schedule", data={"title": "", "date": "2026-11-12"}).status_code == 400
+    r = o.post("/ideas/schedule", data={"title": "<b>x</b>", "channel": "Hack", "format": "Hack", "date": "2026-11-12"})
+    row = dbq(app, "SELECT * FROM content_items", one=True)
+    assert row["channel"] == "Other" and row["format"] == "Post"           # unknown values fall back, never stored raw
+    dbx(app, "UPDATE memberships SET role='viewer'")
+    assert o.post("/ideas/schedule", data={"title": "y", "date": "2026-11-13"}).status_code == 403
+
+
+def test_idea_bank_is_a_tab_right_after_calendar(app):
+    o = signup(app, "ideaflow@x.com")
+    h = o.get("/app").data.decode()
+    groups = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
+    content = next(g for g in groups if g["k"] == "content")
+    labels = [it[0] for it in content["items"]]
+    assert labels.index(next(l for l in labels if "Idea bank" in l)) == labels.index(next(l for l in labels if "Calendar" in l)) + 1
+    assert 'data-hub="ideas"' not in h                                                    # not a separate hub
+    cal = o.get("/calendar?y=2026&m=11").data.decode()
+    assert 'class="dd-ideas"' in cal and 'class="dd-idea"' in cal
+    r = o.post("/ideas/schedule", data={"title": "Behind the scenes reel", "channel": "Instagram", "format": "Reel", "pillar": "Trust", "date": "2026-11-12", "next": "/calendar?y=2026&m=11"}, follow_redirects=False)
+    assert r.status_code in (302, 303)
+    row = dbq(app, "SELECT title, publish_date, status FROM content_items", one=True)
+    assert row["publish_date"] == "2026-11-12" and row["title"] == "Behind the scenes reel"
+
+
+def test_css_links_are_versioned_and_old_saved_menus_are_dropped(app):
+    o = signup(app, "cache@x.com")
+    h = o.get("/app").data.decode()
+    assert re.search(r"identity\.css\?v=\d+", h) and re.search(r"style\.css\?v=\d+", h)    # a redeploy is never hidden by a cached stylesheet
+    assert "MENU_VER=3" in h and "prefs.ver!==MENU_VER" in h                                 # menus saved by older versions are reset once

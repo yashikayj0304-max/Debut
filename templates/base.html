@@ -10,11 +10,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='identity.css') }}">
 {% if brand %}<style>:root{--pri:{{ brand.pri }};--pri-d:{{ brand.pri_d }};--pri2:{{ brand.pri2 }};--pri3:{{ brand.pri3 }};--bg:{{ brand.bg }};--bg2:{{ brand.bg2 }};--accent:{{ brand.accent }};--sec:{{ brand.sec }};--sec-d:{{ brand.sec_d }};--sec-g:{{ brand.sec_g }};--on:{{ brand.on }}}
 html[data-theme=dark]{--pri:{{ brand.pri_dm }};--sec:{{ brand.sec_dm }};--sec-g:{{ brand.sec_g_dm }};--on:{{ brand.on_dm }}}
-aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{% endif %}</head>
+aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{% endif %}<script>try{if(localStorage.getItem("sideOff")==="1"&&innerWidth>800)document.documentElement.classList.add("side-off")}catch(e){}</script>
+</head>
 <body class="{{ 'app' if (user and ws and not bare) else 'pub' }}">
 {% if user and ws and not bare %}
 <div class="topbar">
-<button class="menu-btn" aria-label="Menu" onclick="document.body.classList.toggle('nav-open')">☰</button>
+<button class="menu-btn" id="sideBtn" type="button" aria-label="Show or hide the side panel" aria-expanded="true" title="Show or hide the side panel (Ctrl+B)" onclick="toggleSide()">☰</button>
 <a class="tb-home" href="{{ url_for('dashboard') }}" data-tour="dashboard" title="Home - back to your dashboard" aria-label="Home"><span class="tb-home-i">🏠</span><span class="tb-home-t">Home</span></a>
 <a class="tb-brand" href="{{ url_for('dashboard') }}">{% if ws['logo_url'] %}<img class="logo" src="{{ media(ws['logo_url']) }}" alt="">{% else %}<img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="">{% endif %}<span>{{ ws['name'] }}</span></a>
 <div class="tb-right">
@@ -49,7 +50,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
 {% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
-{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div id="recentRow" hidden></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-hub="{{ hb.key }}" data-label="{{ hb.label }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span><span class="hl">{{ hb.label }}</span></a>{% endfor %}<span id="hubEnd"></span><div class="hubedit"><button type="button" id="hubEdit" aria-pressed="false">✎ Edit menu</button><button type="button" id="hubReset" hidden>↺ Reset</button></div>{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
+{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div id="recentRow" hidden></div><div class="sizesw" role="group" aria-label="Menu size"><button type="button" data-size="basic" title="Just the essentials">Basics</button><button type="button" data-size="team" title="Every hub">Team</button></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-hub="{{ hb.key }}" data-label="{{ hb.label }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span><span class="hl">{{ hb.label }}</span></a>{% endfor %}<span id="hubEnd"></span><div class="hubedit"><button type="button" id="hubEdit" aria-pressed="false">✎ Edit menu</button></div>{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
 <button type="button" class="alltools-btn" id="allBtn" onclick="openFinder()">🔎 Find any tool <span class="muted">· {{ NAV.values()|map('length')|sum }} pages</span></button>
 
 <div id="allTools" hidden>{% endif %}
@@ -72,6 +73,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% endif %}
 {% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
 {% if HUB_TABS %}<nav class="hubtabs" data-hub="{{ HUB_CUR.key }}" aria-label="{{ HUB_CUR.label }} sections"><span class="ht-title">{{ HUB_CUR.icon }} <span class="ht-name">{{ HUB_CUR.label }}</span></span><div class="ht-row">{% for t in HUB_TABS %}<a class="ht{{ ' on' if t.on }}" href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}</div></nav>{% endif %}
+{% if HUB_NOW %}<span id="hubSlot" hidden></span>{% endif %}
 {% block body %}{% endblock %}
 {% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><button type="button" class="theme-link" onclick="toggleTheme()">🌙 Dark / light</button><a href="{{ url_for('manual') }}">User manual</a><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
 </main>{% if user and ws and not bare %}</div>{% endif %}
@@ -254,42 +256,104 @@ function tourStep(i){
 // a click on anything that is not the tour card means "I'm using the app": drop the tour so no button ever feels dead
 document.addEventListener('click',function(e){if(document.querySelector('.tour-pop')&&!e.target.closest('.tour-pop'))dismissTour();},true);
 function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0);}
-{% if user and ws and not bare and not user['onboarded'] and role not in ('client',) %}window.addEventListener('load',function(){setTimeout(startTour,600);});{% endif %}
+{% if user and ws and request.path == '/app' and not bare and not user['onboarded'] and role not in ('client',) %}window.addEventListener('load',function(){setTimeout(startTour,600);});{% endif %}
 
 // ---------- shorter sidebar: essentials + searchable All tools ----------
 (function(){var p=location.pathname;document.querySelectorAll('.bnav a[href]').forEach(function(a){var h=a.getAttribute('href');if(h&&h!=='#'&&(h===p||(h.length>1&&p.indexOf(h)===0&&h!=='/')))a.classList.add('on')})})();
 
 
 
+window.toggleSide=function(){if(innerWidth<=800){document.body.classList.toggle("nav-open");return;}var h=document.documentElement,off=h.classList.toggle("side-off");try{localStorage.setItem("sideOff",off?"1":"0");}catch(e){}var b=document.getElementById("sideBtn");if(b){b.setAttribute("aria-expanded",off?"false":"true");}};
+document.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==="b"&&document.getElementById("sideBtn")){var t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t&&t.isContentEditable)return;e.preventDefault();toggleSide();}});
+(function(){var b=document.getElementById("sideBtn");if(b&&document.documentElement.classList.contains("side-off"))b.setAttribute("aria-expanded","false");})();
+window.TOOLS={{ TOOLS|tojson }};window.HUBNOW={{ (HUB_NOW or "")|tojson }};
 // ---------- your menu: rename and reorder hubs (saved in this browser) + recently used tools ----------
 (function(){var box=document.querySelector(".ess");if(!box)return;
  function get(k,d){try{return localStorage.getItem(k)||d;}catch(e){return d;}}
  function put(k,v){try{localStorage.setItem(k,v);}catch(e){}}
- var prefs={order:[],names:{}};try{prefs=Object.assign(prefs,JSON.parse(get("hubPrefs","{}")));}catch(e){}
+ var prefs={order:[],names:{},moves:{},tabOrder:{}};try{prefs=Object.assign(prefs,JSON.parse(get("hubPrefs","{}")));}catch(e){}
+ prefs.order=prefs.order||[];prefs.names=prefs.names||{};prefs.moves=prefs.moves||{};prefs.tabOrder=prefs.tabOrder||{};
+ var NOW=window.HUBNOW||"";
  var hubs=function(){return [].slice.call(box.querySelectorAll("a.hub"));};
  var defaults={};hubs().forEach(function(a){defaults[a.dataset.hub]=a.dataset.label||a.textContent.trim().replace(/^\S+\s*/,"");});
- function label(a){return prefs.names[a.dataset.hub]||defaults[a.dataset.hub];}
- function apply(){var anchor=box.querySelector("#hubEnd");var list=hubs();
+ function labelOf(k){return prefs.names[k]||defaults[k]||k;}
+ var BASE={},ORIG={};(window.TOOLS||[]).forEach(function(g){if(g.k){BASE[g.k]={i:g.i,items:g.items.map(function(x){return x.slice();})};g.items.forEach(function(x){ORIG[x[1]]=g.k;});}});
+ function esc(v){return String(v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+ function layout(){var L={},ks=Object.keys(BASE);ks.forEach(function(k){L[k]=[];});
+  ks.forEach(function(k){BASE[k].items.forEach(function(x){var t=prefs.moves[x[1]];if(!t||!L[t]||t===k)L[k].push(x);});});
+  ks.forEach(function(k){BASE[k].items.forEach(function(x){var t=prefs.moves[x[1]];if(t&&L[t]&&t!==k)L[t].push(x);});});
+  ks.forEach(function(k){var o=prefs.tabOrder[k]||[];L[k].sort(function(a,b){var ia=o.indexOf(a[1]),ib=o.indexOf(b[1]);if(ia<0&&ib<0)return 0;if(ia<0)return 1;if(ib<0)return -1;return ia-ib;});});
+  return L;}
+ function custom(){return Object.keys(prefs.moves).length||Object.keys(prefs.tabOrder).length||Object.keys(prefs.names).length;}
+ function buildBar(L){var slot=document.getElementById("hubSlot");if(!slot||!NOW||!custom())return;
+  var k=null;Object.keys(L).forEach(function(h){if(L[h].some(function(x){return x[1]===NOW;}))k=h;});
+  var old=document.querySelector(".hubtabs");if(old)old.remove();if(!k||L[k].length<2)return;
+  var nav=document.createElement("nav");nav.className="hubtabs";nav.dataset.hub=k;nav.setAttribute("aria-label",labelOf(k)+" sections");
+  var ti=document.createElement("span");ti.className="ht-title";ti.appendChild(document.createTextNode((BASE[k].i||"")+" "));var nm=document.createElement("span");nm.className="ht-name";nm.textContent=labelOf(k);ti.appendChild(nm);
+  var row=document.createElement("div");row.className="ht-row";
+  L[k].forEach(function(x){var a=document.createElement("a");a.className="ht"+(x[1]===NOW?" on":"");a.href=x[1];a.textContent=x[0];if(x[1]===NOW)a.setAttribute("aria-current","page");row.appendChild(a);});
+  nav.appendChild(ti);nav.appendChild(row);slot.parentNode.insertBefore(nav,slot);}
+ function apply(){var L=layout(),anchor=box.querySelector("#hubEnd"),list=hubs();
   var ord=prefs.order.filter(function(k){return list.some(function(a){return a.dataset.hub===k;});});
   list.sort(function(a,b){var ia=ord.indexOf(a.dataset.hub),ib=ord.indexOf(b.dataset.hub);if(ia<0&&ib<0)return 0;if(ia<0)return 1;if(ib<0)return -1;return ia-ib;});
-  list.forEach(function(a){anchor.parentNode.insertBefore(a,anchor);var t=a.querySelector(".hl");if(t&&!a.querySelector("input"))t.textContent=label(a);});
-  (window.TOOLS||[]).forEach(function(g){if(g.k&&prefs.names[g.k])g.g=prefs.names[g.k];});
-  document.querySelectorAll(".hubtabs").forEach(function(n){var k=n.dataset.hub,t=n.querySelector(".ht-name");if(t&&prefs.names[k])t.textContent=prefs.names[k];});}
+  list.forEach(function(a){anchor.parentNode.insertBefore(a,anchor);var k=a.dataset.hub,t=a.querySelector(".hl"),it=L[k]||[];if(t)t.textContent=labelOf(k);
+   a.dataset.empty=it.length?"":"1";if(it.length)a.setAttribute("href",it[0][1]);
+   if(NOW)a.classList.toggle("on",it.some(function(x){return x[1]===NOW;}));});
+  (window.TOOLS||[]).forEach(function(g){if(!g.k)return;g.g=labelOf(g.k);g.items=(L[g.k]||[]).map(function(x){return x.slice();});});
+  buildBar(L);enhance();}
+ // ---- reorder tabs right on the tab bar: drag a tab, or tap ⇄ and use ◀ ▶ (works on phones too)
+ var reorder=false;
+ function barOrder(nav){return [].slice.call(nav.querySelectorAll("a.ht")).map(function(a){return a.getAttribute("href");});}
+ function moveTab(nav,href,to){var k=nav.dataset.hub,hs=barOrder(nav),i=hs.indexOf(href);if(i<0)return;hs.splice(i,1);hs.splice(Math.max(0,Math.min(hs.length,to)),0,href);prefs.tabOrder[k]=hs;save();apply();applySize();var f=document.querySelector('.hubtabs a.ht[href="'+href+'"] .ht-mv button');if(f&&reorder)try{f.focus();}catch(e){}}
+ function enhance(){var nav=document.querySelector(".hubtabs");if(!nav)return;var row=nav.querySelector(".ht-row"),title=nav.querySelector(".ht-title");
+  if(!nav.querySelector(".ht-edit")){var eb=document.createElement("button");eb.type="button";eb.className="ht-edit";eb.title="Change the order of these tabs";eb.setAttribute("aria-label","Reorder tabs");eb.textContent="⇄ Reorder";eb.addEventListener("click",function(){reorder=!reorder;apply();});nav.appendChild(eb);}
+  var eb2=nav.querySelector(".ht-edit");eb2.setAttribute("aria-pressed",reorder?"true":"false");eb2.textContent=reorder?"✓ Done":"⇄ Reorder";nav.classList.toggle("reorder",reorder);
+  var tabs=[].slice.call(nav.querySelectorAll("a.ht"));
+  tabs.forEach(function(a,i){var old=a.querySelector(".ht-mv");if(old)old.remove();
+   if(reorder){var m=document.createElement("span");m.className="ht-mv";[["◀","Move this tab left",-1],["▶","Move this tab right",1]].forEach(function(d){var b=document.createElement("button");b.type="button";b.textContent=d[0];b.setAttribute("aria-label",d[1]);b.title=d[1];if((d[2]<0&&i===0)||(d[2]>0&&i===tabs.length-1))b.disabled=true;
+     b.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();moveTab(nav,a.getAttribute("href"),i+d[2]);});m.appendChild(b);});a.appendChild(m);}
+   if(!a.dataset.dnd){a.dataset.dnd="1";a.draggable=true;
+    a.addEventListener("dragstart",function(e){e.dataTransfer.setData("text/plain",a.getAttribute("href"));e.dataTransfer.effectAllowed="move";a.classList.add("dragging");});
+    a.addEventListener("dragend",function(){a.classList.remove("dragging");[].forEach.call(nav.querySelectorAll(".dropat"),function(x){x.classList.remove("dropat");});});
+    a.addEventListener("dragover",function(e){e.preventDefault();e.dataTransfer.dropEffect="move";a.classList.add("dropat");});
+    a.addEventListener("dragleave",function(){a.classList.remove("dropat");});
+    a.addEventListener("drop",function(e){e.preventDefault();a.classList.remove("dropat");var h=e.dataTransfer.getData("text/plain"),hs=barOrder(nav),to=hs.indexOf(a.getAttribute("href"));if(h&&h!==a.getAttribute("href"))moveTab(nav,h,to);});}});}
  function save(){put("hubPrefs",JSON.stringify(prefs));}
- var edit=false,btn=document.getElementById("hubEdit"),reset=document.getElementById("hubReset");
- function decorate(){hubs().forEach(function(a){var old=a.querySelector(".hctl");if(old)old.remove();if(!edit)return;
-   var c=document.createElement("span");c.className="hctl";
-   function mk(t,tt,fn){var s=document.createElement("button");s.type="button";s.textContent=t;s.title=tt;s.setAttribute("aria-label",tt);s.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();fn();});c.appendChild(s);}
-   mk("▲","Move up",function(){move(a,-1);});mk("▼","Move down",function(){move(a,1);});mk("✎","Rename",function(){rename(a);});a.appendChild(c);});}
- function move(a,d){var l=hubs(),i=l.indexOf(a),j=i+d;if(j<0||j>=l.length)return;prefs.order=l.map(function(x){return x.dataset.hub;});var k=prefs.order;var t=k[i];k[i]=k[j];k[j]=t;save();apply();decorate();}
- function rename(a){var t=a.querySelector(".hl"),cur=label(a);var inp=document.createElement("input");inp.className="hrename";inp.value=cur;inp.maxLength=28;inp.setAttribute("aria-label","Hub name");t.textContent="";t.appendChild(inp);inp.focus();inp.select();
-  var fin=false;function done(ok){if(fin)return;fin=true;var v=inp.value.trim();if(ok&&v&&v!==defaults[a.dataset.hub]){prefs.names[a.dataset.hub]=v;}else if(ok&&(!v||v===defaults[a.dataset.hub])){delete prefs.names[a.dataset.hub];}save();try{inp.remove();}catch(x){}apply();}
-  inp.addEventListener("keydown",function(e){e.stopPropagation();if(e.key==="Enter"){e.preventDefault();done(true);}else if(e.key==="Escape"){done(false);}});inp.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();});inp.addEventListener("blur",function(){done(true);});}
- function setEdit(v){edit=v;box.classList.toggle("editing",v);if(btn){btn.textContent=v?"✓ Done":"✎ Edit menu";btn.setAttribute("aria-pressed",v?"true":"false");}if(reset)reset.hidden=!v;decorate();}
- if(btn)btn.addEventListener("click",function(){setEdit(!edit);});
- if(reset)reset.addEventListener("click",function(){prefs={order:[],names:{}};save();location.reload();});
- box.addEventListener("click",function(e){if(edit&&e.target.closest("a.hub"))e.preventDefault();},true);
- apply();
+ var BASIC={content:1,tasks:1,brand:1,campaigns:1,results:1};
+ function size(){var v=get("menuSize","team");return v==="basic"?"basic":"team";}
+ function applySize(){var sz=size();
+  hubs().forEach(function(a){var empty=a.dataset.empty==="1",hide=empty||(sz==="basic"&&!BASIC[a.dataset.hub]&&!a.classList.contains("on"));a.hidden=hide;});
+  box.querySelectorAll(".sizesw button").forEach(function(b){var on=b.dataset.size===sz;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");});
+  var n=hubs().filter(function(a){return a.hidden&&a.dataset.empty!=="1";}).length,m=box.querySelector(".sizemore");
+  if(n&&!m){m=document.createElement("button");m.type="button";m.className="sizemore";box.querySelector("#hubEnd").before(m);m.addEventListener("click",function(){put("menuSize","team");applySize();});}
+  if(m){if(n){m.hidden=false;m.textContent="+ "+n+" more (Team)";}else m.hidden=true;}}
+ box.querySelectorAll(".sizesw button").forEach(function(b){b.addEventListener("click",function(){put("menuSize",b.dataset.size);applySize();});});
+ // ---- the menu editor: rename hubs, reorder hubs and tabs, move any tab to any hub
+ function dlg(){var d=document.getElementById("menuDlg");if(!d){d=document.createElement("dialog");d.id="menuDlg";d.className="menudlg";d.setAttribute("aria-label","Edit menu");document.body.appendChild(d);
+  d.addEventListener("click",function(e){var t=e.target;if(t===d){d.close();return;}var b=t.closest("button[data-a]");if(!b)return;act(b.dataset.a,b);});
+  d.addEventListener("change",function(e){var t=e.target;if(t.classList.contains("md-name")){var k=t.closest(".md-hub").dataset.k,v=t.value.trim();if(!v||v===defaults[k])delete prefs.names[k];else prefs.names[k]=v;commit();}
+   else if(t.classList.contains("md-mv")&&t.value){var h=t.closest("li").dataset.h;if(t.value===ORIG[h])delete prefs.moves[h];else prefs.moves[h]=t.value;var L=layout(),tg=L[t.value].map(function(x){return x[1];}).filter(function(x){return x!==h;});tg.push(h);prefs.tabOrder[t.value]=tg;commit();}});
+  d.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.classList.contains("md-name")){e.preventDefault();e.target.blur();}});}
+  return d;}
+ function commit(){save();apply();applySize();render();}
+ function render(){var d=dlg(),L=layout(),keys=hubs().map(function(a){return a.dataset.hub;}),sc=d.querySelector(".md-body"),top=sc?sc.scrollTop:0;
+  var h='<div class="md-head"><b>✎ Edit menu</b><button type="button" class="md-x" data-a="done" aria-label="Close">✕</button></div><p class="muted md-help">Rename a hub, put hubs and tabs in your order with ▲ ▼, or move a tab to a different hub. Changes show straight away and are saved in this browser.</p><div class="md-body">';
+  keys.forEach(function(k,hi){var it=L[k]||[];
+   h+='<section class="md-hub" data-k="'+esc(k)+'"><div class="md-hrow"><span class="md-ic" aria-hidden="true">'+esc((BASE[k]||{}).i||"")+'</span><input class="md-name" maxlength="28" value="'+esc(labelOf(k))+'" aria-label="Hub name"><span class="md-btns"><button type="button" data-a="hup" aria-label="Move hub up"'+(hi?'':' disabled')+'>▲</button><button type="button" data-a="hdn" aria-label="Move hub down"'+(hi===keys.length-1?' disabled':'')+'>▼</button></span></div><ul class="md-tabs">';
+   it.forEach(function(x,ti){h+='<li data-h="'+esc(x[1])+'"><span class="md-t">'+esc(x[0])+'</span><span class="md-btns"><button type="button" data-a="tup" aria-label="Move tab up"'+(ti?'':' disabled')+'>▲</button><button type="button" data-a="tdn" aria-label="Move tab down"'+(ti===it.length-1?' disabled':'')+'>▼</button><select class="md-mv" aria-label="Move this tab to another hub"><option value="">Move to…</option>'+keys.filter(function(q){return q!==k;}).map(function(q){return '<option value="'+esc(q)+'">'+esc(labelOf(q))+'</option>';}).join("")+'</select></span></li>';});
+   if(!it.length)h+='<li class="md-empty">Nothing here yet. Move a tab in from another hub.</li>';
+   h+='</ul></section>';});
+  h+='</div><div class="md-foot"><button type="button" class="btn ghost sm" data-a="reset">↺ Reset everything</button><button type="button" class="btn sm" data-a="done">Done</button></div>';
+  d.innerHTML=h;var nb=d.querySelector(".md-body");if(nb)nb.scrollTop=top;}
+ function swap(a,i,j){if(j<0||j>=a.length)return;var t=a[i];a[i]=a[j];a[j]=t;}
+ function act(a,b){var d=dlg();
+  if(a==="done"){d.close();return;}
+  if(a==="reset"){prefs={order:[],names:{},moves:{},tabOrder:{}};save();location.reload();return;}
+  if(a==="hup"||a==="hdn"){var k=b.closest(".md-hub").dataset.k,ks=hubs().map(function(x){return x.dataset.hub;}),i=ks.indexOf(k);swap(ks,i,a==="hup"?i-1:i+1);prefs.order=ks;commit();return;}
+  if(a==="tup"||a==="tdn"){var hk=b.closest(".md-hub").dataset.k,hr=b.closest("li").dataset.h,hs=layout()[hk].map(function(x){return x[1];}),j=hs.indexOf(hr);swap(hs,j,a==="tup"?j-1:j+1);prefs.tabOrder[hk]=hs;commit();}}
+ var btn=document.getElementById("hubEdit");
+ if(btn)btn.addEventListener("click",function(){var d=dlg();render();if(d.showModal)d.showModal();else d.setAttribute("open","");var f=d.querySelector(".md-name");if(f)f.focus();});
+ apply();applySize();
  // recent: remember the last few tool pages visited and show them as quick chips
  var rr=document.getElementById("recentRow");if(!rr)return;
  var p=location.pathname,isTool=/^\/(m\/[a-z_]+|calendar|moodboards|ideas|ai|analytics|pulse|updates|discover|utm|report|marketing-health|recap)\/?$/.test(p)||/^\/m\/[a-z_]+$/.test(p);
@@ -302,7 +366,7 @@ function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0
 
 
 // ---------- tool finder: every page lives in the search bar, not in the sidebar ----------
-var TOOLS={{ TOOLS|tojson }};
+var TOOLS=window.TOOLS;
 function openFinder(grp,el){var F=document.getElementById("finder");if(!F)return;window.__fgroup=grp||"";var tb=document.getElementById("tbq");if(grp){document.body.classList.remove("nav-open");F.openIn(window.innerWidth>800?"side":"sheet",el);return;}if(tb&&tb.offsetParent){tb.focus();tb.select();}else{document.body.classList.remove("nav-open");F.openIn("sheet");}}
 (function(){var F=document.getElementById("finder");if(!F)return;
  var L=document.getElementById("fl"),FQ=document.getElementById("fq"),TB=document.getElementById("tbq"),mode="",sel=-1;

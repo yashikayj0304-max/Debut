@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block body %}
-<div class="head"><h1>💡 Idea Bank</h1><div><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').showModal()">❓ How to use</button><span class="muted" style="margin-left:10px">{{ ind['icon'] }} {{ ind['label'] }}</span></div></div>
+<div class="head"><h1>💡 Idea Bank</h1><div><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').showModal()">❓ How to use</button><a class="btn ghost sm" style="margin-left:10px" href="{{ url_for('ws.account') }}#industry" title="Your industry shapes these ideas. Click to change it.">{{ ind['icon'] }} {{ ind['label'] }} · change</a></div></div>
 <p class="muted">{{ ind['blurb'] }} {% if role in ('owner','admin') %}Not your industry? <a href="{{ url_for('ws.account') }}">Change it in Account</a> to get a tailored kit.{% endif %}</p>
 
 <dialog id="helpModal" class="overlay-modal" style="max-width:520px">

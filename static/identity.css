@@ -508,3 +508,121 @@ html[data-theme=dark] .hubedit button{color:#cfc6f5;border-color:rgba(255,255,25
 html[data-theme=dark] .hctl button{background:rgba(255,255,255,.1);color:#ece7fb}
 .hrename{width:100%;font:inherit;font-size:14px;padding:3px 8px;border-radius:8px;border:1px solid var(--pri)}
 .gtiles,.navstyle{display:none!important}
+
+/* v26: the toast never sits on top of the open mobile menu */
+body.nav-open .toasts{display:none!important}
+
+/* v26: Basics / Team menu size */
+.sizesw{display:flex;gap:4px;margin:8px 0 6px;padding:3px;border:1.5px solid var(--pri3);border-radius:999px;background:var(--card)}
+.sizesw button{flex:1;font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:0;background:transparent;color:var(--pri-d);border-radius:999px;padding:5px 8px}
+.sizesw button.on{background:var(--pri);color:#fff}
+.sizemore{font:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1px dashed var(--pri3);background:transparent;color:var(--pri-d);border-radius:999px;padding:4px 10px;margin:4px 0}
+.ess a.hub[hidden]{display:none!important}
+html[data-theme=dark] .sizesw{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.18)}
+html[data-theme=dark] .sizesw button{color:#cfc6f5}
+html[data-theme=dark] .sizesw button.on{background:var(--pri);color:#fff}
+html[data-theme=dark] .sizemore{color:#cfc6f5;border-color:rgba(255,255,255,.2)}
+
+/* v27: toolbar alignment — every control in a filter/board bar shares one height and one centre line */
+.filters,.boardbar{align-items:center}
+.sortpick{height:40px;box-sizing:border-box;padding:0 4px 0 14px;line-height:1}
+.sortpick>span{margin:0!important;display:inline-flex;align-items:center;height:100%;line-height:1;font-size:13px;white-space:nowrap;transform:none}
+.sortpick select{height:100%;line-height:1;padding:0 26px 0 8px;font-size:13px}
+.filters input[name=q],.filters>select,.filters>button.btn,.boardbar>*{height:40px;box-sizing:border-box;margin-top:0;margin-bottom:0}
+.filters>button.btn{display:inline-flex;align-items:center;padding-top:0;padding-bottom:0}
+
+/* v28: Edit menu dialog */
+.menudlg{border:2px solid var(--out,#1b1433);border-radius:20px;padding:0;width:min(560px,calc(100vw - 24px));max-height:min(86vh,760px);background:var(--card);color:var(--ink);box-shadow:6px 6px 0 var(--out,#1b1433);overflow:hidden}
+.menudlg[open]{display:flex;flex-direction:column}
+.menudlg::backdrop{background:rgba(20,12,45,.55)}
+.md-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 4px;font-size:17px}
+.md-x{font:inherit;cursor:pointer;border:0;background:transparent;color:inherit;font-size:18px;line-height:1;padding:6px 8px;border-radius:10px}
+.md-x:hover{background:var(--pri2)}
+.md-help{margin:0;padding:0 18px 10px;font-size:13px}
+.md-body{overflow:auto;padding:4px 14px 12px;flex:1}
+.md-hub{border:1.5px solid var(--pri3);border-radius:16px;padding:8px 10px;margin:8px 0;background:var(--bg,transparent)}
+.md-hrow{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.md-ic{font-size:18px;width:26px;text-align:center}
+.md-name{flex:1;min-width:0;height:36px;box-sizing:border-box;font:inherit;font-weight:700;padding:0 10px;border:1.5px solid var(--pri3);border-radius:10px;background:var(--card);color:inherit;margin:0}
+.md-btns{display:inline-flex;align-items:center;gap:4px;flex:none}
+.md-btns button{font:inherit;font-size:12px;width:30px;height:30px;padding:0;cursor:pointer;border:1.5px solid var(--pri3);background:transparent;color:var(--pri-d);border-radius:8px;line-height:1}
+.md-btns button:hover:not(:disabled){background:var(--pri2)}
+.md-btns button:disabled{opacity:.3;cursor:default}
+.md-tabs{list-style:none;margin:0;padding:0}
+.md-tabs li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:3px 0 3px 34px;border-top:1px dashed var(--pri3)}
+.md-tabs li:first-child{border-top:0}
+.md-t{flex:1;min-width:0;font-size:14px;overflow-wrap:anywhere}
+.md-mv{height:30px;box-sizing:border-box;font:inherit;font-size:12px;padding:0 6px;margin:0;border:1.5px solid var(--pri3);border-radius:8px;background:var(--card);color:inherit;max-width:118px;width:auto}
+.md-empty{color:var(--muted);font-size:13px;padding-left:34px!important}
+.md-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 18px 14px;border-top:1.5px solid var(--pri3)}
+html[data-theme=dark] .md-btns button,html[data-theme=dark] .md-x{color:#cfc6f5}
+@media(max-width:520px){.md-tabs li{padding-left:6px;flex-wrap:wrap}.md-mv{max-width:100px}}
+.hubedit{display:flex;gap:6px;margin:6px 0 2px}
+
+/* v29: Recent = a tidy two-line list, nothing cut off */
+#recentRow.recent{display:grid!important;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center;margin:2px 0 8px;overflow:visible}
+#recentRow.recent small{grid-column:1/-1;font-size:11px;letter-spacing:.04em}
+#recentRow.recent a{grid-column:1/-1;max-width:100%!important;box-sizing:border-box;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 10px;font-size:13px}
+
+/* v30: side panel toggle — open by default, one button (or Ctrl+B) to hide and show it */
+.menu-btn{display:inline-flex!important;align-items:center;justify-content:center;width:38px;height:38px;padding:0!important;border:2px solid var(--out,#1b1433)!important;border-radius:12px!important;background:var(--card)!important;color:var(--pri-d)!important;box-shadow:2px 2px 0 var(--out,#1b1433);font-size:18px;line-height:1;cursor:pointer}
+.menu-btn:hover{background:var(--pri2)!important}
+.menu-btn:focus-visible{outline:3px solid var(--pri2);outline-offset:2px}
+html[data-theme=dark] .menu-btn{background:rgba(255,255,255,.06)!important;color:#cfc6f5!important;border-color:rgba(255,255,255,.22)!important;box-shadow:none}
+@media(min-width:801px){html.side-off aside{display:none!important}}
+
+/* v31: reorder tabs on the tab bar */
+.ht-edit{font:inherit;font-size:12px;font-weight:700;height:30px;box-sizing:border-box;padding:0 12px;cursor:pointer;border:1.5px dashed var(--pri3);background:transparent;color:var(--pri-d);border-radius:999px;white-space:nowrap}
+.ht-edit:hover{background:var(--pri2)}
+.ht-edit[aria-pressed=true]{background:var(--pri);color:#fff;border-style:solid}
+.hubtabs a.ht{cursor:grab}
+.hubtabs a.ht.dragging{opacity:.45}
+.hubtabs a.ht.dropat{box-shadow:inset 3px 0 0 var(--pri)}
+.hubtabs.reorder a.ht{padding-right:6px;gap:6px;display:inline-flex;align-items:center}
+.ht-mv{display:inline-flex;gap:3px;margin-left:6px}
+.ht-mv button{font:inherit;font-size:10px;width:22px;height:22px;padding:0;cursor:pointer;border:1.5px solid var(--pri3);background:var(--card);color:var(--pri-d);border-radius:7px;line-height:1}
+.ht-mv button:disabled{opacity:.3;cursor:default}
+html[data-theme=dark] .ht-edit,html[data-theme=dark] .ht-mv button{color:#cfc6f5;border-color:rgba(255,255,255,.22)}
+html[data-theme=dark] .ht-mv button{background:rgba(255,255,255,.06)}
+
+/* v32: comfortable tap targets on phones (at least ~40px high) */
+@media(max-width:800px){
+ .sizesw button,.hubedit button,.ngrp.side-foot a,.recent a,#recentRow a,.tb-brand,.tb-ic,.ht-edit,.pweye,.btn.sm,.btn.ghost.sm,.chip,.md-foot .btn,.md-foot button,.sizemore{min-height:40px;box-sizing:border-box}
+ .sizesw button{padding-top:0;padding-bottom:0}
+ .hubedit button,.ht-edit,.sizemore,.md-foot button{display:inline-flex;align-items:center;justify-content:center}
+ .md-btns button{width:38px;height:38px}
+ .md-mv{height:38px}
+ .ngrp.side-foot a{display:flex;align-items:center}
+ .pweye{min-width:40px}
+ .ht-mv button{width:30px;height:30px}
+}
+
+/* v33: welcome tour card — readable in light and dark */
+.tour-pop{color:var(--ink,#1b1433)}
+.tour-pop p{color:var(--ink,#1b1433)!important;opacity:.88;font-size:14px;line-height:1.5}
+.tour-pop b{font-size:15px}
+.tour-pop .muted{color:var(--ink,#1b1433);opacity:.6}
+html[data-theme=dark] .tour-pop{background:#241a4a!important;border:1.5px solid rgba(255,255,255,.2);color:#f1ecff}
+html[data-theme=dark] .tour-pop p{color:#f1ecff!important;opacity:.9}
+html[data-theme=dark] .tour-pop b{color:#d6c8ff!important}
+html[data-theme=dark] .tour-pop .muted{color:#f1ecff;opacity:.65}
+
+/* v34: tablets and small laptops (701-1100px) use the same stacked-card lists as phones, so the page never scrolls sideways */
+@media(min-width:701px) and (max-width:1100px){
+ table.stack,table.stack tbody{display:block;background:none;border:0;box-shadow:none}
+ table.stack tr:first-child{display:none}
+ table.stack tr{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);margin:0 0 12px;padding:6px 4px}
+ table.stack td{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;border:0;padding:6px 12px;text-align:right;word-break:break-word}
+ table.stack td[data-label]:before{content:attr(data-label);flex:0 0 38%;text-align:left;font-size:11px;font-weight:700;color:var(--pri-d);text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+ table.stack td.e{display:none}
+ table.stack td:last-child{justify-content:flex-end;border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
+ table.stack td[colspan]{display:block;text-align:left}
+ main table:not(.stack):not(.cal){display:block;max-width:100%;overflow-x:auto}
+ .cal-sync-row{flex-wrap:wrap}.cal-sync-row input{flex:1 1 220px}
+}
+
+/* v35: the calendar sync link row wraps instead of running off narrow screens */
+.cal-sync-row{flex-wrap:wrap}.cal-sync-row input{flex:1 1 200px;min-width:0;max-width:100%}.cal-sync-row form{flex:none}
+
+/* v36: on phones and tablets the calendar sync panel is a bottom sheet above the tab bar, never cut off or over the legend */
+@media(max-width:820px){.cal-sync[open]{position:static}.cal-sync[open] .cal-sync-in{position:fixed;left:12px;right:12px;top:auto;bottom:92px;transform:none;width:auto;max-height:70vh;overflow:auto;z-index:200}.cal-sync[open] summary{position:relative;z-index:201}}

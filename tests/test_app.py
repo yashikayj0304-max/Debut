@@ -3750,7 +3750,7 @@ def test_whatnow_page_actually_renders_and_sidebar_sizes_are_wired(app):
     assert o.get("/whatnow?n=3").status_code == 200
     app_html = o.get("/app").data.decode()
     assert app_html.count('class="hub') >= 8 and "recentTools" in app_html and "hubPrefs" in app_html
-    assert 'data-ns="' not in app_html and "Basics" not in app_html  # the Basics / Daily / Team size switch is gone
+    assert 'data-ns="' not in app_html and "Daily" not in app_html.split("<aside>", 1)[1].split("</aside>", 1)[0]  # old three-way switch is gone; only Basics / Team remain
 
 
 def test_all_tools_live_in_the_search_finder_not_the_sidebar(app):
@@ -3777,7 +3777,7 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     ws = aside.split('data-g="Workspace"', 1)[1]
     for gone in ("Kudos", "Team hub", "Team &amp; roles", "Activity", "Client report"):
         assert gone not in ws, gone
-    tools = json.loads(re.search(r"var TOOLS=(\[.*?\]);\n", h, re.S).group(1))
+    tools = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     in_hubs = {href for g in tools for _, href in g["items"]}
     allnav = set(re.findall(r'<a href="(/[^"]*)"', h.split('id="allTools" hidden>', 1)[1].split('<details class="ngrp side-foot"', 1)[0]))
     assert allnav and allnav <= in_hubs | {"/m/utm_links"}, sorted(allnav - in_hubs)
@@ -3807,3 +3807,61 @@ def test_hubs_respect_roles(app, mails):
     cl = _client(app, o, mails, "hubcl@x.com")
     p = cl.get("/portal").data.decode()
     assert 'class="hub' not in p and 'class="hubtabs"' not in p
+
+
+def test_launch_checklist_and_watchlist_reject_blank_records(app):
+    o = signup(app, "blank@x.com")
+    for key in ("launch_checklist", "watchlist"):
+        r = o.post(f"/m/{key}/save", data={"phase": "Research", "status": "To do"})
+        assert r.status_code == 400, key
+    assert o.post("/m/launch_checklist/save", data={"item": "Ship the thing", "phase": "Launch", "status": "To do"}).status_code == 302
+    assert "Ship the thing" in o.get("/m/launch_checklist").data.decode()
+
+
+def test_menu_size_switch_and_industry_chip(app):
+    o = signup(app, "size@x.com")
+    h = o.get("/app").data.decode()
+    assert 'data-size="basic"' in h and 'data-size="team"' in h and "menuSize" in h and "Daily" not in h.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    i = o.get("/ideas").data.decode()
+    assert 'href="/account#industry"' in i
+    assert 'id="industry"' in o.get("/account").data.decode()
+
+
+def test_menu_editor_hooks_and_current_tab_exposed(app):
+    o = signup(app, "edit@x.com")
+    h = o.get("/ideas").data.decode()
+    assert 'window.HUBNOW="/ideas"' in h or 'window.HUBNOW="/m/' in h or "window.HUBNOW=" in h
+    assert 'id="hubSlot"' in h and 'id="hubEdit"' in h and "menuDlg" in h and "tabOrder" in h and "moves" in h
+    assert 'id="hubReset"' not in h
+    assert 'window.HUBNOW=""' in o.get("/account").data.decode()
+
+
+def test_side_panel_toggle_open_by_default(app):
+    o = signup(app, "panel@x.com")
+    h = o.get("/app").data.decode()
+    assert 'id="sideBtn"' in h and "toggleSide" in h and "sideOff" in h
+    assert 'class="side-off"' not in h and "<html" in h and "side-off" not in h.split("<body", 1)[0].split("<html", 1)[1].split(">", 1)[0]
+
+
+def test_start_over_and_delete_account(app):
+    o = signup(app, "bye@x.com")
+    o.post("/m/tasks/save", data=dict(title="Temp task"))
+    assert "Temp task" in o.get("/m/tasks").data.decode()
+    # wrong confirmation does nothing
+    o.post("/workspace/reset", data=dict(confirm="nope"))
+    assert "Temp task" in o.get("/m/tasks").data.decode()
+    o.post("/workspace/reset", data=dict(confirm="start over"))
+    assert "Temp task" not in o.get("/m/tasks").data.decode()
+    assert "Phase" in o.get("/m/launch_checklist").data.decode() or o.get("/m/launch_checklist").status_code == 200
+    assert dbq(app, "SELECT COUNT(*) c FROM launch_checklist", one=True)["c"] > 5
+    # account deletion needs the password and the word DELETE
+    o.post("/account/delete", data=dict(password="wrong", confirm="DELETE"))
+    assert dbq(app, "SELECT COUNT(*) c FROM users WHERE email='bye@x.com'", one=True)["c"] == 1
+    o.post("/account/delete", data=dict(password="Sup3rSecret!", confirm="delete"))
+    assert dbq(app, "SELECT COUNT(*) c FROM users WHERE email='bye@x.com'", one=True)["c"] == 0
+    assert dbq(app, "SELECT COUNT(*) c FROM workspaces", one=True)["c"] == 0
+    assert dbq(app, "SELECT COUNT(*) c FROM memberships", one=True)["c"] == 0
+    assert o.get("/app").status_code in (301, 302)
+    # and the same email can sign up again from scratch
+    again = signup(app, "bye@x.com")
+    assert again.get("/app").status_code == 200

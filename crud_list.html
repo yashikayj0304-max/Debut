@@ -1,0 +1,83 @@
+{% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}{% set popup = true %}{% set pop = ' onclick="return openOverlay(this.href,\'\')"'|safe if popup else '' %}
+<div class="head"><h1>{{ m.icon }} {{ m.title }}</h1><div class="acts">
+{% if role != 'viewer' %}<a class="btn" href="{{ url_for('m_new', key=key) }}"{{ pop }}>+ New</a>{% endif %}
+{% if m.kanban %}<a class="btn ghost" href="{{ url_for('kanban', key=key) }}">Board view</a>{% endif %}
+{% if key == 'content_items' %}<a class="btn ghost" href="{{ url_for('calendar_view') }}">Calendar</a>{% endif %}
+<a class="btn ghost q" href="{{ url_for('m_template_xlsx', key=key) }}">⬇ Filled-in mock example (Excel)</a>
+<a class="btn ghost q" href="{{ url_for('m_export', key=key) }}">Export CSV</a>
+{% if role != 'viewer' %}<a class="btn ghost q" href="#importcsv" onclick="var d=document.getElementById('importcsv');d.open=true;d.scrollIntoView({block:'center'})">Import CSV</a>{% endif %}</div></div>
+{% if role != 'viewer' %}<details id="importcsv" style="margin:6px 0"><summary class="muted" style="cursor:pointer">Import from CSV</summary><form method="post" action="{{ url_for('m_import', key=key) }}" enctype="multipart/form-data" class="card" style="margin-top:8px"><p class="muted">Use the same column names as “Export CSV” (or the field labels), one row per record. Up to 2,000 rows. Use the filled-in Excel example above to see the exact format before you upload — if you build your sheet in Excel, just save it as CSV before importing.</p><input type="file" name="file" aria-label="CSV file" accept=".csv" required> <button class="btn sm">Import</button></form></details>{% endif %}
+{% if gap_banner %}<div class="banner"><a href="{{ url_for('marketing_health') }}">⚠ {{ gap_banner }} gap{{ 's' if gap_banner != 1 else '' }} here — see Marketing Health for the full checklist</a></div>{% endif %}
+<p class="muted">{{ m.desc }}</p>
+{% if dist and dist|length > 0 %}{% set _tot = dist|sum(attribute=1) %}<div class="dist" aria-label="{{ ffield[1] }} breakdown"><div class="dist-bar">{% for v, c in dist %}<i class="dc{{ loop.index0 % 6 }}" style="flex:{{ c }}" title="{{ v }}: {{ c }}"></i>{% endfor %}</div>
+<div class="dist-leg"><span class="dist-tot"><b>{{ _tot }}</b> total</span>{% for v, c in dist %}<a href="?f={{ v|urlencode }}{{ '&sort=' ~ (sort|urlencode) if sort }}{{ '&dir=' ~ sdir if sort.startswith('col:') }}" class="dist-chip{{ ' on' if f == v else '' }}"><i class="dc{{ loop.index0 % 6 }}"></i>{{ v }} <b>{{ c }}</b></a>{% endfor %}</div></div>{% endif %}
+<form class="filters" method="get">
+<input name="q" placeholder="Search…" value="{{ q }}">
+{% if ffield %}<select name="f" aria-label="Filter by {{ ffield[1] }}" onchange="this.form.submit()"><option value="">All {{ ffield[1] }}</option>{% for o in ffield[3] %}<option {% if o == f %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>{% endif %}
+<label class="sortpick"><span>↕ Sort</span><select name="sort" aria-label="Sort this list" onchange="this.form.submit()"><option value="">{{ '✋ My order' if default_manual else '🕘 Default' }}</option>{% for c, l in choices %}{% if not (c == 'manual' and default_manual) %}<option value="{{ c }}"{% if c == sort %} selected{% endif %}>{{ l }}</option>{% endif %}{% endfor %}{% if sort.startswith('col:') %}<option value="{{ sort }}" selected>Column: {{ sort[4:]|replace('_', ' ')|title }} ({{ sdir }})</option>{% endif %}</select></label>
+<button class="btn ghost">Filter</button></form>{% if can_drag and rows %}<p class="muted howto">Drag the ⠿ grip to put things in your own order. It saves by itself.</p>{% elif default_manual and sort and sort != 'manual' and rows %}<p class="muted howto">Sorted a different way right now. Pick <b>✋ My order</b> to drag things into place.</p>{% endif %}
+{% if layout and view != 'table' and rows %}
+<div class="viewtog"><a class="btn sm {{ '' if view == 'table' else 'on' }}" href="?view=cards">▦ Cards</a><a class="btn ghost sm" href="?view=table">☰ Table</a></div>
+{% set _badge = (cols|selectattr(2, 'equalto', 'select')|list|first) %}
+{% if layout == 'checklist' %}<div class="todo" {% if can_drag %}data-reorder="{{ url_for('m_reorder_list', key=key) }}"{% endif %}>{% for r in rows %}{% set done = r['status'] == 'Done' %}
+<div class="trow{{ ' done' if done }}" data-rid="{{ r['id'] }}">{% if can_drag %}<button type="button" class="rgrip" aria-label="Move: drag, or Alt plus arrow keys" title="Drag to reorder">⠿</button>{% endif %}<form method="post" action="{{ url_for('m_status', key=key, rid=r['id']) }}">{% if role != 'viewer' %}<input type="hidden" name="next" value="{{ request.full_path }}"><input type="hidden" name="value" value="{{ 'To do' if done else 'Done' }}"><button class="tick" title="{{ 'Mark as not done' if done else 'Mark as done' }}" aria-label="{{ 'Mark as not done' if done else 'Mark as done' }}">{{ '✓' if done }}</button>{% else %}<span class="tick">{{ '✓' if done }}</span>{% endif %}</form>
+<a class="tt" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{{ pop }}><b>{{ r['title']|truncate(70) }}</b>{% if r['assignee'] or r['due_date'] %}<small class="muted">{{ r['assignee'] }}{{ ' · ' if r['assignee'] and r['due_date'] }}{{ r['due_date'] }}</small>{% endif %}</a>
+{% if r['priority'] %}<span class="badge b-{{ r['priority']|lower }}">{{ r['priority'] }}</span>{% endif %}{% if r['status'] and not done %}<span class="badge b-{{ r['status']|lower|replace(' ', '-') }}">{{ r['status'] }}</span>{% endif %}
+{% if role != 'viewer' %}<form method="post" action="{{ url_for('m_duplicate', key=key, rid=r['id']) }}"><button class="btn ghost sm" title="Make a copy" aria-label="Duplicate">⧉</button></form><form method="post" action="{{ url_for('m_delete', key=key, rid=r['id']) }}" onsubmit="return confirm('Delete this record?')"><button class="btn danger sm" aria-label="Delete">✕</button></form>{% endif %}</div>{% endfor %}</div>
+{% else %}
+<div class="cgrid {{ layout }}" {% if can_drag %}data-reorder="{{ url_for('m_reorder_list', key=key) }}"{% endif %}>{% for r in rows %}
+{% set _t = r[cols[0][0]] or 'Untitled' %}
+<div class="citemcard" data-rid="{{ r['id'] }}"><div class="cc-top">{% if can_drag %}<button type="button" class="rgrip" aria-label="Move: drag, or Alt plus arrow keys" title="Drag to reorder">⠿</button>{% endif %}{% if layout == 'people' %}<span class="cc-av av{{ loop.index0 % 6 }}">{{ (_t|string)[:1]|upper }}</span>{% endif %}<div class="cc-h"><b class="cc-t">{{ _t|truncate(60) }}</b>{% if _badge and r[_badge[0]] %}<span class="badge b-{{ r[_badge[0]]|lower|replace(' ', '-')|replace('/', '') }}">{{ r[_badge[0]] }}</span>{% endif %}</div></div>
+<dl class="cc-meta">{% for n, l, t in cols[1:] %}{% if (not _badge or n != _badge[0]) and r[n] %}<div><dt>{{ l }}</dt><dd>{% if t == 'url' %}<a href="{{ r[n] }}" target="_blank" rel="noopener">{{ r[n]|string|truncate(28) }}</a>{% else %}{{ r[n]|string|truncate(44) }}{% endif %}</dd></div>{% endif %}{% endfor %}</dl>
+{% if bkeys %}{% set b = r[bkeys[0]]|float(0) %}{% set sp = r[bkeys[1]]|float(0) %}{% if b > 0 %}{% set pct = (sp / b * 100)|round|int %}{% set left = 100 - pct %}<div class="bbar {{ 'bad' if left < 10 else ('warn' if left < 25 else 'ok') }}" title="{{ pct }}% of budget used"><i style="width:{{ [pct, 100]|min }}%"></i></div><small class="muted">Budget used: {{ pct }}% used</small>{% endif %}{% endif %}
+<div class="cc-act"><a class="btn ghost sm" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{{ pop }}>{{ 'View' if role == 'viewer' else 'Edit' }}</a>{% if role != 'viewer' %}<form method="post" action="{{ url_for('m_duplicate', key=key, rid=r['id']) }}" style="display:inline"><button class="btn ghost sm" title="Make a copy" aria-label="Duplicate">⧉</button></form><form method="post" action="{{ url_for('m_delete', key=key, rid=r['id']) }}" style="display:inline" onsubmit="return confirm('Delete this record?')"><button class="btn danger sm">✕</button></form>{% endif %}</div></div>
+{% endfor %}</div>{% endif %}
+{% else %}
+{% if layout and rows %}<div class="viewtog"><a class="btn ghost sm" href="?view=cards">▦ Cards</a><a class="btn sm on" href="?view=table">☰ Table</a></div>{% endif %}
+{% set _qa = request.args.to_dict() %}<table class="stack"{% if can_drag %} data-reorder="{{ url_for('m_reorder_list', key=key) }}"{% endif %}><tr>{% if can_drag %}<th style="width:34px"></th>{% endif %}{% for n, l, t in cols %}{% set _on = (sort == 'col:' ~ n) %}<th{% if _on %} aria-sort="{{ 'descending' if sdir == 'desc' else 'ascending' }}"{% endif %}><a class="sorth" href="{{ url_for('m_list', key=key, **dict(_qa, sort='col:' ~ n, dir=('desc' if (_on and sdir == 'asc') else 'asc'), page=1)) }}" title="Sort by {{ l }}">{{ l }}<i>{{ ('▲' if sdir == 'asc' else '▼') if _on else '↕' }}</i></a></th>{% endfor %}{% if bkeys %}<th>Budget used</th>{% endif %}<th></th></tr>
+{% for r in rows %}<tr{% if can_drag %} data-rid="{{ r['id'] }}"{% endif %}>{% if can_drag %}<td class="gtd"><button type="button" class="rgrip" aria-label="Move: drag, or Alt plus arrow keys" title="Drag to reorder">⠿</button></td>{% endif %}{% for n, l, t in cols %}{% set v = r[n] or '' %}<td data-label="{{ l }}"{% if not v|string|trim %} class="e"{% endif %}>
+{% if t == 'url' and v %}<a href="{{ v }}" target="_blank" rel="noopener">{{ v|truncate(38) }}</a>
+{% elif t == 'select' and v %}<span class="badge b-{{ v|lower|replace(' ', '-')|replace('/', '') }}">{{ v }}</span>
+{% else %}{{ v|truncate(70) }}{% endif %}</td>{% endfor %}
+{% if bkeys %}{% set b = r[bkeys[0]]|float(0) %}{% set sp = r[bkeys[1]]|float(0) %}<td style="min-width:120px" data-label="Budget used">{% if b > 0 %}{% set pct = (sp / b * 100)|round|int %}{% set left = 100 - pct %}<div class="bbar {{ 'bad' if left < 10 else ('warn' if left < 25 else 'ok') }}" title="{{ pct }}% used, {{ left if left > 0 else 0 }}% remaining"><i style="width:{{ [pct, 100]|min }}%"></i></div><small class="{{ 'bbad' if left < 10 else 'muted' }}">{{ pct }}% used{% if left < 10 %} · {{ 'over budget' if left < 0 else 'under 10% left' }}{% endif %}</small>{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}
+<td style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('m_edit', key=key, rid=r['id']) }}"{{ pop }}>{{ 'View' if role == 'viewer' else 'Edit' }}</a>
+{% if role != 'viewer' %}<form method="post" action="{{ url_for('m_duplicate', key=key, rid=r['id']) }}" style="display:inline"><button class="btn ghost sm" title="Make a copy" aria-label="Duplicate">⧉</button></form> <form method="post" action="{{ url_for('m_delete', key=key, rid=r['id']) }}" style="display:inline" onsubmit="return confirm('Delete this record?')"><button class="btn danger sm">✕</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="{{ cols|length + 2 }}" class="empty-cell">{% set _k = 'chart' if key in ('kpis','kpi_log','analytics','experiments') else ('people' if key in ('influencers','leads','personas','creators','clients','creator_network','pr_media') else ('link' if key in ('reference_links','content_library','utm_links') else ('calendar' if key in ('content_items','key_dates','events','promotions','tasks','launch_checklist') else 'list'))) %}{% if role != 'viewer' %}{{ empty(_k, 'Nothing here yet', 'Add your first one and it shows up right here.', url_for('m_new', key=key), '+ New', pop) }}{% else %}{{ empty(_k, 'Nothing here yet', 'Nothing has been added yet.') }}{% endif %}</td></tr>{% endfor %}</table>
+{% endif %}
+{% if page > 1 or more %}<p>{% if page > 1 %}<a class="btn ghost sm" href="?page={{ page - 1 }}&q={{ q|urlencode }}&f={{ f|urlencode }}&sort={{ sort|urlencode }}&dir={{ sdir }}">← Newer</a>{% endif %} {% if more %}<a class="btn ghost sm" href="?page={{ page + 1 }}&q={{ q|urlencode }}&f={{ f|urlencode }}&sort={{ sort|urlencode }}&dir={{ sdir }}">Older →</a>{% endif %}</p>{% endif %}
+{% endblock %}
+{% block scripts %}{% if can_drag %}<script>
+(function(){
+var box=document.querySelector("[data-reorder]");if(!box)return;var URL_=box.dataset.reorder,KEY=location.pathname.split("/")[2]||"";
+function items(){return [].slice.call(box.querySelectorAll("[data-rid]")).filter(function(e){return e.closest("[data-reorder]")===box;});}
+var drag=null,ghost=null,raf=0,ly=0,lastSaved=null;
+function label(el){var t=el.querySelector(".tt b,.cc-t,td:not(.gtd)");return (t?t.textContent:el.textContent).trim().replace(/\s+/g," ").slice(0,48)||"Item";}
+function save(){var ids=items().map(function(e){return e.dataset.rid;}).join(",");if(ids===lastSaved)return;var body=new URLSearchParams();body.set("ids",ids);body.set("csrf_token",window.CSRF);
+ var snap=lastSaved;fetch(URL_,{method:"POST",headers:{"X-Requested-With":"fetch","X-CSRFToken":window.CSRF},body:body,credentials:"same-origin"})
+ .then(function(r){if(!r.ok)throw 0;lastSaved=ids;toast("Order saved",1400);}).catch(function(){toast("Couldn't save that order — reloading it.",3500);setTimeout(function(){location.reload();},900);});}
+lastSaved=items().map(function(e){return e.dataset.rid;}).join(",");
+function place(el,x,y){var hit=document.elementFromPoint(x,y),t=hit&&hit.closest&&hit.closest("[data-rid]");if(!t||t===el||t.closest("[data-reorder]")!==box)return;
+ var r=t.getBoundingClientRect(),sameRow=y>r.top&&y<r.bottom&&r.width<box.getBoundingClientRect().width*0.8;
+ var before=sameRow?(x<r.left+r.width/2):(y<r.top+r.height/2);
+ var cur=el.nextElementSibling;if(before){if(t!==cur||false)t.parentNode.insertBefore(el,t);}else{t.parentNode.insertBefore(el,t.nextElementSibling);}}
+function begin(el,e){var r=el.getBoundingClientRect();drag={el:el,dx:e.clientX-r.left,dy:e.clientY-r.top,next:el.nextElementSibling,parent:el.parentNode};
+ ghost=document.createElement("div");ghost.className="rghost";ghost.style.width=Math.min(r.width,420)+"px";ghost.innerHTML='<div style="padding:12px 16px;font-weight:700">⠿ '+label(el).replace(/</g,"&lt;")+'</div>';document.body.appendChild(ghost);
+ el.classList.add("rdrag");document.body.classList.add("kdragging");move(e);loop();}
+function move(e){ly=e.clientY;ghost.style.left=(e.clientX-drag.dx)+"px";ghost.style.top=(e.clientY-drag.dy)+"px";place(drag.el,e.clientX,e.clientY);}
+function loop(){if(!drag)return;if(ly<80)scrollBy(0,-Math.min(18,(80-ly)/3));else if(ly>innerHeight-80)scrollBy(0,Math.min(18,(ly-(innerHeight-80))/3));raf=requestAnimationFrame(loop);}
+function end(ok){if(!drag)return;cancelAnimationFrame(raf);var d=drag;drag=null;ghost.remove();d.el.classList.remove("rdrag");document.body.classList.remove("kdragging");
+ if(!ok){d.parent.insertBefore(d.el,d.next);return;}save();}
+box.addEventListener("pointerdown",function(e){var g=e.target.closest&&e.target.closest(".rgrip");if(!g||e.button!==0)return;var el=g.closest("[data-rid]");if(!el)return;e.preventDefault();
+ var id=e.pointerId,touch=e.pointerType!=="mouse",sx=e.clientX,sy=e.clientY,go=false;
+ function mv(ev){if(ev.pointerId!==id)return;if(!go){if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<3)return;go=true;begin(el,ev);}else move(ev);ev.preventDefault();}
+ function up(ev){if(ev.pointerId!==id)return;off();if(go)end(true);}function cn(ev){if(ev.pointerId!==id)return;off();if(go)end(false);}
+ function off(){document.removeEventListener("pointermove",mv);document.removeEventListener("pointerup",up);document.removeEventListener("pointercancel",cn);}
+ document.addEventListener("pointermove",mv,{passive:false});document.addEventListener("pointerup",up);document.addEventListener("pointercancel",cn);});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&drag){end(false);return;}
+ var g=document.activeElement;if(!g||!g.classList||!g.classList.contains("rgrip")||!e.altKey)return;var el=g.closest("[data-rid]");if(!el)return;
+ var up=e.key==="ArrowUp"||e.key==="ArrowLeft",dn=e.key==="ArrowDown"||e.key==="ArrowRight";if(!up&&!dn)return;e.preventDefault();
+ if(up&&el.previousElementSibling&&el.previousElementSibling.hasAttribute("data-rid"))el.parentNode.insertBefore(el,el.previousElementSibling);
+ else if(dn&&el.nextElementSibling)el.parentNode.insertBefore(el,el.nextElementSibling.nextElementSibling);else return;
+ g.focus();save();});
+})();
+</script>{% endif %}{% endblock %}

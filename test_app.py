@@ -3822,9 +3822,8 @@ def test_launch_checklist_and_watchlist_reject_blank_records(app):
 def test_menu_size_switch_and_industry_chip(app):
     o = signup(app, "size@x.com")
     h = o.get("/app").data.decode()
-    assert 'data-size="basic"' in h and 'data-size="team"' in h and "menuSize" in h and "Daily" not in h.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert 'data-hub="team"' in h and 'var BASIC' not in h and 'teamNav' in h      # Team = only the team hub, Basics = everything else
-    assert "Only your team" in h and "Everything for your marketing" in h
+    assert 'data-size="basic"' not in h and 'data-size="team"' not in h and 'class="sizesw"' not in h and "Daily" not in h.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    assert 'data-hub="team"' in h and 'var BASIC' not in h and "teamNav" not in h      # no Basics/Team switch: every hub is listed, Team last
     i = o.get("/ideas").data.decode()
     assert 'href="/account#industry"' in i
     assert 'id="industry"' in o.get("/account").data.decode()
@@ -3979,7 +3978,7 @@ def test_calendar_day_popup_and_navigation(app):
 def test_menu_team_mode_only_team_hub(app):
     o = signup(app, "teamonly@x.com")
     h = o.get("/app").data.decode()
-    assert 'data-hub="team"' in h and "teamNav" in h and 'get("menuSize","basic")' in h
+    assert 'data-hub="team"' in h and "teamNav" not in h and "menuSize" not in h and 'class="sizesw"' not in h
 
 
 def test_help_phone_friendly_table(app):

@@ -50,7 +50,7 @@ aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{
 {% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
 {% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
 {% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
-{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div id="recentRow" hidden></div><div class="sizesw" role="group" aria-label="Menu size"><button type="button" data-size="basic" title="Everything for your marketing">Basics</button><button type="button" data-size="team" title="Only your team: Team hub, roles, activity, kudos">Team</button></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-hub="{{ hb.key }}" data-label="{{ hb.label }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span><span class="hl">{{ hb.label }}</span></a>{% endfor %}<span id="hubEnd"></span><div class="hubedit"><button type="button" id="hubEdit" aria-pressed="false">✎ Edit menu</button></div>{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
+{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div id="recentRow" hidden></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-hub="{{ hb.key }}" data-label="{{ hb.label }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span><span class="hl">{{ hb.label }}</span></a>{% endfor %}<span id="hubEnd"></span><div class="hubedit"><button type="button" id="hubEdit" aria-pressed="false">✎ Edit menu</button></div>{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
 <button type="button" class="alltools-btn" id="allBtn" onclick="openFinder()">🔎 Find any tool <span class="muted">· {{ NAV.values()|map('length')|sum }} pages</span></button>
 
 <div id="allTools" hidden>{% endif %}
@@ -320,20 +320,7 @@ window.TOOLS={{ TOOLS|tojson }};window.HUBNOW={{ (HUB_NOW or "")|tojson }};
     a.addEventListener("dragleave",function(){a.classList.remove("dropat");});
     a.addEventListener("drop",function(e){e.preventDefault();a.classList.remove("dropat");var h=e.dataTransfer.getData("text/plain"),hs=barOrder(nav),to=hs.indexOf(a.getAttribute("href"));if(h&&h!==a.getAttribute("href"))moveTab(nav,h,to);});}});}
  function save(){put("hubPrefs",JSON.stringify(prefs));}
- function size(){var v=get("menuSize","basic");return v==="team"?"team":"basic";}
- function teamItems(){var g=(window.TOOLS||[]).filter(function(x){return x.k==="team";})[0];return g?g.items:[];}
- function applySize(){var sz=size(),items=teamItems(),hasTeam=items.length>0;
-  if(sz==="team"&&!hasTeam)sz="basic";   // no team pages for this role: never leave the panel empty
-  var last=null;hubs().forEach(function(a){last=a;a.hidden=a.dataset.empty==="1"||a.dataset.hub==="team"||sz==="team";});
-  var tn=box.querySelector("#teamNav");if(tn)tn.remove();
-  if(sz==="team"&&last){tn=document.createElement("div");tn.id="teamNav";tn.className="teamnav";
-   items.forEach(function(it){var a=document.createElement("a");a.className="hub"+(it[1]===window.HUBNOW?" on":"");a.href=it[1];a.textContent=it[0];if(it[1]===window.HUBNOW)a.setAttribute("aria-current","page");tn.appendChild(a);});
-   last.parentNode.insertBefore(tn,last.nextSibling);}
-  box.querySelectorAll(".sizesw button").forEach(function(b){var on=b.dataset.size===sz;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");b.hidden=b.dataset.size==="team"&&!hasTeam;});
-  var m=box.querySelector(".sizemore");if(m)m.hidden=true;}
- box.querySelectorAll(".sizesw button").forEach(function(b){b.addEventListener("click",function(){var items=teamItems(),onTeam=items.some(function(it){return it[1]===window.HUBNOW;});put("menuSize",b.dataset.size);applySize();
-  if(b.dataset.size==="team"&&items.length&&!onTeam)location.href=items[0][1];       // Team = the team pages, so open the first one
-  else if(b.dataset.size==="basic"&&onTeam)location.href="/app";});});
+ function applySize(){hubs().forEach(function(a){a.hidden=a.dataset.empty==="1";});}   // every hub is always listed
  // ---- the menu editor: rename hubs, reorder hubs and tabs, move any tab to any hub
  function dlg(){var d=document.getElementById("menuDlg");if(!d){d=document.createElement("dialog");d.id="menuDlg";d.className="menudlg";d.setAttribute("aria-label","Edit menu");document.body.appendChild(d);
   d.addEventListener("click",function(e){var t=e.target;if(t===d){d.close();return;}var b=t.closest("button[data-a]");if(!b)return;act(b.dataset.a,b);});

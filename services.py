@@ -346,10 +346,30 @@ def create_workspace(user_id, name, industry="general", kit=False):
 def delete_workspace_data(wid):
     for it in q("SELECT content FROM board_items WHERE workspace_id=? AND kind='image'", (wid,)):
         delete_file(it["content"])
-    for t in list(MODULES) + ["boards", "board_items", "memberships", "invites", "ai_usage", "comments", "notifications", "api_keys", "feedback", "pulse_runs"]:
+    wipe_workspace_data(wid)
+    ex("DELETE FROM workspaces WHERE id=?", (wid,))
+
+
+def wipe_workspace_data(wid, keep_members=False):
+    """Remove every record in a workspace (and its uploaded images), leaving the workspace row itself."""
+    for it in q("SELECT content FROM board_items WHERE workspace_id=? AND kind='image'", (wid,)):
+        delete_file(it["content"])
+    tables = list(MODULES) + ["boards", "board_items", "invites", "ai_usage", "comments", "notifications", "api_keys", "feedback", "pulse_runs", "kudos", "presence", "reactions"]
+    if not keep_members:
+        tables.append("memberships")
+    for t in tables:
         ex(f"DELETE FROM {t} WHERE workspace_id=?", (wid,))
     ex("DELETE FROM audit_log WHERE workspace_id=?", (wid,))
-    ex("DELETE FROM workspaces WHERE id=?", (wid,))
+
+
+def delete_user(uid):
+    """Delete a person completely: every workspace they own, their memberships, keys, push devices and the account itself."""
+    for w in q("SELECT id FROM workspaces WHERE owner_id=?", (uid,)):
+        delete_workspace_data(w["id"])
+    for sql in ("DELETE FROM memberships WHERE user_id=?", "DELETE FROM push_subs WHERE user_id=?", "DELETE FROM api_keys WHERE user_id=?",
+                "DELETE FROM notifications WHERE user_id=?", "DELETE FROM reactions WHERE user_id=?", "DELETE FROM presence WHERE user_id=?",
+                "DELETE FROM kudos WHERE from_user=? OR to_user=?", "DELETE FROM users WHERE id=?"):
+        ex(sql, (uid, uid) if "OR" in sql else (uid,))
 
 
 # ------------------------------------------------------------------ access control

@@ -243,12 +243,13 @@ def create_app(config=None, init=True, database_url=None):
             d["HUBS"] = _hubs
             d["HUB_CUR"] = _cur
             d["HUB_TABS"] = _cur["tabs"] if _cur and len(_cur["tabs"]) > 1 else []
+            d["HUB_NOW"] = _curtab["href"] if _cur else ""
             d["TOOLS"] = [dict(g=hb["label"], k=hb["key"], i=hb["icon"], items=[[t["label"], t["href"]] for t in hb["tabs"]]) for hb in _hubs] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])
                 d["ESSENTIALS"] = []
                 d["TOOLS"] = []
-                d["HUBS"], d["HUB_CUR"], d["HUB_TABS"] = [], None, []
+                d["HUBS"], d["HUB_CUR"], d["HUB_TABS"], d["HUB_NOW"] = [], None, [], ""
         return d
 
     @app.after_request

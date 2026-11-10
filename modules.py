@@ -49,6 +49,8 @@ REQUIRED = {
     "competitors": {"name"},
     "brand_kit": {"name"},
     "content_items": {"title"},
+    "launch_checklist": {"item"},
+    "watchlist": {"term"},
     "assets": {"title"},
     "reference_links": {"title"},
     "keywords": {"keyword"},

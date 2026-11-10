@@ -421,6 +421,37 @@ def delete_workspace():
     return redirect(url_for("dashboard"))
 
 
+@bp.route("/workspace/reset", methods=["POST"])
+@S.roles("owner")
+def reset_workspace():
+    """Start over: wipe every record but keep the account, the team and the plan; reload the starter kit and the welcome tour."""
+    if request.form.get("confirm", "").strip().upper() != "START OVER":
+        flash("Type START OVER exactly to confirm.")
+        return redirect(url_for("ws.account") + "#danger")
+    wid = g.ws["id"]
+    S.wipe_workspace_data(wid, keep_members=True)
+    S.seed_workspace(wid, g.ws["industry"] or "general")
+    ex("UPDATE users SET onboarded=0 WHERE id=?", (g.user["id"],))
+    flash("Fresh start. Everything was cleared and the starter checklist is back.")
+    return redirect(url_for("dashboard"))
+
+
+@bp.route("/account/delete", methods=["POST"])
+def delete_account():
+    """Delete this person's account for good, plus every workspace they own."""
+    u = g.user
+    ok = check_password_hash(u["password_hash"], request.form.get("password", "")[:200])
+    if ok and u["totp_on"]:
+        ok = totp.verify(u["totp_secret"], request.form.get("code", ""), u["totp_last"] or 0) is not None
+    if not ok or request.form.get("confirm", "").strip().upper() != "DELETE":
+        flash("Password (or code) incorrect, or you didn't type DELETE. Nothing was deleted.")
+        return redirect(url_for("ws.account") + "#danger")
+    S.delete_user(u["id"])
+    session.clear()
+    flash("Your account and everything you owned was permanently deleted. You can sign up again any time.")
+    return redirect(url_for("landing"))
+
+
 # ----------------------------------------------------------------- two-factor login, digest preference
 @bp.route("/account/2fa")
 def twofa():

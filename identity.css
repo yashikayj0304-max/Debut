@@ -693,3 +693,6 @@ table.hmap td,table.hmap th{white-space:normal;word-break:break-word}
 .dd-idea{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);margin:0}
 .dd-idea span{flex:1;min-width:0}
 @media(max-width:800px){.idea-act,.idea-sched{width:100%}.idea-sched input[type=date]{flex:1}.news:has(.idea-act){flex-wrap:wrap}}
+
+/* v40 — Team mode lists the team pages themselves in the side panel */
+.teamnav{display:flex;flex-direction:column;gap:2px;margin-top:4px}

@@ -8,13 +8,12 @@ already in the user's own navigation (role, industry and plan are decided there,
 HUBS = [
     dict(key="content", icon="✍️", label="Content & Calendar", lv=1, tabs=[
         ("📅 Calendar", "calendar_view", {}, [], None),
+        ("💡 Idea bank", "ideas", {}, [], None),
         ("🗂️ Board", "kanban", {"key": "content_items"}, [], None),
         ("📋 List", "m_list", {"key": "content_items"}, [], None),
         ("🗓️ Key dates", "m_list", {"key": "key_dates"}, [], None),
         ("📚 Library", "m_list", {"key": "assets"}, [], None),
         ("🔎 Keywords", "m_list", {"key": "keywords"}, [], None)]),
-    dict(key="ideas", icon="💡", label="Idea Bank", lv=1, tabs=[
-        ("💡 Idea bank", "ideas", {}, [], None)]),
     dict(key="brand", icon="🎨", label="Brand & Ideas", lv=1, tabs=[
         ("🖼️ Mood boards", "moodboards", {}, [], None),
         ("🎨 Brand kit", "m_list", {"key": "brand_kit"}, [], None),
@@ -68,5 +67,5 @@ HUBS = [
 ]
 
 # Default sidebar order: a day's work first, then planning and launching, then growing, then people.
-ORDER = ["content", "tasks", "ideas", "brand", "plan", "campaigns", "people", "sales", "money", "results", "news", "team"]
+ORDER = ["content", "tasks", "brand", "plan", "campaigns", "people", "sales", "money", "results", "news", "team"]
 HUBS.sort(key=lambda x: ORDER.index(x["key"]))

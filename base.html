@@ -1,0 +1,481 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="csrf-token" content="{{ csrf_token() }}"><meta name="theme-color" content="{{ brand.pri if brand else '#7c5cd6' }}">
+{% set _t = self.title() %}{% set _d = (meta_desc or C.APP_NAME ~ " is a go-to-market and marketing workspace for brands, agencies, founders and personal brands: plans, content calendar, mood boards, AI drafting, team approvals and client reports.") %}
+{% set _base = S_app_url() %}<meta name="description" content="{{ _d }}"><link rel="canonical" href="{{ _base }}{{ request.path }}">
+<meta property="og:type" content="website"><meta property="og:site_name" content="{{ C.APP_NAME }}"><meta property="og:title" content="{{ _t }}"><meta property="og:description" content="{{ _d }}"><meta property="og:url" content="{{ _base }}{{ request.path }}"><meta property="og:image" content="{{ _base }}{{ url_for('static', filename='icons/icon-512.png') }}"><meta name="twitter:card" content="summary">
+{% if user and ws and not bare %}<meta name="robots" content="noindex,nofollow">{% endif %}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5cd6'/%3E%3Cpath d='M9 21l5-10 4 6 5-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"><title>{% block title %}{{ C.APP_NAME }}{% endblock %}</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+<script>(function(){try{var t=localStorage.getItem("theme");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
+<script>(function(){try{var d=document.documentElement,t=localStorage.getItem("textSize"),m=localStorage.getItem("reduceMotion");if(t==="large"||t==="xl")d.setAttribute("data-text",t);if(m==="1")d.setAttribute("data-motion","reduce");}catch(e){}})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap"><link rel="stylesheet" href="{{ url_for('static', filename='identity.css') }}">
+{% if brand %}<style>:root{--pri:{{ brand.pri }};--pri-d:{{ brand.pri_d }};--pri2:{{ brand.pri2 }};--pri3:{{ brand.pri3 }};--bg:{{ brand.bg }};--bg2:{{ brand.bg2 }};--accent:{{ brand.accent }};--sec:{{ brand.sec }};--sec-d:{{ brand.sec_d }};--sec-g:{{ brand.sec_g }};--on:{{ brand.on }}}
+html[data-theme=dark]{--pri:{{ brand.pri_dm }};--sec:{{ brand.sec_dm }};--sec-g:{{ brand.sec_g_dm }};--on:{{ brand.on_dm }}}
+aside{background:linear-gradient(180deg,#fff 0%,{{ brand.pri2 }} 100%)}</style>{% endif %}<script>try{if(localStorage.getItem("sideOff")==="1"&&innerWidth>800)document.documentElement.classList.add("side-off")}catch(e){}</script>
+</head>
+<body class="{{ 'app' if (user and ws and not bare) else 'pub' }}">
+{% if user and ws and not bare %}
+<div class="topbar">
+<button class="menu-btn" id="sideBtn" type="button" aria-label="Show or hide the side panel" aria-expanded="true" title="Show or hide the side panel (Ctrl+B)" onclick="toggleSide()">☰</button>
+<a class="tb-home" href="{{ url_for('dashboard') }}" data-tour="dashboard" title="Home - back to your dashboard" aria-label="Home"><span class="tb-home-i">🏠</span><span class="tb-home-t">Home</span></a>
+<a class="tb-brand" href="{{ url_for('dashboard') }}">{% if ws['logo_url'] %}<img class="logo" src="{{ media(ws['logo_url']) }}" alt="">{% else %}<img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="">{% endif %}<span>{{ ws['name'] }}</span></a>
+<div class="tb-right">
+{% if role != 'client' %}<form class="tb-search" method="get" action="{{ url_for('search') }}" role="search"><input id="tbq" name="q" value="{{ request.args.get('q','') if request.endpoint == 'search' else '' }}" placeholder="Search…" autocomplete="off" data-tour="search" aria-label="Search everything"><button type="button" class="tb-clear" id="tbclear" aria-label="Clear search" title="Clear (Esc)" hidden>✕</button><kbd class="tb-kbd" id="tbkbd">Ctrl K</kbd></form>{% endif %}
+{% if role not in ('viewer','client') %}<div class="dd"><button type="button" class="tb-create" data-tour="create" onclick="toggleDD(this)" aria-label="Create new"><span>＋</span><b>Create</b></button><div class="dd-menu create-menu">
+<a href="{{ url_for('m_new', key='content_items') }}">📝 <span>Content<small>post, reel, blog…</small></span></a>
+<a href="{{ url_for('m_new', key='tasks') }}">✅ <span>Task<small>to-do for you or a teammate</small></span></a>
+<a class="nopop" href="{{ url_for('whatnow') }}">🫠 <span>Idk what to do<small>we'll pick your next move</small></span></a>
+{% if role != 'creator' %}<a href="{{ url_for('m_new', key='campaigns') }}">📣 <span>Campaign<small>plan with budget</small></span></a>
+<a href="{{ url_for('m_new', key='leads') }}">🧲 <span>Lead<small>someone interested</small></span></a>
+<a href="{{ url_for('m_new', key='key_dates') }}">🗓️ <span>Key date<small>festival, sale, event</small></span></a>{% endif %}
+<a class="nopop" href="{{ url_for('moodboards') }}">🖼️ <span>Mood board<small>start a visual board</small></span></a>
+<a class="nopop" href="{{ url_for('ideas') }}">💡 <span>Idea<small>browse the Idea Bank</small></span></a></div></div>{% endif %}
+<button type="button" class="tb-ic tb-theme" onclick="toggleTheme()" title="Light / dark mode" aria-label="Switch light or dark mode">🌙</button>
+<a class="tb-ic tb-help" href="{{ url_for('help_centre') }}" data-tour="help" title="Help &amp; guides" aria-label="Help &amp; guides">❓</a>
+<div class="dd"><button type="button" class="tb-ic" data-tour="bell" onclick="toggleDD(this);loadNotifs()" aria-label="Notifications">🔔{% if unread %}<span class="dot">{{ unread if unread < 10 else '9+' }}</span>{% endif %}</button>
+<div class="dd-menu dd-wide" id="notifDD"><div class="muted" style="padding:10px">No notifications yet.</div></div></div>
+<div class="dd"><button type="button" class="tb-profile" data-tour="feedback" onclick="toggleDD(this)" aria-label="Your profile menu"><span class="tb-av">{{ (user['name'] or user['email'])[:1]|upper }}</span><span class="tb-who"><span class="tb-name">{{ user['name'] or user['email'] }}</span><span class="tb-role">{{ role }}</span></span><span class="tb-caret">▾</span></button><div class="dd-menu">
+<a href="{{ url_for('ws.account') }}">👤 Profile</a>
+<button type="button" class="dd-item dd-theme" onclick="toggleTheme()">🌙 Dark / light mode</button>
+<a href="/feedback?from={{ request.path }}">💬 Send feedback</a>
+<form method="post" action="{{ url_for('auth.logout') }}"><button class="dd-item" type="submit">↪ Log out</button></form></div></div></div></div>
+<div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
+{% if role != 'client' %}<nav class="bnav" aria-label="Quick navigation"><a href="{{ url_for('dashboard') }}"><i>🏠</i>Home</a><a href="{{ url_for('calendar_view') }}"><i>📅</i>Calendar</a>
+{% if role not in ('viewer',) %}<a class="bn-plus" href="{{ url_for('m_new', key='content_items') }}" aria-label="New content"><i>＋</i></a>{% else %}<a href="{{ url_for('moodboards') }}"><i>🖼️</i>Boards</a>{% endif %}
+<a href="{{ url_for('m_list', key='tasks') }}"><i>✅</i>Tasks</a><a href="#" role="button" aria-label="Open menu" onclick="document.body.classList.toggle('nav-open');return false"><i>☰</i>Menu</a></nav>
+{% endif %}
+<div id="finder" hidden><div class="fnd-head"><span class="fnd-title" id="fndTitle">🔎 All tools</span><input id="fq" type="search" placeholder="Find a tool or page…" autocomplete="off" aria-label="Find a tool or page"><button type="button" class="fnd-x" aria-label="Close">✕</button></div><div id="fl"></div></div>
+<dialog id="overlayModal" class="overlay-modal"><div class="overlay-head"><button type="button" class="btn ghost sm" onclick="document.getElementById('overlayModal').close()">✕ Close</button></div><div id="overlayBody" class="overlay-body"><p class="muted" style="padding:20px">Loading…</p></div></dialog>
+<div class="appcols">
+<aside>
+{% if memberships|length > 1 %}<select onchange="switchWs(this.value)">{% for m in memberships %}<option value="{{ m['wid'] }}" {% if m['wid'] == ws['id'] %}selected{% endif %}>{{ m['name'] }} ({{ m['role'] }})</option>{% endfor %}</select>
+{% else %}<div class="tag" style="padding:0 8px">{{ ws['name'] }} · <span class="pill">{{ role }}</span></div>{% endif %}
+{% if industry and ws['industry'] != 'general' and role != 'client' %}<div class="tag" style="padding:2px 8px 0">{{ industry['icon'] }} {{ industry['label'] }}</div>{% endif %}
+{% if ESSENTIALS %}<a class="lostbtn" href="{{ url_for('whatnow') }}">🫠 Idk what to do</a><div class="ess" data-tour="modules"><b class="ess-h">Your essentials</b><div id="recentRow" hidden></div><div class="sizesw" role="group" aria-label="Menu size"><button type="button" data-size="basic" title="Everything for your marketing">Basics</button><button type="button" data-size="team" title="Only your team: Team hub, roles, activity, kudos">Team</button></div>{% for hb in HUBS %}<a class="hub{{ ' on' if hb.on }}" href="{{ hb.href }}" data-hub="{{ hb.key }}" data-label="{{ hb.label }}"><span class="hi" aria-hidden="true">{{ hb.icon }}</span><span class="hl">{{ hb.label }}</span></a>{% endfor %}<span id="hubEnd"></span><div class="hubedit"><button type="button" id="hubEdit" aria-pressed="false">✎ Edit menu</button></div>{% for label, href in ESS_TEAM %}<a href="{{ href }}" data-lv="3">{{ label }}</a>{% endfor %}</div>
+<button type="button" class="alltools-btn" id="allBtn" onclick="openFinder()">🔎 Find any tool <span class="muted">· {{ NAV.values()|map('length')|sum }} pages</span></button>
+
+<div id="allTools" hidden>{% endif %}
+{% for g, items in NAV.items() %}<details class="ngrp" data-g="{{ g }}"><summary title="{{ NAV_TAG.get(g, '') }}"><span class="gi" aria-hidden="true">{{ {'Strategy':'🧭','Content':'✍️','Campaigns':'📣','Promotions & Events':'🎪','Content Ops':'🛠️','Growth':'📈','Intelligence':'📡'}.get(g, '📁') }}</span><span class="gn">{{ g }}</span><span class="gc">{{ items|length }}</span></summary>{% for label, href in items %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</details>{% endfor %}
+{% if ESSENTIALS %}</div>{% endif %}
+<details class="ngrp side-foot" data-g="Workspace"><summary><span class="gi" aria-hidden="true">⚙️</span><span class="gn">Workspace</span></summary>
+{% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">💳 Plan: <span class="pill">{{ plan['name'] }}</span></a>{% endif %}
+{% if role in ('owner','admin','lead','manager') %}<a href="{{ url_for('ws.integrations') }}">🔌 Integrations</a><a href="{{ url_for('ws.export_zip') }}">⬇ Export data</a>{% endif %}
+{% if is_admin %}<a href="{{ url_for('admin.index') }}">🛠 Admin</a>{% elif admin_needs_2fa %}<a href="{{ url_for('ws.twofa') }}">🔐 Turn on 2FA to unlock Admin</a>{% endif %}
+</details></aside>
+<main>
+{% if support %}<div class="banner bad">🛠 <b>Support view</b> of {{ ws['name'] }}: read-only. <form method="post" action="{{ url_for('admin.exit_support') }}" style="display:inline"><button class="btn ghost sm">Exit support view</button></form></div>{% endif %}
+{% if lapsed %}<div class="banner">Your {{ 'trial' if ws['plan'] == 'trial' else 'subscription' }} has ended, so you're on the <b>Free</b> plan now. Your data is safe; some features are locked and limits apply. {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">Choose a plan →</a>{% endif %}</div>
+{% elif trial_left is not none and trial_left <= 7 %}<div class="banner">Free trial of all features: <b>{{ trial_left }} day(s) left</b>. After that you keep the Free plan. {% if role in ('owner','admin') %}<a href="{{ url_for('billing.billing') }}">See plans →</a>{% endif %}</div>{% endif %}
+{% if not user['email_verified'] and C.SMTP_HOST %}<div class="banner slim" id="verifyBanner"><span>📧 Please verify your email.</span> <form method="post" action="{{ url_for('ws.account_verify') }}" style="display:inline"><button class="btn ghost sm">Resend link</button></form><button type="button" class="bx" aria-label="Hide for today" title="Hide for today" onclick="hideVerify()">✕</button></div><script>(function(){try{var d=localStorage.getItem("vbHide");if(d===new Date().toDateString()){var b=document.getElementById("verifyBanner");if(b)b.remove()}}catch(e){}})();function hideVerify(){try{localStorage.setItem("vbHide",new Date().toDateString())}catch(e){}var b=document.getElementById("verifyBanner");if(b)b.remove()}</script>{% endif %}
+{% else %}
+{% if not hide_chrome %}<header class="top"><a class="brand" href="{{ url_for('landing') }}"><img class="logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt=""> {{ C.APP_NAME }}</a><a href="{{ url_for('pricing') }}">Pricing</a><span class="sp"></span>
+<button type="button" class="tb-theme" onclick="toggleTheme()" aria-label="Switch dark or light mode" title="Dark / light"></button>{% if user %}<a href="{{ url_for('dashboard') }}">Open app</a>{% else %}<a class="btn ghost hd-login" href="{{ url_for('auth.login') }}">Log in</a><a class="btn" href="{{ url_for('auth.signup') }}">Start free</a>{% endif %}</header>{% endif %}
+<main class="pubmain">
+{% endif %}
+{% set _fl = get_flashed_messages() %}{% if _fl %}<div class="toasts" role="status">{% for m in _fl %}<div class="flash">{{ m }}{% if m.startswith('Deleted.') and session.get('undo') %}<form method="post" action="{{ url_for('m_undo') }}?next={{ request.full_path|urlencode }}" style="display:inline"><button class="flash-undo">↩ Undo</button></form>{% endif %}<button type="button" class="flash-x" aria-label="Dismiss" onclick="this.parentNode.remove()">✕</button></div>{% endfor %}</div>{% endif %}
+{% if HUB_TABS %}<nav class="hubtabs" data-hub="{{ HUB_CUR.key }}" aria-label="{{ HUB_CUR.label }} sections"><span class="ht-title">{{ HUB_CUR.icon }} <span class="ht-name">{{ HUB_CUR.label }}</span></span><div class="ht-row">{% for t in HUB_TABS %}<a class="ht{{ ' on' if t.on }}" href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}</div></nav>{% endif %}
+{% if HUB_NOW %}<span id="hubSlot" hidden></span>{% endif %}
+{% block body %}{% endblock %}
+{% if not (user and ws and not bare) and not hide_chrome %}<div class="foot"><button type="button" class="theme-link" onclick="toggleTheme()">🌙 Dark / light</button><a href="{{ url_for('manual') }}">User manual</a><a href="{{ url_for('terms') }}">Terms</a><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('refunds') }}">Refunds &amp; cancellation</a><a href="{{ url_for('contact') }}">Contact</a><br>© {{ C.COMPANY_NAME }}{% if C.COMPANY_GSTIN %} · GSTIN {{ C.COMPANY_GSTIN }}{% endif %}</div>{% endif %}
+</main>{% if user and ws and not bare %}</div>{% endif %}
+<script>
+window.CSRF=document.querySelector('meta[name=csrf-token]').content;
+document.querySelectorAll('form').forEach(function(f){if((f.method||'').toLowerCase()==='post'&&!f.querySelector('[name=csrf_token]')){var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);}});
+(function(){var p=location.pathname,best=null;document.querySelectorAll("aside a[href]:not(.hub)").forEach(function(a){var h=a.getAttribute("href").split("?")[0];if(h===p||(h!=="/app"&&h.length>1&&p.indexOf(h)===0)){if(!best||h.length>best.getAttribute("href").length)best=a;}});if(best){var bh=best.getAttribute("href");document.querySelectorAll("aside a[href=\""+bh+"\"]").forEach(function(a){a.classList.add("on");});}if(false)best.classList.add("on");})();
+// ---------- sidebar headings are drop-downs (one open at a time): remember the open one, and open the one holding the current page ----------
+(function(){
+ var KEY="navOpen1",groups=document.querySelectorAll("aside details.ngrp"),cur="";
+ try{cur=localStorage.getItem(KEY)||"";}catch(e){}
+ var on=document.querySelector("aside details.ngrp a.on");if(on){var p=on.closest("details.ngrp");if(p)cur=p.dataset.g;}
+ groups.forEach(function(d){d.open=(d.dataset.g===cur);});
+ groups.forEach(function(d){d.addEventListener("toggle",function(){
+  if(d.open&&!(document.getElementById("allq")&&document.getElementById("allq").value)){groups.forEach(function(o){if(o!==d&&o.open)o.open=false;});try{localStorage.setItem(KEY,d.dataset.g);}catch(e){}}
+  else{try{if(localStorage.getItem(KEY)===d.dataset.g)localStorage.setItem(KEY,"");}catch(e){}}
+ });});
+})();
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}
+function switchWs(id){var f=document.createElement('form');f.method='post';f.action='/switch/'+id;var i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=window.CSRF;f.appendChild(i);document.body.appendChild(f);f.submit();}
+async function api(url,body){var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':window.CSRF},body:JSON.stringify(body||{})});var d={};try{d=await r.json()}catch(e){}return {ok:r.ok,status:r.status,data:d};}
+
+// ---------- top-bar dropdowns (help / notifications / profile) ----------
+function toggleDD(btn){
+ var menu=btn.nextElementSibling,open=menu.classList.contains('show');
+ document.querySelectorAll('.dd-menu.show').forEach(function(m){m.classList.remove('show')});
+ if(!open)menu.classList.add('show');
+}
+document.addEventListener('click',function(e){if(!e.target.closest('.dd'))document.querySelectorAll('.dd-menu.show').forEach(function(m){m.classList.remove('show')});});
+var _notifsLoaded=false;
+async function loadNotifs(){
+ if(_notifsLoaded)return; _notifsLoaded=true;
+ try{
+  var r=await fetch('/notifications/recent');var d=await r.json();var box=document.getElementById('notifDD');
+  if(!d.items||!d.items.length){box.innerHTML='<div class="muted" style="padding:10px">No notifications yet.</div>';return;}
+  box.innerHTML=d.items.map(function(n){return '<a href="'+n.link+'" style="white-space:normal'+(n.is_read?'':';font-weight:600')+'">'+n.message+'<br><span class="muted" style="font-weight:400;font-size:11px">'+n.created_at+'</span></a>';}).join('')+'<a href="/notifications" style="text-align:center;border-top:1px solid var(--line)">See all →</a>';
+ }catch(e){_notifsLoaded=false;}
+}
+// ---------- lightweight formatting helpers for long text fields (bold / italic / bullet list) ----------
+function wrapSel(id,mark){
+ var el=document.getElementById(id);if(!el)return;
+ var s=el.selectionStart,e=el.selectionEnd,v=el.value;
+ el.value=v.slice(0,s)+mark+v.slice(s,e)+mark+v.slice(e);
+ el.focus();el.selectionStart=s+mark.length;el.selectionEnd=e+mark.length;
+}
+function bullets(id){
+ var el=document.getElementById(id);if(!el)return;
+ var s=el.selectionStart,e=el.selectionEnd,v=el.value;
+ var sel=v.slice(s,e)||'List item';
+ var lines=sel.split('\n').map(function(l){return l.trim()?'- '+l.replace(/^- /,''):l;}).join('\n');
+ el.value=v.slice(0,s)+lines+v.slice(e);
+ el.focus();
+}
+
+
+// ---------- search box: Ctrl/Cmd+K focuses it, Esc or the ✕ clears and closes it
+(function(){var i=document.getElementById('tbq'),x=document.getElementById('tbclear'),k=document.getElementById('tbkbd');if(!i)return;
+ function sync(){var has=i.value.length>0;if(x)x.hidden=!has;if(k)k.style.display=has||document.activeElement===i?'none':'';}
+ i.addEventListener('input',sync);i.addEventListener('focus',sync);i.addEventListener('blur',sync);sync();
+ if(x)x.addEventListener('click',function(){i.value='';sync();i.focus();if(location.pathname==='/search'&&/[?&]q=/.test(location.search))location.href='/search';});
+ i.addEventListener('keydown',function(e){if(e.key==='Escape'){i.value='';i.blur();sync();}});
+ document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();i.focus();i.select();}});
+})();
+// flash messages slide away on their own
+window.toast=function(msg,ms){var c=document.querySelector(".toasts");if(!c){c=document.createElement("div");c.className="toasts";c.setAttribute("role","status");document.body.appendChild(c);}
+ var f=document.createElement("div");f.className="flash";f.textContent=msg;var x=document.createElement("button");x.type="button";x.className="flash-x";x.setAttribute("aria-label","Dismiss");x.textContent="✕";x.onclick=function(){f.remove();};f.appendChild(x);c.appendChild(f);
+ setTimeout(function(){f.classList.add("out");setTimeout(function(){f.remove();},400);},ms||3200);};
+setTimeout(function(){document.querySelectorAll('.toasts .flash').forEach(function(f){f.classList.add('out');setTimeout(function(){f.remove();},400);});},6500);
+// greeting on the dashboard uses the viewer's own clock
+(function(){var g=document.getElementById('greet');if(!g)return;var h=new Date().getHours();g.textContent=h<5?'Burning the midnight oil':h<12?'Good morning':h<17?'Good afternoon':h<21?'Good evening':'Good night';})();
+
+// ---------- UTM builder (pop-up form): live link + copy
+function buildUtm(f){var b=(f.querySelector('#u_base_url')||{}).value||'';b=b.trim();var out=f.querySelector('#u_full_url');if(!out)return;if(!b){out.value='';return;}
+ var p=new URLSearchParams();['source','medium','campaign','term','content'].forEach(function(k){var e=f.querySelector('#u_'+k);var v=e&&e.value.trim();if(v)p.set('utm_'+k,v.toLowerCase().replace(/\s+/g,'_'));});
+ var q=p.toString();out.value=b+(q?(b.indexOf('?')>-1?'&':'?')+q:'');}
+document.addEventListener('input',function(e){var f=e.target.closest&&e.target.closest('form[data-utm]');if(f)buildUtm(f);});
+function copyText(btn){var t=btn.getAttribute('data-copy')||'';var done=function(){var o=btn.textContent;btn.textContent='Copied ✓';setTimeout(function(){btn.textContent=o;},1400);};
+ try{navigator.clipboard.writeText(t).then(done,function(){});}catch(x){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');}catch(y){}a.remove();done();}}
+function copyUtm(btn){var f=btn.closest('form'),v=f.querySelector('#u_full_url').value;if(!v){f.querySelector('#u_base_url').focus();return;}btn.setAttribute('data-copy',v);copyText(btn);}
+// ---------- quick-add overlay: loads a form fragment via fetch and shows it in a pop-up dialog with a close (✕), instead of navigating away ----------
+function _overlaySep(href){ return href.indexOf('?') === -1 ? '?' : '&'; }
+function openOverlay(href, backTo){
+ var d=document.getElementById('overlayModal'),body=document.getElementById('overlayBody');
+ body.innerHTML='<p class="muted" style="padding:20px">Loading…</p>';
+ if(!d.open)d.showModal();  // calling showModal() while already open (e.g. swapping the overlay's own content for another overlay-loaded link) throws, so only open it once
+ fetch(href+_overlaySep(href)+'modal=1', {headers:{'X-Requested-With':'fetch'}}).then(function(r){return r.text();}).then(function(html){
+  body.innerHTML=html;
+  _bindOverlayForm(body);
+ }).catch(function(){ body.innerHTML='<p class="muted" style="padding:20px">Could not load the form. <a href="'+href+'">Open it in a new page instead</a>.</p>'; });
+ return false;
+}
+// every "+ New" / "Edit" link to a record form opens as a pop-up, everywhere in the app (lists, calendar, dashboard, team hub, search…)
+document.addEventListener('click',function(e){
+ if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+ var a=e.target.closest&&e.target.closest('a[href]'); if(!a||a.target==='_blank'||a.hasAttribute('download')||a.closest('#overlayBody a.nopop'))return;
+ var u; try{u=new URL(a.href,location.href);}catch(x){return;}
+ if(u.origin!==location.origin||!/^\/(m\/[a-z_]+\/(new|\d+\/edit)|utm\/new)$/.test(u.pathname))return;
+ if(/^\/m\/[a-z_]+\/\d+\/edit$/.test(location.pathname)||/^\/m\/[a-z_]+\/new$/.test(location.pathname)||location.pathname==='/utm/new')return;  // already on a full form page
+ e.preventDefault(); openOverlay(u.pathname+u.search,'');
+});
+function _bindOverlayForm(body){
+ var form=body.querySelector('form');
+ if(!form) return;
+ form.addEventListener('submit', function(e){
+  e.preventDefault();
+  var fd=new FormData(form);
+  if(!fd.get('csrf_token')) fd.set('csrf_token', window.CSRF);
+  fetch(form.action, {method:'POST', body:fd, redirect:'manual', headers:{'X-CSRFToken':window.CSRF}}).then(function(r){
+   if(r.type==='opaqueredirect' || r.status===0 || (r.status>=300 && r.status<400)){
+    document.getElementById('overlayModal').close();
+    location.reload();
+   } else {
+    return r.text().then(function(html){ body.innerHTML=html; _bindOverlayForm(body); });
+   }
+  }).catch(function(){ body.innerHTML='<p class="muted" style="padding:20px">Something went wrong saving this. Please try again.</p>'; });
+ });
+}
+if(window.history && 'scrollRestoration' in history){try{history.scrollRestoration='manual';}catch(e){}}
+// scroll: new pages start at the top; Back/Forward and "saved/deleted/ticked on the same list page" return you to where you were
+(function(){
+ var K=function(){return "sc:"+location.pathname+location.search;};
+ function put(k,v){try{sessionStorage.setItem(k,v);}catch(e){}} function get(k){try{return sessionStorage.getItem(k);}catch(e){return null;}}
+ window.addEventListener('pagehide',function(){put(K(),String(Math.round(window.scrollY)));});
+ document.addEventListener('submit',function(e){var f=e.target;if(e.defaultPrevented)return;if((f.method||'').toLowerCase()==='post')put('scKeep',JSON.stringify({u:location.pathname+location.search,y:Math.round(window.scrollY),t:Date.now()}));},false);
+ window.addEventListener('load',function(){
+  document.body.classList.remove('nav-open');
+  var y=0,nav=(performance.getEntriesByType&&performance.getEntriesByType('navigation')[0])||{};
+  if(nav.type==='back_forward'){y=parseInt(get(K())||"0",10)||0;}
+  else{var k=null;try{k=JSON.parse(get('scKeep')||"null");}catch(e){}
+   if(k&&k.u===location.pathname+location.search&&Date.now()-k.t<15000)y=k.y||0;}
+  try{sessionStorage.removeItem('scKeep');}catch(e){}
+  if(location.hash&&!y)return;
+  window.scrollTo({top:y,behavior:'instant'});
+ });
+})();
+
+// ---------- first-time tour: a few spotlighted tips pointing at where things live ----------
+var TOUR_STEPS=[
+ {sel:"[data-tour=dashboard]",title:"🏠 Home",text:"Your home screen. The \'Today\' list at the top auto-builds itself each day from what\'s overdue plus what\'s due today, so you always know what to do next — plus what\'s publishing soon and quick links into every module."},
+ {sel:"[data-tour=modules]",title:"Your essentials live here",text:"Your hubs sit here, and each one has tabs for everything inside it. Each name here is a hub with tabs inside. Tap 🔎 Find any tool (or click the search bar up top) to reach all {{ NAV.values()|map('length')|sum }} pages. Tap ☆ next to any tool to pin it here."},
+ {sel:"[data-tour=create]",title:"＋ Create",text:"Drop in content, a task, a campaign, a lead or a key date from anywhere. It pops up, so you never lose your place."},
+ {sel:"[data-tour=search]",title:"Search",text:"Type and press Enter to search every record at once. Press Ctrl+K (⌘+K on Mac) to jump here from anywhere, and Esc or ✕ to clear it."},
+ {sel:"[data-tour=bell]",title:"Notifications",text:"Someone assigned you work, mentioned you or needs an approval? It shows up here."},
+ {sel:"[data-tour=help]",title:"Help \u0026 user manual",text:"The user manual, guides and a quick \u2018where is everything\u2019 reference live here, any time you need them."},
+ {sel:"[data-tour=feedback]",title:"Your profile menu",text:"Click your name for your profile, to send feedback (it goes straight to the team, with the page you were on attached) and to log out."}
+];
+function dismissTour(){
+ var had=document.querySelectorAll('.tour-pop,.tour-mask').length>0;
+ document.querySelectorAll('.tour-pop,.tour-mask').forEach(function(e){e.remove()});
+ if(had)api('/account/onboarded',{});
+}
+// any dialog opening (quick-add overlay, a board's How-to-use, etc.) should clear the tour first, so the two never sit on screen together
+if(window.HTMLDialogElement){
+ var _showModal=HTMLDialogElement.prototype.showModal;
+ HTMLDialogElement.prototype.showModal=function(){dismissTour();return _showModal.call(this);};
+}
+function tourStep(i){
+ document.querySelectorAll('.tour-pop,.tour-mask').forEach(function(e){e.remove()});
+ if(i>=TOUR_STEPS.length){api('/account/onboarded',{});return;}
+ var st=TOUR_STEPS[i],el=document.querySelector(st.sel);
+ if(!el){tourStep(i+1);return;}
+ el.scrollIntoView({block:'center'});
+ setTimeout(function(){
+  var r=el.getBoundingClientRect();
+  var mask=document.createElement('div');mask.className='tour-mask';
+  mask.style.cssText='position:fixed;left:'+(r.left-6)+'px;top:'+(r.top-6)+'px;width:'+(r.width+12)+'px;height:'+(r.height+12)+'px;border-radius:10px;box-shadow:0 0 0 4000px rgba(43,36,66,.45),0 0 0 3px var(--pri);z-index:9998;pointer-events:none;transition:all .2s';
+  document.body.appendChild(mask);
+  var pop=document.createElement('div');pop.className='tour-pop';
+  var top=Math.min(window.innerHeight-160,Math.max(10,r.bottom+12));
+  var left=Math.min(window.innerWidth-300,Math.max(10,r.left));
+  // never sit on top of the sidebar's own buttons (Idk what to do and Edit menu): put the card beside it on wide screens
+  if(window.innerWidth>=900&&r.left<260){left=270;top=Math.max(70,r.top);}
+  pop.style.cssText='position:fixed;left:'+left+'px;top:'+top+'px;max-width:280px;background:#fff;border-radius:12px;box-shadow:var(--shadow-lg);padding:14px 16px;z-index:9999;font-size:13px';
+  pop.innerHTML='<b style="color:var(--pri-d)">'+st.title+'</b><p style="margin:6px 0 10px;color:var(--mut)">'+st.text+'</p><div style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:11px">'+(i+1)+' / '+TOUR_STEPS.length+'</span><span><button id="tourSkip" class="btn ghost sm" style="margin-right:6px">Skip</button><button id="tourNext" class="btn sm">'+(i+1<TOUR_STEPS.length?'Next':'Done')+'</button></span></div>';
+  document.body.appendChild(pop);
+  document.getElementById('tourNext').onclick=function(){tourStep(i+1);};
+  document.getElementById('tourSkip').onclick=dismissTour;
+ },250);
+}
+// a click on anything that is not the tour card means "I'm using the app": drop the tour so no button ever feels dead
+document.addEventListener('click',function(e){if(document.querySelector('.tour-pop')&&!e.target.closest('.tour-pop'))dismissTour();},true);
+function startTour(){if(document.querySelector('dialog[open]'))return;tourStep(0);}
+{% if user and ws and request.path == '/app' and not bare and not user['onboarded'] and role not in ('client',) %}window.addEventListener('load',function(){setTimeout(startTour,600);});{% endif %}
+
+// ---------- shorter sidebar: essentials + searchable All tools ----------
+(function(){var p=location.pathname;document.querySelectorAll('.bnav a[href]').forEach(function(a){var h=a.getAttribute('href');if(h&&h!=='#'&&(h===p||(h.length>1&&p.indexOf(h)===0&&h!=='/')))a.classList.add('on')})})();
+
+
+
+window.toggleSide=function(){if(innerWidth<=800){document.body.classList.toggle("nav-open");return;}var h=document.documentElement,off=h.classList.toggle("side-off");try{localStorage.setItem("sideOff",off?"1":"0");}catch(e){}var b=document.getElementById("sideBtn");if(b){b.setAttribute("aria-expanded",off?"false":"true");}};
+document.addEventListener("keydown",function(e){if(e.key==="?"&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!document.querySelector("dialog[open]")){var t=e.target;if(t&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable))return;if(location.pathname!=="/help")location.href="/help";return;}
+if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==="b"&&document.getElementById("sideBtn")){var t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t&&t.isContentEditable)return;e.preventDefault();toggleSide();}});
+(function(){var b=document.getElementById("sideBtn");if(b&&document.documentElement.classList.contains("side-off"))b.setAttribute("aria-expanded","false");})();
+window.TOOLS={{ TOOLS|tojson }};window.HUBNOW={{ (HUB_NOW or "")|tojson }};
+// ---------- your menu: rename and reorder hubs (saved in this browser) + recently used tools ----------
+(function(){var box=document.querySelector(".ess");if(!box)return;
+ function get(k,d){try{return localStorage.getItem(k)||d;}catch(e){return d;}}
+ function put(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+ var prefs={order:[],names:{},moves:{},tabOrder:{}};try{prefs=Object.assign(prefs,JSON.parse(get("hubPrefs","{}")));}catch(e){}
+ prefs.order=prefs.order||[];prefs.names=prefs.names||{};prefs.moves=prefs.moves||{};prefs.tabOrder=prefs.tabOrder||{};
+ var NOW=window.HUBNOW||"";
+ var hubs=function(){return [].slice.call(box.querySelectorAll("a.hub"));};
+ var defaults={};hubs().forEach(function(a){defaults[a.dataset.hub]=a.dataset.label||a.textContent.trim().replace(/^\S+\s*/,"");});
+ function labelOf(k){return prefs.names[k]||defaults[k]||k;}
+ var BASE={},ORIG={};(window.TOOLS||[]).forEach(function(g){if(g.k){BASE[g.k]={i:g.i,items:g.items.map(function(x){return x.slice();})};g.items.forEach(function(x){ORIG[x[1]]=g.k;});}});
+ function esc(v){return String(v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+ function layout(){var L={},ks=Object.keys(BASE);ks.forEach(function(k){L[k]=[];});
+  ks.forEach(function(k){BASE[k].items.forEach(function(x){var t=prefs.moves[x[1]];if(!t||!L[t]||t===k)L[k].push(x);});});
+  ks.forEach(function(k){BASE[k].items.forEach(function(x){var t=prefs.moves[x[1]];if(t&&L[t]&&t!==k)L[t].push(x);});});
+  ks.forEach(function(k){var o=prefs.tabOrder[k]||[];L[k].sort(function(a,b){var ia=o.indexOf(a[1]),ib=o.indexOf(b[1]);if(ia<0&&ib<0)return 0;if(ia<0)return 1;if(ib<0)return -1;return ia-ib;});});
+  return L;}
+ function custom(){return Object.keys(prefs.moves).length||Object.keys(prefs.tabOrder).length||Object.keys(prefs.names).length;}
+ function buildBar(L){var slot=document.getElementById("hubSlot");if(!slot||!NOW||!custom())return;
+  var k=null;Object.keys(L).forEach(function(h){if(L[h].some(function(x){return x[1]===NOW;}))k=h;});
+  var old=document.querySelector(".hubtabs");if(old)old.remove();if(!k||L[k].length<2)return;
+  var nav=document.createElement("nav");nav.className="hubtabs";nav.dataset.hub=k;nav.setAttribute("aria-label",labelOf(k)+" sections");
+  var ti=document.createElement("span");ti.className="ht-title";ti.appendChild(document.createTextNode((BASE[k].i||"")+" "));var nm=document.createElement("span");nm.className="ht-name";nm.textContent=labelOf(k);ti.appendChild(nm);
+  var row=document.createElement("div");row.className="ht-row";
+  L[k].forEach(function(x){var a=document.createElement("a");a.className="ht"+(x[1]===NOW?" on":"");a.href=x[1];a.textContent=x[0];if(x[1]===NOW)a.setAttribute("aria-current","page");row.appendChild(a);});
+  nav.appendChild(ti);nav.appendChild(row);slot.parentNode.insertBefore(nav,slot);}
+ function apply(){var L=layout(),anchor=box.querySelector("#hubEnd"),list=hubs();
+  var ord=prefs.order.filter(function(k){return list.some(function(a){return a.dataset.hub===k;});});
+  list.sort(function(a,b){var ia=ord.indexOf(a.dataset.hub),ib=ord.indexOf(b.dataset.hub);if(ia<0&&ib<0)return 0;if(ia<0)return 1;if(ib<0)return -1;return ia-ib;});
+  list.forEach(function(a){anchor.parentNode.insertBefore(a,anchor);var k=a.dataset.hub,t=a.querySelector(".hl"),it=L[k]||[];if(t)t.textContent=labelOf(k);
+   a.dataset.empty=it.length?"":"1";if(it.length)a.setAttribute("href",it[0][1]);
+   if(NOW)a.classList.toggle("on",it.some(function(x){return x[1]===NOW;}));});
+  (window.TOOLS||[]).forEach(function(g){if(!g.k)return;g.g=labelOf(g.k);g.items=(L[g.k]||[]).map(function(x){return x.slice();});});
+  buildBar(L);enhance();}
+ // ---- reorder tabs right on the tab bar: drag a tab, or tap ⇄ and use ◀ ▶ (works on phones too)
+ var reorder=false;
+ function barOrder(nav){return [].slice.call(nav.querySelectorAll("a.ht")).map(function(a){return a.getAttribute("href");});}
+ function moveTab(nav,href,to){var k=nav.dataset.hub,hs=barOrder(nav),i=hs.indexOf(href);if(i<0)return;hs.splice(i,1);hs.splice(Math.max(0,Math.min(hs.length,to)),0,href);prefs.tabOrder[k]=hs;save();apply();applySize();var f=document.querySelector('.hubtabs a.ht[href="'+href+'"] .ht-mv button');if(f&&reorder)try{f.focus();}catch(e){}}
+ function enhance(){var nav=document.querySelector(".hubtabs");if(!nav)return;var row=nav.querySelector(".ht-row"),title=nav.querySelector(".ht-title");
+  if(!nav.querySelector(".ht-edit")){var eb=document.createElement("button");eb.type="button";eb.className="ht-edit";eb.title="Change the order of these tabs";eb.setAttribute("aria-label","Reorder tabs");eb.textContent="⇄ Reorder";eb.addEventListener("click",function(){reorder=!reorder;apply();});nav.appendChild(eb);}
+  var eb2=nav.querySelector(".ht-edit");eb2.setAttribute("aria-pressed",reorder?"true":"false");eb2.textContent=reorder?"✓ Done":"⇄ Reorder";nav.classList.toggle("reorder",reorder);
+  var tabs=[].slice.call(nav.querySelectorAll("a.ht"));
+  tabs.forEach(function(a,i){var old=a.querySelector(".ht-mv");if(old)old.remove();
+   if(reorder){var m=document.createElement("span");m.className="ht-mv";[["◀","Move this tab left",-1],["▶","Move this tab right",1]].forEach(function(d){var b=document.createElement("button");b.type="button";b.textContent=d[0];b.setAttribute("aria-label",d[1]);b.title=d[1];if((d[2]<0&&i===0)||(d[2]>0&&i===tabs.length-1))b.disabled=true;
+     b.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();moveTab(nav,a.getAttribute("href"),i+d[2]);});m.appendChild(b);});a.appendChild(m);}
+   if(!a.dataset.dnd){a.dataset.dnd="1";a.draggable=true;
+    a.addEventListener("dragstart",function(e){e.dataTransfer.setData("text/plain",a.getAttribute("href"));e.dataTransfer.effectAllowed="move";a.classList.add("dragging");});
+    a.addEventListener("dragend",function(){a.classList.remove("dragging");[].forEach.call(nav.querySelectorAll(".dropat"),function(x){x.classList.remove("dropat");});});
+    a.addEventListener("dragover",function(e){e.preventDefault();e.dataTransfer.dropEffect="move";a.classList.add("dropat");});
+    a.addEventListener("dragleave",function(){a.classList.remove("dropat");});
+    a.addEventListener("drop",function(e){e.preventDefault();a.classList.remove("dropat");var h=e.dataTransfer.getData("text/plain"),hs=barOrder(nav),to=hs.indexOf(a.getAttribute("href"));if(h&&h!==a.getAttribute("href"))moveTab(nav,h,to);});}});}
+ function save(){put("hubPrefs",JSON.stringify(prefs));}
+ function size(){var v=get("menuSize","basic");return v==="team"?"team":"basic";}
+ function teamItems(){var g=(window.TOOLS||[]).filter(function(x){return x.k==="team";})[0];return g?g.items:[];}
+ function applySize(){var sz=size(),items=teamItems(),hasTeam=items.length>0;
+  if(sz==="team"&&!hasTeam)sz="basic";   // no team pages for this role: never leave the panel empty
+  var last=null;hubs().forEach(function(a){last=a;a.hidden=a.dataset.empty==="1"||a.dataset.hub==="team"||sz==="team";});
+  var tn=box.querySelector("#teamNav");if(tn)tn.remove();
+  if(sz==="team"&&last){tn=document.createElement("div");tn.id="teamNav";tn.className="teamnav";
+   items.forEach(function(it){var a=document.createElement("a");a.className="hub"+(it[1]===window.HUBNOW?" on":"");a.href=it[1];a.textContent=it[0];if(it[1]===window.HUBNOW)a.setAttribute("aria-current","page");tn.appendChild(a);});
+   last.parentNode.insertBefore(tn,last.nextSibling);}
+  box.querySelectorAll(".sizesw button").forEach(function(b){var on=b.dataset.size===sz;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");b.hidden=b.dataset.size==="team"&&!hasTeam;});
+  var m=box.querySelector(".sizemore");if(m)m.hidden=true;}
+ box.querySelectorAll(".sizesw button").forEach(function(b){b.addEventListener("click",function(){var items=teamItems(),onTeam=items.some(function(it){return it[1]===window.HUBNOW;});put("menuSize",b.dataset.size);applySize();
+  if(b.dataset.size==="team"&&items.length&&!onTeam)location.href=items[0][1];       // Team = the team pages, so open the first one
+  else if(b.dataset.size==="basic"&&onTeam)location.href="/app";});});
+ // ---- the menu editor: rename hubs, reorder hubs and tabs, move any tab to any hub
+ function dlg(){var d=document.getElementById("menuDlg");if(!d){d=document.createElement("dialog");d.id="menuDlg";d.className="menudlg";d.setAttribute("aria-label","Edit menu");document.body.appendChild(d);
+  d.addEventListener("click",function(e){var t=e.target;if(t===d){d.close();return;}var b=t.closest("button[data-a]");if(!b)return;act(b.dataset.a,b);});
+  d.addEventListener("change",function(e){var t=e.target;if(t.classList.contains("md-name")){var k=t.closest(".md-hub").dataset.k,v=t.value.trim();if(!v||v===defaults[k])delete prefs.names[k];else prefs.names[k]=v;commit();}
+   else if(t.classList.contains("md-mv")&&t.value){var h=t.closest("li").dataset.h;if(t.value===ORIG[h])delete prefs.moves[h];else prefs.moves[h]=t.value;var L=layout(),tg=L[t.value].map(function(x){return x[1];}).filter(function(x){return x!==h;});tg.push(h);prefs.tabOrder[t.value]=tg;commit();}});
+  d.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.classList.contains("md-name")){e.preventDefault();e.target.blur();}});}
+  return d;}
+ function commit(){save();apply();applySize();render();}
+ function render(){var d=dlg(),L=layout(),keys=hubs().map(function(a){return a.dataset.hub;}),sc=d.querySelector(".md-body"),top=sc?sc.scrollTop:0;
+  var h='<div class="md-head"><b>✎ Edit menu</b><button type="button" class="md-x" data-a="done" aria-label="Close">✕</button></div><p class="muted md-help">Rename a hub, put hubs and tabs in your order with ▲ ▼, or move a tab to a different hub. Changes show straight away and are saved in this browser.</p><div class="md-body">';
+  keys.forEach(function(k,hi){var it=L[k]||[];
+   h+='<section class="md-hub" data-k="'+esc(k)+'"><div class="md-hrow"><span class="md-ic" aria-hidden="true">'+esc((BASE[k]||{}).i||"")+'</span><input class="md-name" maxlength="28" value="'+esc(labelOf(k))+'" aria-label="Hub name"><span class="md-btns"><button type="button" data-a="hup" aria-label="Move hub up"'+(hi?'':' disabled')+'>▲</button><button type="button" data-a="hdn" aria-label="Move hub down"'+(hi===keys.length-1?' disabled':'')+'>▼</button></span></div><ul class="md-tabs">';
+   it.forEach(function(x,ti){h+='<li data-h="'+esc(x[1])+'"><span class="md-t">'+esc(x[0])+'</span><span class="md-btns"><button type="button" data-a="tup" aria-label="Move tab up"'+(ti?'':' disabled')+'>▲</button><button type="button" data-a="tdn" aria-label="Move tab down"'+(ti===it.length-1?' disabled':'')+'>▼</button><select class="md-mv" aria-label="Move this tab to another hub"><option value="">Move to…</option>'+keys.filter(function(q){return q!==k;}).map(function(q){return '<option value="'+esc(q)+'">'+esc(labelOf(q))+'</option>';}).join("")+'</select></span></li>';});
+   if(!it.length)h+='<li class="md-empty">Nothing here yet. Move a tab in from another hub.</li>';
+   h+='</ul></section>';});
+  h+='</div><div class="md-foot"><button type="button" class="btn ghost sm" data-a="reset">↺ Reset everything</button><button type="button" class="btn sm" data-a="done">Done</button></div>';
+  d.innerHTML=h;var nb=d.querySelector(".md-body");if(nb)nb.scrollTop=top;}
+ function swap(a,i,j){if(j<0||j>=a.length)return;var t=a[i];a[i]=a[j];a[j]=t;}
+ function act(a,b){var d=dlg();
+  if(a==="done"){d.close();return;}
+  if(a==="reset"){prefs={order:[],names:{},moves:{},tabOrder:{}};save();location.reload();return;}
+  if(a==="hup"||a==="hdn"){var k=b.closest(".md-hub").dataset.k,ks=hubs().map(function(x){return x.dataset.hub;}),i=ks.indexOf(k);swap(ks,i,a==="hup"?i-1:i+1);prefs.order=ks;commit();return;}
+  if(a==="tup"||a==="tdn"){var hk=b.closest(".md-hub").dataset.k,hr=b.closest("li").dataset.h,hs=layout()[hk].map(function(x){return x[1];}),j=hs.indexOf(hr);swap(hs,j,a==="tup"?j-1:j+1);prefs.tabOrder[hk]=hs;commit();}}
+ var btn=document.getElementById("hubEdit");
+ if(btn)btn.addEventListener("click",function(){var d=dlg();render();if(d.showModal)d.showModal();else d.setAttribute("open","");var f=d.querySelector(".md-name");if(f)f.focus();});
+ apply();applySize();
+ // recent: remember the last few tool pages visited and show them as quick chips
+ var rr=document.getElementById("recentRow");if(!rr)return;
+ var p=location.pathname,isTool=/^\/(m\/[a-z_]+|calendar|moodboards|ideas|ai|analytics|pulse|updates|discover|utm|report|marketing-health|recap)\/?$/.test(p)||/^\/m\/[a-z_]+$/.test(p);
+ var list=[];try{list=JSON.parse(get("recentTools","[]"))||[];}catch(e){list=[];}
+ var h=document.querySelector(".head h1");
+ if(isTool&&h){var label=h.textContent.trim().replace(/\s+/g," ").slice(0,28);list=list.filter(function(x){return x.h!==p;});list.unshift({h:p,l:label});list=list.slice(0,4);try{localStorage.setItem("recentTools",JSON.stringify(list));}catch(e){}}
+ var shown=list.filter(function(x){return x.h!==p;}).slice(0,2);
+ if(shown.length){rr.hidden=false;rr.className="recent";rr.innerHTML="<small>Recent</small>";shown.forEach(function(x){var a=document.createElement("a");a.href=x.h;a.textContent=x.l;rr.appendChild(a);});}
+})();
+
+
+// ---------- tool finder: every page lives in the search bar, not in the sidebar ----------
+var TOOLS=window.TOOLS;
+function openFinder(grp,el){var F=document.getElementById("finder");if(!F)return;window.__fgroup=grp||"";var tb=document.getElementById("tbq");if(grp){document.body.classList.remove("nav-open");F.openIn(window.innerWidth>800?"side":"sheet",el);return;}if(tb&&tb.offsetParent){tb.focus();tb.select();}else{document.body.classList.remove("nav-open");F.openIn("sheet");}}
+(function(){var F=document.getElementById("finder");if(!F)return;
+ var L=document.getElementById("fl"),FQ=document.getElementById("fq"),TB=document.getElementById("tbq"),mode="",sel=-1;
+ function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+ function pins(){try{return window.__pins?window.__pins():[];}catch(e){return [];}}
+ function render(t){t=(t||"").trim().toLowerCase();var h="",n=0,p=pins();
+  if(t)h+='<a class="fr fr-s" href="/search?q='+encodeURIComponent(t)+'">🔎 <span>Search your records for “'+esc(t)+'”</span></a>';
+  (window.TOOLS||[]).forEach(function(g){if(window.__fgroup&&g.g!==window.__fgroup)return;var rows=g.items.filter(function(x){return !t||(x[0]+" "+g.g).toLowerCase().indexOf(t)>-1;});if(!rows.length)return;
+   h+='<div class="fg">'+g.i+" "+esc(g.g)+"</div>";
+   rows.forEach(function(x){n++;var on=p.indexOf(x[1])>-1;h+='<div class="fr-w"><a class="fr" href="'+x[1]+'">'+esc(x[0])+'</a><button type="button" class="fpin'+(on?" on":"")+'" data-h="'+x[1]+'" aria-label="'+(on?"Unpin":"Pin")+' this page">'+(on?"★":"☆")+"</button></div>";});});
+  if(!n&&t)h+='<p class="muted fnone">No tool by that name. Press Enter to search your records instead.</p>';
+  var ti=document.getElementById("fndTitle");if(ti)ti.textContent=window.__fgroup?"← "+window.__fgroup:"🔎 All tools";L.innerHTML=h;sel=-1;}
+ function place(){if(mode!=="desk"||!TB)return;var r=TB.closest("form").getBoundingClientRect();F.style.top=(r.bottom+8)+"px";F.style.right=Math.max(12,window.innerWidth-r.right-40)+"px";F.style.left="auto";}
+ function openIn(m,el){mode=m;F.className="fnd-"+m;F.hidden=false;
+  if(m==="desk"){window.__fgroup="";place();render(TB.value);}
+  else if(m==="side"){var r=el.getBoundingClientRect();F.style.cssText="top:"+Math.max(64,Math.min(r.top-10,window.innerHeight-420))+"px;left:"+(r.right+10)+"px;right:auto";FQ.value="";render("");}
+  else{F.style.cssText="";if(!window.__fgroup)FQ.value=FQ.value;render(FQ.value);if(!window.__fgroup)setTimeout(function(){FQ.focus();},30);}}
+ function close(){F.hidden=true;sel=-1;}
+ F.openIn=openIn;
+ function rows(){return [].slice.call(L.querySelectorAll("a.fr"));}
+ function move(d){var r=rows();if(!r.length)return;sel=(sel+d+r.length)%r.length;r.forEach(function(a,i){a.classList.toggle("sel",i===sel);});r[sel].scrollIntoView({block:"nearest"});}
+ function key(e,inp){if(e.key==="ArrowDown"){e.preventDefault();move(1);}else if(e.key==="ArrowUp"){e.preventDefault();move(-1);}else if(e.key==="Escape"){close();}
+  else if(e.key==="Enter"){var r=rows();if(sel>-1&&r[sel]){e.preventDefault();location.href=r[sel].getAttribute("href");}else if(inp===FQ){e.preventDefault();var f=r.filter(function(a){return !a.classList.contains("fr-s");})[0]||r[0];if(f)location.href=f.getAttribute("href");}}}
+ if(TB){TB.addEventListener("focus",function(){openIn("desk");});TB.addEventListener("click",function(){if(F.hidden)openIn("desk");});TB.addEventListener("input",function(){if(F.hidden)openIn("desk");render(TB.value);});TB.addEventListener("keydown",function(e){key(e,TB);});window.addEventListener("resize",place);}
+ FQ.addEventListener("input",function(){window.__fgroup="";render(FQ.value);});FQ.addEventListener("keydown",function(e){key(e,FQ);});
+ F.querySelector(".fnd-x").addEventListener("click",close);
+ var tt=document.getElementById("fndTitle");if(tt)tt.addEventListener("click",function(){if(window.__fgroup){window.__fgroup="";render(FQ.value);}});
+ F.addEventListener("click",function(e){var b=e.target.closest(".fpin");if(b){e.preventDefault();if(window.__togglePin)window.__togglePin(b.dataset.h);var on=pins().indexOf(b.dataset.h)>-1;b.classList.toggle("on",on);b.textContent=on?"★":"☆";return;}if(e.target.closest("a.fr"))close();});
+ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!F.hidden)close();});
+ document.addEventListener("mousedown",function(e){if(F.hidden)return;if(e.target.closest("#finder")||e.target.closest(".tb-search")||e.target.closest("#allBtn")||e.target.closest(".gtile"))return;close();});
+})();
+
+// ---------- dark mode, pinned pages, confetti ----------
+function setThemeIcon(){var d=document.documentElement.getAttribute("data-theme")==="dark";document.querySelectorAll(".tb-theme").forEach(function(b){b.textContent=d?"☀️":"🌙";});var m=document.querySelector("meta[name=color-scheme]");}
+function toggleTheme(){var d=document.documentElement.getAttribute("data-theme")==="dark";if(d)document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme","dark");try{localStorage.setItem("theme",d?"light":"dark");}catch(e){}setThemeIcon();}
+setThemeIcon();
+function confetti(){if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;var cs=["#7c5cd6","#ff6b9d","#ffd60a","#2ec4b6","#ff9f1c","#4cc9f0"];for(var i=0;i<70;i++){var e=document.createElement("i");e.className="confetti-bit";e.style.left=(Math.random()*100)+"vw";e.style.background=cs[i%cs.length];e.style.setProperty("--dx",((Math.random()-.5)*240)+"px");e.style.setProperty("--rot",(Math.random()*720)+"deg");e.style.animationDelay=(Math.random()*.4)+"s";document.body.appendChild(e);setTimeout(function(x){x.remove();},2600,e);}}
+(function(){var f=document.querySelector(".toasts .flash");if(f&&f.textContent.indexOf("🎉")>-1)confetti();})();
+
+/* web push */
+function b64u(s){var p="=".repeat((4-s.length%4)%4),b=(s+p).replace(/-/g,"+").replace(/_/g,"/"),r=atob(b),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
+function enablePush(){var m=document.getElementById("pushMsg");function say(t){if(m)m.textContent=t}
+ fetch("/push/key").then(function(r){return r.json()}).then(function(d){if(!d.key){say("Push is not set up on this server yet.");return}
+  return Notification.requestPermission().then(function(p){if(p!=="granted"){say("Notifications are blocked. Allow them in your browser settings.");return}
+   return navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(d.key)})}).then(function(sub){
+    return fetch("/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":window.CSRF},body:JSON.stringify(sub)}).then(function(){say("You're in! We'll ping you.");var b=document.getElementById("pushBtn");if(b)b.hidden=true})})})}).catch(function(){say("Couldn't turn on push on this device.")})}
+(function(){var c=document.getElementById("pushCard");if(!c||!("serviceWorker" in navigator)||!("PushManager" in window))return;
+ fetch("/push/key").then(function(r){return r.json()}).then(function(d){if(!d.key)return;navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription()}).then(function(s){if(!s||Notification.permission!=="granted")c.hidden=false})}).catch(function(){})})();
+// ---------- keep the sidebar scrolled to where you were across page loads. Runs AFTER the groups/All-tools panel have opened (otherwise the panel is still collapsed, the saved position gets clamped to 0 and the sidebar "slides up") ----------
+(function(){
+ var aside=document.querySelector("aside");if(!aside||{{ "true" if role == "client" else "false" }})return;
+ var ready=false,want=0;
+ try{var saved=sessionStorage.getItem("asideScroll");if(saved!==null)want=parseInt(saved,10)||0;}catch(e){}
+ function apply(){aside.scrollTop=want;}
+ apply();requestAnimationFrame(apply);
+ window.addEventListener("load",function(){apply();setTimeout(function(){apply();ready=true;},250);});
+ var save=function(){if(!ready)return;try{sessionStorage.setItem("asideScroll",String(aside.scrollTop));}catch(e){}};
+ aside.addEventListener("scroll",save,{passive:true});
+ aside.addEventListener("click",function(e){if(e.target.closest("a")){ready=true;try{sessionStorage.setItem("asideScroll",String(aside.scrollTop));}catch(x){}}});
+ window.addEventListener("pagehide",function(){if(ready)save();});
+})();
+/* tab title: name the page so tabs and history are not all just the app name */
+(function(){var n=document.title.trim(),app={{ C.APP_NAME|tojson }};if(n!==app)return;var h=document.querySelector("main h1,.page h1,h1");if(!h)return;
+ var t=h.textContent.replace(/\s+/g," ").replace(/^[^A-Za-z0-9]+/,"").trim();if(t&&t.length<70)document.title=t+" · "+app;})();
+/* instant (no-reload) tick-offs and reactions */
+function fd(f){var d=new FormData(f);d.set("csrf_token",window.CSRF);return d}
+document.addEventListener("submit",function(e){var f=e.target;
+ var row=f.closest&&f.closest(".trow");
+ if(row&&f.querySelector(".tick")&&f.querySelector("[name=value]")){e.preventDefault();var v=f.querySelector("[name=value]"),done=!row.classList.contains("done");
+  row.classList.toggle("done",done);var t=f.querySelector(".tick"),body=fd(f);t.textContent=done?"✓":"";v.value=done?"To do":"Done";if(done)confetti();
+  fetch(f.action,{method:"POST",body:body,headers:{"X-CSRFToken":window.CSRF},credentials:"same-origin"}).then(function(r){if(!r.ok)throw 0}).catch(function(){row.classList.toggle("done",!done);t.textContent=done?"":"✓";v.value=done?"Done":"To do"});return}
+ var rb=f.closest&&f.closest(".react-bar");
+ if(rb){var b=f.querySelector(".react");if(!b)return;e.preventDefault();var mine=b.classList.toggle("mine"),c=b.querySelector("b");
+  var n=(parseInt(c&&c.textContent)||0)+(mine?1:-1);if(c){c.textContent=n>0?n:""}else if(n>0){c=document.createElement("b");c.textContent=n;b.appendChild(c)}
+  fetch(f.action,{method:"POST",body:fd(f),headers:{"X-CSRFToken":window.CSRF},credentials:"same-origin"}).catch(function(){})}
+});
+
+(function(){
+ var aside=document.querySelector("aside");if(!aside)return;
+ var KEY="pinnedPages",pins=[];try{pins=JSON.parse(localStorage.getItem(KEY)||"[]");}catch(e){}
+ function save(){try{localStorage.setItem(KEY,JSON.stringify(pins));}catch(e){}}
+ var first=aside.querySelector(".ess")||aside.querySelector("details.ngrp"),box=document.createElement("div");box.className="pinned";box.id="pinnedBox";aside.insertBefore(box,first);
+ var cur=location.pathname;
+ function draw(){
+  box.innerHTML="";var any=0;
+  pins.forEach(function(h){var src=aside.querySelector('details.ngrp a[href="'+h+'"]');if(!src)return;any++;
+   if(any===1){var t=document.createElement("b");t.textContent="⭐ Pinned";box.appendChild(t);}
+   var r=document.createElement("div");r.className="nrow";r.dataset.h=h;var a=document.createElement("a");a.href=h;a.textContent=src.textContent;if(src.classList.contains("on"))a.className="on";r.appendChild(a);
+   var b=document.createElement("button");b.type="button";b.className="pin-btn on";b.title="Unpin";b.textContent="★";b.onclick=function(){toggle(h);};r.appendChild(b);box.appendChild(r);});
+  box.style.display=any?"":"none";box.classList.toggle("canreorder",any>1);
+  if(any>1)[].forEach.call(box.querySelectorAll(".nrow"),function(r){var g=document.createElement("span");g.className="pgrip";g.textContent="⠿";g.title="Drag to reorder your pins";r.insertBefore(g,r.firstChild);});
+  aside.querySelectorAll("details.ngrp .nrow").forEach(function(r){var a=r.querySelector("a"),b=r.querySelector(".pin-btn"),h=a.getAttribute("href"),p=pins.indexOf(h)>-1;b.textContent=p?"★":"☆";b.classList.toggle("on",p);b.title=p?"Unpin":"Pin to top";});
+ }
+ box.addEventListener("pointerdown",function(e){var g=e.target.closest&&e.target.closest(".pgrip");if(!g||e.button!==0)return;var row=g.closest(".nrow");e.preventDefault();var id=e.pointerId,go=false;
+  function mv(ev){if(ev.pointerId!==id)return;if(!go){go=true;row.classList.add("pdrag");}var hit=document.elementFromPoint(ev.clientX,ev.clientY),t=hit&&hit.closest&&hit.closest("#pinnedBox .nrow");
+   if(t&&t!==row){var r=t.getBoundingClientRect();box.insertBefore(row,ev.clientY<r.top+r.height/2?t:t.nextSibling);}ev.preventDefault();}
+  function up(ev){if(ev.pointerId!==id)return;document.removeEventListener("pointermove",mv);document.removeEventListener("pointerup",up);if(!go)return;row.classList.remove("pdrag");
+   pins=[].map.call(box.querySelectorAll(".nrow"),function(r){return r.dataset.h;}).concat(pins.filter(function(h){return !aside.querySelector('#pinnedBox .nrow[data-h="'+h+'"]');}));save();draw();}
+  document.addEventListener("pointermove",mv,{passive:false});document.addEventListener("pointerup",up);});
+ function toggle(h){var i=pins.indexOf(h);if(i>-1)pins.splice(i,1);else pins.push(h);save();draw();}
+ window.__pins=function(){return pins.slice();};window.__togglePin=toggle;
+ aside.querySelectorAll("details.ngrp:not(.side-foot)>a").forEach(function(a){var r=document.createElement("div");r.className="nrow";a.parentNode.insertBefore(r,a);r.appendChild(a);var b=document.createElement("button");b.type="button";b.className="pin-btn";b.textContent="☆";b.setAttribute("aria-label","Pin this page");b.onclick=function(e){e.preventDefault();toggle(a.getAttribute("href"));};r.appendChild(b);});
+ draw();
+})();
+</script><script src="{{ url_for('static', filename='pw.js') }}" defer></script>{% if C.GA_MEASUREMENT_ID and not (user and ws and not bare) %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ C.GA_MEASUREMENT_ID }}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config","{{ C.GA_MEASUREMENT_ID }}",{anonymize_ip:true});</script>{% endif %}
+{% block scripts %}{% endblock %}</body></html>

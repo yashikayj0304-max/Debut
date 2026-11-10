@@ -3767,11 +3767,11 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     o = signup(app, "hubs@x.com")
     h = o.get("/app").data.decode()
     aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) == 12
-    for name in ("Content &amp; Calendar", "Tasks", "Idea Bank", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
+    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) == 11
+    for name in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
         assert name in aside, name
     # the sidebar order is the intended day-to-day order
-    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Idea Bank", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
+    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
     assert pos == sorted(pos)
     assert "gtile" not in aside and "More tools" not in h  # no stray tiles, no page left outside a hub
     # team pages live in the Team hub, not in the Workspace block
@@ -3823,7 +3823,7 @@ def test_menu_size_switch_and_industry_chip(app):
     o = signup(app, "size@x.com")
     h = o.get("/app").data.decode()
     assert 'data-size="basic"' in h and 'data-size="team"' in h and "menuSize" in h and "Daily" not in h.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert 'data-hub="team"' in h and 'var BASIC' not in h and 'isTeam' in h      # Team = only the team hub, Basics = everything else
+    assert 'data-hub="team"' in h and 'var BASIC' not in h and 'teamNav' in h      # Team = only the team hub, Basics = everything else
     assert "Only your team" in h and "Everything for your marketing" in h
     i = o.get("/ideas").data.decode()
     assert 'href="/account#industry"' in i
@@ -3928,7 +3928,7 @@ def test_help_matches_live_menu_and_has_search(app):
     h = o.get("/help").data.decode()
     assert 'id="hq"' in h and 'id="hnone"' in h and "Shortcuts" in h and "Undo" in h
     nav = o.get("/app").data.decode()
-    for lbl in ("Content &amp; Calendar", "Tasks", "Idea Bank", "Brand &amp; Ideas"):
+    for lbl in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas"):
         assert lbl in h, lbl
     for stale in ("Growth &gt;", "Intelligence &gt;", "Strategy &gt; Brand Kit", "Content &gt; Mood Boards"):
         assert stale not in h, stale
@@ -3979,7 +3979,7 @@ def test_calendar_day_popup_and_navigation(app):
 def test_menu_team_mode_only_team_hub(app):
     o = signup(app, "teamonly@x.com")
     h = o.get("/app").data.decode()
-    assert 'data-hub="team"' in h and "isTeam" in h and 'get("menuSize","basic")' in h
+    assert 'data-hub="team"' in h and "teamNav" in h and 'get("menuSize","basic")' in h
 
 
 def test_help_phone_friendly_table(app):
@@ -4024,10 +4024,14 @@ def test_idea_schedule_rejects_bad_input_and_viewers(app):
     assert o.post("/ideas/schedule", data={"title": "y", "date": "2026-11-13"}).status_code == 403
 
 
-def test_idea_bank_is_third_and_calendar_can_pick_ideas(app):
+def test_idea_bank_is_a_tab_right_after_calendar(app):
     o = signup(app, "ideaflow@x.com")
-    aside = o.get("/app").data.decode().split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert aside.index("Content &amp; Calendar") < aside.index("Tasks") < aside.index("Idea Bank") < aside.index("Brand &amp; Ideas")
+    h = o.get("/app").data.decode()
+    groups = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
+    content = next(g for g in groups if g["k"] == "content")
+    labels = [it[0] for it in content["items"]]
+    assert labels.index(next(l for l in labels if "Idea bank" in l)) == labels.index(next(l for l in labels if "Calendar" in l)) + 1
+    assert 'data-hub="ideas"' not in h                                                    # not a separate hub
     cal = o.get("/calendar?y=2026&m=11").data.decode()
     assert 'class="dd-ideas"' in cal and 'class="dd-idea"' in cal
     r = o.post("/ideas/schedule", data={"title": "Behind the scenes reel", "channel": "Instagram", "format": "Reel", "pillar": "Trust", "date": "2026-11-12", "next": "/calendar?y=2026&m=11"}, follow_redirects=False)

@@ -1,0 +1,2 @@
+{% macro bold(text, sub='') %}<h2 class="bigline" role="presentation">{{ text|safe }}{% if sub %}<small>{{ sub }}</small>{% endif %}</h2>{% endmacro %}
+{% macro stat(n, label, href='', cls='', hint='') %}<{{ 'a' if href else 'div' }} class="stat {{ cls }}"{% if href %} href="{{ href }}"{% endif %}><b>{{ n }}</b><span>{{ label }}</span>{% if hint %}<small>{{ hint }}</small>{% endif %}</{{ 'a' if href else 'div' }}>{% endmacro %}

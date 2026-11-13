@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import bold, stat %}{% block body %}
+{{ bold("Fresh <b>news</b> for your niche", "Hover a headline to save it or turn it into an idea.") }}
 <div class="head"><h1>⚡ Latest Updates</h1><div><a class="btn" href="?refresh=1&cat={{ cat }}">↻ Refresh</a> <a class="btn ghost" href="{{ url_for('m_list', key='feeds') }}">Manage sources</a></div></div>
 <p class="muted">Live headlines from your news sources (cached 15 min). Save useful ones to Reference Links.</p>
 <form class="filters" method="get"><select name="cat" aria-label="Category" onchange="this.form.submit()"><option value="">All categories</option>{% for c in cats %}<option {% if c == cat %}selected{% endif %}>{{ c }}</option>{% endfor %}</select> <input id="newsq" type="search" placeholder="Search headlines…" oninput="var t=this.value.toLowerCase();document.querySelectorAll('.news').forEach(function(n){n.style.display=n.textContent.toLowerCase().indexOf(t)<0?'none':''})" style="max-width:260px"></form>

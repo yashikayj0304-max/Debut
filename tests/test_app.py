@@ -4044,3 +4044,49 @@ def test_css_links_are_versioned_and_old_saved_menus_are_dropped(app):
     h = o.get("/app").data.decode()
     assert re.search(r"identity\.css\?v=\d+", h) and re.search(r"style\.css\?v=\d+", h)    # a redeploy is never hidden by a cached stylesheet
     assert "MENU_VER=3" in h and "prefs.ver!==MENU_VER" in h                                 # menus saved by older versions are reset once
+
+
+def test_bold_design_layer(app):
+    o = signup(app, "bold@x.com")
+    page = o.get("/app").data.decode()
+    assert "pop.css" in page and 'id="palMenu"' in page and "setPal(" in page and 'localStorage.getItem("pal")' in page
+    assert 'class="bigline"' in page and 'class="statstrip"' in page
+    css = open("static/pop.css").read()
+    for k in ("sunset", "lagoon", "meadow", "candy", "neon", "citrus"):
+        assert f"html[data-pal={k}]" in css and f"html[data-theme=dark][data-pal={k}]" in css
+    assert "aside{" in css and ".news:hover" in css
+    for path in ("/pulse", "/updates", "/ideas", "/calendar", "/analytics", "/team-hub"):
+        r = o.get(path, follow_redirects=True)
+        assert r.status_code == 200 and "bigline" in r.data.decode(), path
+
+
+def test_popups_use_palette_colours():
+    css = open("static/pop.css").read()
+    for sel in ("dialog::backdrop", ".dd-menu{", ".toasts .flash{", ".tour-pop{", ".palmenu{", "dialog.overlay-modal"):
+        assert sel in css, sel
+
+
+def test_palette_follows_the_account(app):
+    o = signup(app, "pal@x.com")
+    assert o.post("/pal", json={"pal": "evil<script>"}, headers={"X-CSRFToken": "x"}).status_code in (400, 403)
+    page = o.get("/app").data.decode()
+    assert "setPal(" in page
+    r = o.post("/pal", json={"pal": "lagoon"})
+    assert r.status_code == 200 and r.get_json()["pal"] == "lagoon"
+    assert '"lagoon"' in o.get("/app").data.decode().split("</script>")[0]  # applied from the account on a fresh device
+    assert o.post("/pal", json={"pal": "auto"}).status_code == 200
+    assert app.test_client().post("/pal", json={"pal": "neon"}).status_code in (302, 401, 403)
+
+
+def test_bold_pages_render_for_every_role(app, mails):
+    pages = ("/app", "/pulse", "/updates", "/ideas", "/calendar", "/analytics", "/moodboards", "/team-hub", "/marketing-health")
+    for role in ("admin", "lead", "creator", "viewer"):
+        o = signup(app, f"own{role}@x.com")
+        c = _join(app, o, mails, f"{role}@x.com", role, role.title())
+        for p in pages:
+            r = c.get(p, follow_redirects=True)
+            assert r.status_code in (200, 403, 404), (role, p, r.status_code)
+            assert b"Traceback" not in r.data and b"{{" not in r.data and b"UndefinedError" not in r.data, (role, p)
+        d = c.get("/app", follow_redirects=True).data.decode()
+        if role == "creator":
+            assert "statstrip" not in d

@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import bold, stat %}{% block body %}
+{{ bold("How healthy is your <b>marketing</b>?", "One screen, built from what you have already logged.") }}
 <div class="head"><h1>🩺 Marketing Health</h1><span class="muted">One screen for how your marketing is doing, and exactly what's left to fix</span></div>
 <p class="muted">Built entirely from what's already logged in Debut &mdash; nothing here needs a separate connected account. <a href="{{ url_for('ws.connected_accounts') }}">Connect social/ads accounts</a> once you have them, to bring in real reach and spend numbers too.</p>
 

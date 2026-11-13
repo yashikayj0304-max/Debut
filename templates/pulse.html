@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% block title %}Market Pulse{% endblock %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import bold, stat %}{% block title %}Market Pulse{% endblock %}{% block body %}
+{{ bold("What the market is <b>saying</b> right now", "Headlines, trends and videos for your industry — hover a story for quick actions.") }}
 <div class="head"><h1>📡 Market Pulse</h1><div>{% if can_refresh %}<form method="post" action="{{ url_for('pulse_refresh') }}" style="display:inline"><button class="btn" {{ 'disabled' if wait }}>⟳ Refresh now</button></form>{% endif %}
 {% if can_refresh and data and ai %}<button class="btn ghost" id="brief-btn" onclick="brief()">✨ AI brief ({{ cost }} credits)</button>{% endif %}</div></div>
 <p class="muted">Live headlines, trends and videos for your industry, competitors and keywords, from India and around the world. {% if data %}Updated <b>{{ 'just now' if age < 2 else (age|int ~ ' min ago' if age < 120 else ((age / 60)|int ~ ' h ago')) }}</b>.{% endif %}

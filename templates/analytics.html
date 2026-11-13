@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import bold, stat %}{% from "_empty.html" import empty %}{% block body %}
+{{ bold("Numbers that <b>move</b> the plan", "Log results weekly and the trends write themselves.") }}
 <div class="head"><h1>📊 Analytics</h1><a class="btn" href="{{ url_for('m_new', key='kpis', next='/analytics') }}" onclick="return openOverlay(this.href,'')">+ Log KPI</a></div>
 <p class="muted">Charts are built from the Results Log (KPIs), Campaigns and Leads. Log metrics weekly for trends.</p>
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr))">

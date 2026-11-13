@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import bold, stat %}{% block body %}
+{{ bold("Ideas worth <b>posting</b>", "Pick one and drop it on the calendar in two taps.") }}
 <div class="head"><h1>💡 Idea Bank</h1><div><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').showModal()">❓ How to use</button><a class="btn ghost sm" style="margin-left:10px" href="{{ url_for('ws.account') }}#industry" title="Your industry shapes these ideas. Click to change it.">{{ ind['icon'] }} {{ ind['label'] }} · change</a></div></div>
 <p class="muted">{{ ind['blurb'] }} {% if role in ('owner','admin') %}Not your industry? <a href="{{ url_for('ws.account') }}">Change it in Account</a> to get a tailored kit.{% endif %}</p>
 

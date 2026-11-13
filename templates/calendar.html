@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% set CH = {"Instagram":"#ec4899","Email":"#f59e0b","Blog":"#16a34a","LinkedIn":"#2563eb","YouTube":"#ef4444","Facebook":"#3b82f6","X":"#64748b","Twitter":"#38bdf8","WhatsApp":"#22c55e","TikTok":"#14b8a6","Pinterest":"#e11d48"} %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import bold, stat %}{% set CH = {"Instagram":"#ec4899","Email":"#f59e0b","Blog":"#16a34a","LinkedIn":"#2563eb","YouTube":"#ef4444","Facebook":"#3b82f6","X":"#64748b","Twitter":"#38bdf8","WhatsApp":"#22c55e","TikTok":"#14b8a6","Pinterest":"#e11d48"} %}{% block body %}
+{{ bold("Your <b>content</b> month at a glance", "Tap any day to see or add what is going out.") }}
 <div class="head"><h1>📅 Content Calendar</h1><div class="calnav">
 <div class="cn-grp" role="group" aria-label="Month and year"><a class="btn ghost" id="mPrev" href="?y={{ py }}&m={{ pm }}&channel={{ ch }}" aria-label="Previous month" title="Previous month">«</a>
 <select id="calM" aria-label="Month">{% for n, nme in months %}<option value="{{ n }}" {% if n == mth %}selected{% endif %}>{{ nme }}</option>{% endfor %}</select>

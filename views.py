@@ -379,6 +379,8 @@ def norm_date(v):
         return ""
     v = re.split(r"[T ](?=\d{1,2}:\d{2})", v)[0].strip()
     try:
+        if re.fullmatch(r"20\d{6}", v):      # 20261101, the way GA4 writes a day
+            return dt.date(int(v[:4]), int(v[4:6]), int(v[6:])).isoformat()
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
             return dt.date.fromisoformat(v).isoformat()
         m = re.fullmatch(r"(\d{4})[-/.](\d{1,2})(?:[-/.](\d{1,2}))?", v)
@@ -592,6 +594,17 @@ def set_palette():
     return jsonify(ok=True, pal=k)
 
 
+@route("/account/focus", methods=["POST"])
+def set_focus():
+    """Choose which sections the sidebar shows first. Empty means show everything."""
+    from hubs import clean_focus
+    pick = request.form.getlist("focus") if not request.is_json else (request.get_json(silent=True) or {}).get("focus", [])
+    val = "" if request.form.get("all") else clean_focus(pick)
+    ex("UPDATE users SET focus=? WHERE id=?", (val, g.user["id"]))
+    flash("Menu updated. Hidden sections are under More tools." if val else "Showing every section.")
+    return redirect(request.referrer or url_for("ws.account"))
+
+
 @route("/m/undo", methods=["POST"])
 def m_undo():
     u = session.pop("undo", None)
@@ -707,6 +720,44 @@ def m_template_xlsx(key):
     buf.seek(0)
     return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                      headers={"Content-Disposition": f"attachment; filename={key}-mock-template.xlsx"})
+
+
+@route("/analytics/import", methods=["POST"])
+def analytics_import():
+    """Drop in a Meta / Instagram / Google Ads / GA4 export and its numbers land in the Results Log."""
+    import datasync
+    f = request.files.get("file")
+    if not f:
+        flash("Choose the report file you downloaded (CSV).")
+        return redirect(url_for("analytics"))
+    try:
+        text = f.read(2_000_000).decode("utf-8-sig")
+    except UnicodeDecodeError:
+        flash("Could not read that file. In Excel or Sheets use Save as → CSV (UTF-8).")
+        return redirect(url_for("analytics"))
+    rows, info = datasync.read_export(text, f.filename or "", S.clean_text(request.form.get("channel"), 60), norm_date)
+    if info.get("error") or not rows:
+        flash(info.get("error") or "No numbers found in that file. Each column needs a name on top and plain numbers underneath.")
+        return redirect(url_for("analytics"))
+    today = S.today().isoformat()
+    room = g.plan["records"] - S.record_count(W())
+    added = updated = 0
+    for r in rows[:3000]:
+        per = r["period"] or today
+        have = q("SELECT id FROM kpis WHERE workspace_id=? AND metric=? AND channel=? AND period=?", (W(), r["metric"], r["channel"], per), one=True)
+        val = f"{r['value']:.2f}".rstrip("0").rstrip(".")
+        if have:
+            ex("UPDATE kpis SET value=? WHERE id=?", (val, have["id"]))
+            updated += 1
+        elif added < room:
+            ins("kpis", dict(workspace_id=W(), metric=r["metric"], channel=r["channel"], period=per, value=val, target="", campaign="", notes="From a platform export"))
+            added += 1
+    S.audit("import", f"kpis x{added}")
+    flash(f"Added {added} result(s) for {len(info['columns'])} metric(s) on {info['channel']}"
+          + (f" and refreshed {updated} you had already." if updated else ".")
+          + (f" Skipped {info['skipped']} row(s) with no readable date (totals or notes)." if info.get("skipped") else "")
+          + (" Your plan's record limit was reached." if added >= room and room < len(rows) else ""))
+    return redirect(url_for("analytics"))
 
 
 @route("/m/<key>/import", methods=["POST"])

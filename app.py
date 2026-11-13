@@ -5,7 +5,7 @@ from flask import Flask, g, request, session, render_template, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config as C
 from modules import HINTS as M_HINTS
-from hubs import HUBS
+from hubs import HUBS, focus_keys as _hubs_focus
 import db as D
 import services as S
 import industries as IND
@@ -34,7 +34,7 @@ CREATOR_OK = {"dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_s
               "auth.logout", "auth.switch_ws", "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify",
               "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "presence", "push_key", "push_subscribe", "push_unsubscribe", "kudos", "kudos_send", "react", "presence", "push_key", "push_subscribe", "push_unsubscribe", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
 FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order_assign": "content_ops", "discover": "influencers", "outreach": "influencers",
-              "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "marketing_health": "analytics", "ai_studio": "ai", "api_ai": "ai"}
+              "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "analytics_import": "analytics", "marketing_health": "analytics", "ai_studio": "ai", "api_ai": "ai"}
 
 
 import taglines as _tg
@@ -174,6 +174,8 @@ def create_app(config=None, init=True, database_url=None):
     app.jinja_env.globals["TAGS"] = _tg.TAGS
     import palettes as _pl
     app.jinja_env.globals["VIBE_PALS"] = _pl.PALS
+    from hubs import FOCUS as _FOCUS
+    app.jinja_env.globals["FOCUS"] = _FOCUS
 
     @app.context_processor
     def ctx():
@@ -236,6 +238,9 @@ def create_app(config=None, init=True, database_url=None):
                 for lbl, ep, kw, extra, _vis in hb["tabs"]:
                     href = url_for(ep, **kw)
                     vis = url_for("m_list", key=kw["key"]) if ep == "kanban" else href
+                    if _vis == "hid":      # reachable from a button on another tab, so it is not shown as a tab of its own
+                        _seen.add(vis)
+                        continue
                     if _vis == "mgr":      # team pages: owners, admins and leads
                         if g.role not in C.TEAM_MANAGERS:
                             continue
@@ -252,7 +257,14 @@ def create_app(config=None, init=True, database_url=None):
                     tabs.append(dict(label=lbl + (" 🔒" if (_label_of.get(vis, "").endswith("🔒") or (ep == "team_hub" and "group" not in g.plan["features"])) else ""), href=href, paths=[path] + extra, on=False))
                 if tabs:
                     _hubs.append(dict(key=hb["key"], icon=hb["icon"], label=hb["label"], lv=hb["lv"], href=tabs[0]["href"], tabs=tabs, on=False))
-            _rest = [(lbl, h) for h, lbl in _label_of.items() if h not in _seen]
+            _fk = _hubs_focus(g.user["focus"] if g.user and "focus" in g.user.keys() else "")
+            _tucked = []
+            if _fk is not None:      # chosen focus: other hubs move under "More tools" (nothing is removed)
+                _keep = []
+                for hb in _hubs:
+                    (_keep if hb["key"] in _fk or hb["tabs"][0]["href"] == request.path else _tucked).append(hb)
+                _hubs = _keep
+            _rest = [(lbl, h) for h, lbl in _label_of.items() if h not in _seen] + [(t["label"], t["href"]) for hb in _tucked for t in hb["tabs"]]
             if _rest:
                 _hubs.append(dict(key="more", icon="🧰", label="More tools", lv=3, href=_rest[0][1], tabs=[dict(label=l, href=h, paths=[h.split("?")[0]], on=False) for l, h in _rest], on=False))
             _p = request.path

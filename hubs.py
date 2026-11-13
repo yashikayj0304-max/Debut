@@ -40,11 +40,11 @@ HUBS = [
         ("🧲 Leads", "m_list", {"key": "leads"}, [], None),
         ("🏛️ Target companies", "m_list", {"key": "accounts"}, [], None),
         ("🤝 Clients", "m_list", {"key": "clients"}, [], None),
-        ("🛒 Retail audits", "m_list", {"key": "retail_audits"}, [], None),
-        ("📑 Client report", "report", {}, ["/report"], "rep")]),
+        ("🛒 Retail audits", "m_list", {"key": "retail_audits"}, [], None)]),
     dict(key="results", icon="📈", label="Results & Insights", lv=2, tabs=[
-        ("📈 Analytics", "analytics", {}, [], None),
-        ("🎯 Results log", "m_list", {"key": "kpis"}, [], None),
+        ("📈 Numbers", "analytics", {}, ["/m/kpis"], None),
+        ("🎯 Results log", "m_list", {"key": "kpis"}, [], "hid"),
+        ("📑 Report", "report", {}, ["/report"], "rep"),
         ("🩺 Marketing health", "marketing_health", {}, [], None),
         ("✨ Recap", "recap", {}, [], None)]),
     dict(key="people", icon="🤳", label="Influencers & PR", lv=3, tabs=[
@@ -69,3 +69,34 @@ HUBS = [
 # Default sidebar order: a day's work first, then planning and launching, then growing, then people.
 ORDER = ["content", "tasks", "brand", "plan", "campaigns", "people", "sales", "money", "results", "news", "team"]
 HUBS.sort(key=lambda x: ORDER.index(x["key"]))
+
+
+# What people say they want to do -> which hubs to show first. Content and Tasks are always shown.
+# Hubs left out are not removed: they sit under "More tools" and the person can add them any time.
+FOCUS = [
+    ("content", "✍️", "Plan and post content", ["content", "brand", "tasks"]),
+    ("launch", "🧭", "Launch a product or campaign", ["plan", "campaigns"]),
+    ("results", "📈", "See what is working", ["results"]),
+    ("sales", "🧲", "Track leads and clients", ["sales"]),
+    ("reach", "🤳", "Work with influencers and PR", ["people", "money"]),
+    ("ai", "🤖", "AI help and market news", ["news"]),
+    ("team", "👥", "Run a team", ["team"]),
+]
+ALWAYS = {"content", "tasks"}
+
+
+def focus_keys(csv):
+    """The hub keys to show first for a saved focus string ("" = show everything)."""
+    pick = [x for x in (csv or "").split(",") if x]
+    if not pick:
+        return None
+    out = set(ALWAYS)
+    for k, _i, _l, hubs in FOCUS:
+        if k in pick:
+            out.update(hubs)
+    return out
+
+
+def clean_focus(vals):
+    ok = {k for k, *_ in FOCUS}
+    return ",".join(k for k, *_ in FOCUS if k in set(vals) and k in ok)

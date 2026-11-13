@@ -140,6 +140,9 @@ def signup():
             return render_template("signup.html", inv=inv, inv_ws=inv_ws, token=token, form=f, industries=IND.CHOICES), 400
         user = q("SELECT * FROM users WHERE id=?", (uid,), one=True)
         wid = accept_invite(token, user) if inv else S.create_workspace(uid, wsname, industry, kit=bool(f.get("kit")))
+        if not inv:
+            from hubs import clean_focus
+            ex("UPDATE users SET focus=? WHERE id=?", (clean_focus(request.form.getlist("focus")), uid))
         start_session(uid, wid)
         S.audit("signup", email, wid=wid, uid=uid)
         S.audit("dpdp_consent", f"{email} accepted Terms/Privacy at signup", wid=wid, uid=uid)

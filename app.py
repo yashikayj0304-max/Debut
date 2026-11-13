@@ -41,7 +41,7 @@ def _asset_v():
     """Version stamp for the css links, so a redeploy is picked up straight away instead of the browser reusing its cached copy."""
     try:
         base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-        return int(max(os.path.getmtime(os.path.join(base, f)) for f in ("style.css", "polish.css", "identity.css")))
+        return int(max(os.path.getmtime(os.path.join(base, f)) for f in ("style.css", "polish.css", "identity.css", "pop.css")))
     except OSError:
         return 0
 

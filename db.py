@@ -73,7 +73,7 @@ EXTRA_COLUMNS = {
     "memberships": [("client_name", "TEXT DEFAULT ''")],
     "invites": [("client_name", "TEXT DEFAULT ''")],
     "comments": [("client_visible", "INTEGER DEFAULT 0")],
-    "users": [("totp_secret", "TEXT DEFAULT ''"), ("totp_on", "INTEGER DEFAULT 0"), ("totp_last", "INTEGER DEFAULT 0"), ("recovery", "TEXT DEFAULT ''"), ("digest", "INTEGER DEFAULT 1"), ("onboarded", "INTEGER DEFAULT 0"), ("pin_hash", "TEXT DEFAULT ''")],
+    "users": [("totp_secret", "TEXT DEFAULT ''"), ("totp_on", "INTEGER DEFAULT 0"), ("totp_last", "INTEGER DEFAULT 0"), ("recovery", "TEXT DEFAULT ''"), ("digest", "INTEGER DEFAULT 1"), ("onboarded", "INTEGER DEFAULT 0"), ("pin_hash", "TEXT DEFAULT ''"), ("pal", "TEXT DEFAULT ''")],
     "boards": [("share_token", "TEXT DEFAULT ''")],
     "board_items": [("x", "INTEGER DEFAULT -1"), ("y", "INTEGER DEFAULT -1"), ("w", "INTEGER DEFAULT 240"), ("h", "INTEGER DEFAULT 170"), ("z", "INTEGER DEFAULT 1")],
     # a manual within-column order for every kanban-enabled module, so cards can be dragged into a custom

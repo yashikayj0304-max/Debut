@@ -451,6 +451,19 @@ def ideas_schedule():
     return redirect(safe_next(url_for("calendar_view", d=day.isoformat())))
 
 
+PALETTES = ("auto", "sunset", "lagoon", "meadow", "candy", "neon", "citrus")
+
+
+@route("/pal", methods=["POST"])
+def set_palette():
+    """Remember the colour palette on the account so it follows the person across devices."""
+    k = str((request.get_json(silent=True) or {}).get("pal", ""))
+    if k not in PALETTES:
+        return jsonify(ok=False), 400
+    ex("UPDATE users SET pal=? WHERE id=?", ("" if k == "auto" else k, g.user["id"]))
+    return jsonify(ok=True, pal=k)
+
+
 @route("/m/undo", methods=["POST"])
 def m_undo():
     u = session.pop("undo", None)

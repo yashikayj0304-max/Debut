@@ -71,9 +71,71 @@ def landing():
     return render_template("landing.html", plans=C.PLANS, mods=MODULES, inds=[IND.INDUSTRIES[k] for k in IND.ORDER if k != "general"])
 
 
+@route("/demo")
+@limiter.limit("30 per hour")
+def demo():
+    import demo as _demo
+    from auth import start_session
+    uid, wid = _demo.ensure_demo()
+    start_session(uid, wid)
+    return redirect(url_for("dashboard"))
+
+
+@route("/features")
+def features():
+    return render_template("features.html", inds=[IND.INDUSTRIES[k] for k in IND.ORDER if k != "general"])
+
+
 @route("/pricing")
 def pricing():
     return render_template("pricing.html", plans=C.PLANS)
+
+
+TEMPLATES_GALLERY = [
+    ("🪔", "Diwali campaign plan", "Gifting, offers and countdown posts across 3 weeks.", "Festive"),
+    ("🚀", "Product launch in 30 days", "Teasers, launch day, follow-ups and a results check.", "Launch"),
+    ("🤝", "Creator collab brief", "Deliverables, dates, usage rights and a posting schedule.", "Creators"),
+    ("🛍️", "Sale weekend sprint", "Offer, creatives, email, ads and a last-call push.", "Sales"),
+    ("🎬", "Reels batch week", "Plan, shoot and schedule 10 reels in one go.", "Content"),
+    ("📬", "Newsletter launch", "Name, first 4 issues and a sign-up push.", "Email"),
+]
+CHANGELOG = [
+    ("This week", ["Plans: compare dialog, yearly toggle and a Creator plan", "Agency enquiries go through a short form", "Add your calendar to Google Calendar in one tap", "Pick your vibe: palettes now follow your account"]),
+    ("Earlier", ["Idea Bank, Team hub and Content ops dashboards", "Bold headline bands and big-number tiles", "Undo and duplicate on every list"]),
+]
+
+
+@route("/templates")
+def templates_gallery():
+    return render_template("templates_gallery.html", items=TEMPLATES_GALLERY)
+
+
+@route("/changelog")
+def changelog():
+    return render_template("changelog.html", log=CHANGELOG)
+
+
+AGENCY_SIZES = ["1-5 people", "6-15 people", "16-50 people", "50+ people"]
+
+
+@route("/agency", methods=["GET", "POST"])
+@limiter.limit("6 per hour", methods=["POST"])
+def agency_enquiry():
+    """Agency plans have no public price: the buyer tells us about their team and we come back with a quote."""
+    f = {k: S.clean_text(request.form.get(k), 300) for k in ("name", "email", "phone", "company", "size", "clients", "message")}
+    if request.method == "POST":
+        if request.form.get("website"):                              # honeypot: real people leave this empty
+            return redirect(url_for("agency_enquiry", sent=1))
+        if not f["name"] or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", f["email"] or "") or not f["company"]:
+            flash("Please add your name, a valid work email and your company name.")
+            return render_template("agency.html", f=f, sizes=AGENCY_SIZES), 400
+        body = "\n".join(f"{k.title()}: {v}" for k, v in f.items() if v)
+        ins("feedback", dict(workspace_id=(g.ws["id"] if g.get("ws") else None), user_id=(g.user["id"] if g.get("user") else None), kind="agency", page="/agency", message=body))
+        S.send_email(C.SUPPORT_EMAIL, f"[{C.APP_NAME}] Agency plan enquiry from {f['company']}", body)
+        return redirect(url_for("agency_enquiry", sent=1))
+    if g.get("user"):
+        f["name"], f["email"] = g.user["name"], g.user["email"]
+    return render_template("agency.html", f=f, sizes=AGENCY_SIZES, sent=bool(request.args.get("sent")))
 
 
 @route("/manual")
@@ -199,7 +261,18 @@ def dashboard():
     if wins and cnt("memberships") <= 1 and g.role in ("owner", "admin"):
         pending.sort(key=lambda x: 0 if x[0] == "Invite a teammate" else 1)
     next_step = pending[0] if pending else None
-    return render_template("dashboard.html", next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
+    trial_card = pmf_ask = None
+    if g.role in ("owner", "admin"):
+        dl = S.trial_days_left(g.ws)
+        if g.plan_key == "trial" and dl is not None and dl <= 2:
+            trial_card = dict(days=max(dl, 0), posts=cnt("content_items"), plans=cnt("gtm_plans"), leads=cnt("leads"))
+        try:
+            age = (S.today() - dt.date.fromisoformat(str(g.user["created_at"])[:10])).days
+        except Exception:
+            age = 0
+        if age >= 7 and not q("SELECT id FROM feedback WHERE user_id=? AND kind='pmf'", (g.user["id"],), one=True):
+            pmf_ask = True
+    return render_template("dashboard.html", trial_card=trial_card, pmf_ask=pmf_ask, next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
                            today_items=today_items, today_more=today_more,
                            steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
@@ -393,7 +466,7 @@ def m_save(key):
         S.audit("update", f"{key}#{rid}")
     else:
         if S.record_count(W()) >= g.plan["records"]:
-            flash(f"You've reached the {g.plan['name']} plan limit of {g.plan['records']} records." + C.upsell(g.plan_key, "records", "records", "records") + " You can still edit, delete or export.")
+            flash(f"You've reached the {g.plan['name']} plan limit of {g.plan['records']} items." + C.upsell(g.plan_key, "records", "records", "items") + " You can still edit, delete or export.")
             return redirect(url_for("billing.billing") if g.role in ("owner", "admin") else url_for("dashboard"))
         if key == "watchlist" and q("SELECT COUNT(*) c FROM watchlist WHERE workspace_id=?", (W(),), one=True)["c"] >= g.plan["watch"]:
             flash(f"Your {g.plan['name']} plan can track {g.plan['watch']} items in Market Pulse. Remove one" + (" or upgrade:" + C.upsell(g.plan_key, "watch", "watch", "topics") if C.next_plan(g.plan_key) else "."))
@@ -406,7 +479,8 @@ def m_save(key):
     if first_win:
         flash(first_win)
         return redirect(safe_next(url_for("m_list", key=key)))
-    flash("Saved. 🎉" if str(data.get("status", "")).lower() in ("done", "published", "won", "completed", "approved") else "Saved.")
+    _win = {"done", "published", "won", "completed", "approved", "closed won", "signed"}
+    flash("Saved. 🎉" if (str(data.get("status", "")).lower() in _win or str(data.get("stage", "")).lower() in _win) else "Saved.")
     return redirect(safe_next(url_for("m_list", key=key)))
 
 
@@ -724,6 +798,24 @@ def m_status(key, rid):
     if field == "status":
         changed_hooks(key, rid, m, {"status": v}, row)
     return redirect(safe_next(url_for("kanban", key=key)))
+
+
+@route("/m/tasks/<int:rid>/snooze", methods=["POST"])
+def task_snooze(rid):
+    """Push a task's due date to tomorrow (or one day later than it already is, if that is further out)."""
+    row = row_or_404("tasks", rid)
+    base = S.today()
+    try:
+        cur = dt.date.fromisoformat((row["due_date"] or "")[:10])
+        if cur > base:
+            base = cur
+    except ValueError:
+        pass
+    new = (base + dt.timedelta(days=1)).isoformat()
+    ex("UPDATE tasks SET due_date=? WHERE id=? AND workspace_id=?", (new, rid, W()))
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify(ok=True, due=new)
+    return redirect(safe_next(url_for("m_list", key="tasks")))
 
 
 @route("/m/<key>/<int:rid>/reorder", methods=["POST"])
@@ -2187,6 +2279,15 @@ def lead_hook(key):
 
 
 # ----------------------------------------------------------------- feedback (goes to you, with context)
+@route("/pmf", methods=["POST"])
+def pmf_answer():
+    a = request.form.get("a", "")
+    if a in ("very", "somewhat", "not"):
+        ins("feedback", dict(workspace_id=W(), user_id=g.user["id"], kind="pmf", page="/app", message="How disappointed if Debut went away? " + a))
+        flash("Thanks, that really helps us.")
+    return redirect(url_for("dashboard"))
+
+
 FEEDBACK_KINDS = ["idea", "problem", "question", "praise"]
 
 
@@ -2215,7 +2316,10 @@ def manifest():
     icons = [dict(src=url_for("static", filename="icons/icon-192.png"), sizes="192x192", type="image/png", purpose="any"),
              dict(src=url_for("static", filename="icons/icon-512.png"), sizes="512x512", type="image/png", purpose="any"),
              dict(src=url_for("static", filename="icons/maskable-512.png"), sizes="512x512", type="image/png", purpose="maskable")]
-    return Response(json.dumps(dict(name=C.APP_NAME, short_name=C.APP_NAME[:12], start_url="/app", scope="/", display="standalone", background_color="#faf8ff", theme_color="#7c5cd6", icons=icons)),
+    return Response(json.dumps(dict(name=C.APP_NAME, short_name=C.APP_NAME[:12], start_url="/app", scope="/", display="standalone", display_override=["standalone", "minimal-ui"], orientation="any", background_color="#faf8ff", theme_color="#7c5cd6", icons=icons,
+                                     description="Plan, post, launch and report your marketing in one place.", categories=["business", "productivity"],
+                                     screenshots=[dict(src=url_for("static", filename="icons/shot-wide.png"), sizes="1280x800", type="image/png", form_factor="wide", label="Home"), dict(src=url_for("static", filename="icons/shot-narrow.png"), sizes="390x844", type="image/png", form_factor="narrow", label="Home on phone")],
+                                     shortcuts=[dict(name="Calendar", url="/calendar"), dict(name="Tasks", url="/m/tasks"), dict(name="Idk what to do", url="/whatnow")])),
                     mimetype="application/manifest+json")
 
 

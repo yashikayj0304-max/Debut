@@ -64,6 +64,13 @@ VAPID_PUBLIC = env("VAPID_PUBLIC")      # web-push keys: run  python gen_vapid.p
 VAPID_PRIVATE = env("VAPID_PRIVATE")
 VAPID_SUBJECT = env("VAPID_SUBJECT", "mailto:hello@example.com")
 APP_URL = env("APP_URL", "http://127.0.0.1:8001").rstrip("/")
+CLARITY_ID = env("CLARITY_ID") or ""          # Microsoft Clarity project id (free heatmaps + recordings). Empty = off
+POSTHOG_KEY = env("POSTHOG_KEY") or ""        # PostHog project key (free tier funnels). Empty = off
+POSTHOG_HOST = env("POSTHOG_HOST") or "https://us.i.posthog.com"
+FOUNDER_NAME = env("FOUNDER_NAME") or ""            # shows the "Who built this" block on the home page when set
+FOUNDER_NOTE = env("FOUNDER_NOTE") or ""
+TESTIMONIALS = [x.strip() for x in (env("TESTIMONIALS") or "").split("|") if x.strip()]   # real beta quotes, separated by |, e.g. "Saved me hours - Asha, founder|..."
+BETA_USERS = int(env("BETA_USERS") or 0)      # real number of beta users; the proof line only shows when this is set
 TRIAL_DAYS = int(env("TRIAL_DAYS") or 14)
 PRICE_NOTE = env("PRICE_NOTE", "+ GST")  # shown next to prices; must match what your Razorpay plans actually charge
 ADMIN_EMAILS = [e.strip().lower() for e in env("ADMIN_EMAILS").split(",") if e.strip()]
@@ -118,10 +125,12 @@ ALL_FEATURES = {"content_ops", "promo_events", "influencers", "analytics", "ai",
 # and put their IDs in RAZORPAY_PLAN_STARTER / _TEAM / _AGENCY.
 PLANS = OrderedDict([
     # Free forever: the core planning tools with small limits. New workspaces first get a trial of everything.
-    ("free", dict(name="Free", price=0, seats=1, clients=0, watch=3, ai_credits=5, records=100, boards=3, features={"ai"},
+    ("free", dict(name="Free", price=0, seats=1, clients=0, watch=3, ai_credits=5, records=250, boards=3, features={"ai"},
                   blurb="Plan and organise your marketing, free forever")),
     ("trial", dict(name="Free trial", price=0, seats=5, clients=5, watch=25, ai_credits=40, records=2000, boards=999, features=ALL_FEATURES,
-                   blurb=f"{TRIAL_DAYS} days, all Team features")),
+                   blurb=f"{TRIAL_DAYS} days of the Team plan")),
+    ("creator", dict(name="Creator", price=399, seats=1, clients=0, watch=5, ai_credits=20, records=800, boards=10, features={"ai", "import"},
+                     blurb="Creators, students & first-time marketers", rzp_env="RAZORPAY_PLAN_CREATOR")),
     ("starter", dict(name="Starter", price=999, seats=1, clients=0, watch=10, ai_credits=40, records=1500, boards=20, features={"influencers", "analytics", "ai", "import"},
                      blurb="Solo marketers & freelancers", rzp_env="RAZORPAY_PLAN_STARTER")),
     ("team", dict(name="Team", price=3999, seats=5, clients=5, watch=25, ai_credits=250, records=10000, boards=999, features=ALL_FEATURES,
@@ -136,11 +145,17 @@ PAID_PLANS = [k for k in PLANS if k not in ("free", "trial")]
 FEATURE_LABELS = [("ai", "AI Studio drafts"), ("influencers", "Influencer discovery & outreach"), ("analytics", "KPI tracking & analytics"), ("import", "CSV import"),
                   ("group", "Team hub, Lead role & approvals"), ("content_ops", "Content Ops: creator network, orders, invoices"),
                   ("promo_events", "Promotions & events, online + offline"), ("api", "REST API & integrations")]
-PLAN_PITCH = {"free": ("Try it, no card needed", "Need AI drafts, analytics or influencers? Starter switches them on."),
+PLAN_PITCH = {"free": ("Try it, no card needed", "Need more AI, analytics or influencer tools? Starter adds them."),
+              "creator": ("For creators and students", "Need analytics and influencer discovery? Starter switches them on."),
               "starter": ("For one marketer going solo", "Working with a team or clients? Team adds seats, approvals and a client portal."),
               "team": ("For brands and small agencies", "Running many clients? Agency triples the seats and gives 25 client logins."),
               "agency": ("For agencies and content businesses", "")}
-PLAN_ORDER = ["free", "starter", "team", "agency"]
+PLAN_ORDER = ["free", "creator", "starter", "team", "agency"]
+HIDDEN_PRICE = {"agency"}            # Agency is quoted per team: no public price, buyers fill in an enquiry form instead
+YEARLY_MONTHS_PAID = 10              # "2 months free" on a yearly plan
+BILLING_TEST = BILLING_MODE == "demo" or (RAZORPAY_KEY_ID or "").startswith("rzp_test_")   # show the yellow "no real money" strip
+FOUNDING_OPEN = env("FOUNDING_OPEN", "1") == "1"                # workspaces created while this is on are flagged Founding members
+FOUNDING_PCT = int(env("FOUNDING_PCT", "40") or 40)             # discount for life, applied by you at launch
 
 
 def _fmt(n, key=""):
@@ -169,22 +184,24 @@ def plan_cards(cur=""):
         elif p["watch"] > b["watch"]:
             adds.append(f"Market Pulse topics: {b['watch']} → {p['watch']}")
         nums = []
-        for key, label in (("seats", "team seats"), ("ai_credits", "AI credits / mo"), ("records", "records"), ("boards", "mood boards")):
+        for key, label in (("seats", "team seats"), ("ai_credits", "AI credits / mo"), ("records", "items"), ("boards", "mood boards")):
             v = p[key]
             if b is None:
                 nums.append((_fmt(v, key), label, False))
             elif v > b[key]:
                 nums.append((_fmt(v, key), label, f"{_fmt(b[key], key)} → {_fmt(v, key)}"))
         cards.append(dict(key=k, name=p["name"], blurb=p["blurb"], price=p["price"], base=PLANS[base_k]["name"] if base_k else "",
-                          adds=adds, nums=nums, who=PLAN_PITCH[k][0], nudge=PLAN_PITCH[k][1], popular=(k == "team"), rank=i))
+                          adds=adds, nums=nums, who=PLAN_PITCH[k][0], nudge=PLAN_PITCH[k][1], popular=(k == "team"), rank=i,
+                          hidden=(k in HIDDEN_PRICE), yearly=int(p["price"] * YEARLY_MONTHS_PAID)))
     return cards
 
 
 def plan_matrix():
     """Rows for the full side-by-side comparison."""
     rows = [(label, [_fmt(PLANS[k][key], key) for k in PLAN_ORDER]) for key, label in (("seats", "Team seats"), ("clients", "Client logins"), ("ai_credits", "AI credits / month"),
-            ("records", "Records"), ("boards", "Mood boards"), ("watch", "Market Pulse topics"))]
+            ("records", "Items"), ("boards", "Mood boards"), ("watch", "Market Pulse topics"))]
     rows = [(l, [("—" if v == "0" else v) for v in vals]) for l, vals in rows]
+    rows.insert(0, ("Price per month", ["Free" if PLANS[k]["price"] == 0 else ("Ask us" if k in HIDDEN_PRICE else f"₹{PLANS[k]['price']:,}") for k in PLAN_ORDER]))
     rows += [(label, ["✓" if f in PLANS[k]["features"] else "—" for k in PLAN_ORDER]) for f, label in FEATURE_LABELS]
     return rows
 AI_COST = {"calendar": 3, "gtm_plan": 2, "report": 2, "event_plan": 2, "blog": 2, "competitor": 2, "pulse_brief": 2, "research_market": 2, "research_competitor": 2, "research_trends": 2,
@@ -221,4 +238,6 @@ def upsell(plan_key, what, key, label):
     if not nk:
         return ""
     n = PLANS[nk]
+    if nk in HIDDEN_PRICE:
+        return f" {n['name']} raises it to {_fmt(n[key], key)} {label}. Ask us for a quote."
     return f" {n['name']} (₹{n['price']:,}/mo) raises it to {_fmt(n[key], key)} {label}."

@@ -574,8 +574,6 @@ def transfer_ownership():
 @bp.route("/account/theme", methods=["POST"])
 @S.roles("owner", "admin")
 def account_theme():
-    if g.ws["industry"] == "personal_brand":
-        abort(403)
     color = S.clean_text(request.form.get("color"), 10)
     if not S.HEX_RE.match(color):
         flash("Enter a primary colour as a 6-digit hex code, e.g. #1E88E5.")
@@ -586,8 +584,9 @@ def account_theme():
         return redirect(url_for("ws.account"))
     ex("UPDATE workspaces SET brand_color=?, secondary_color=? WHERE id=?", (color, secondary, g.ws["id"]))
     S.audit("brand_color_set", f"{color} / {secondary or 'auto'}")
+    ex("UPDATE users SET pal='' WHERE id=?", (g.user["id"],))     # a freshly picked vibe must win over a palette picked earlier
     flash("Brand colours applied across your workspace.")
-    return redirect(url_for("ws.account"))
+    return redirect(url_for("ws.account", cleared=1) + "#vibe")
 
 
 @bp.route("/account/theme/reset", methods=["POST"])
@@ -595,8 +594,9 @@ def account_theme():
 def account_theme_reset():
     ex("UPDATE workspaces SET brand_color='', secondary_color='' WHERE id=?", (g.ws["id"],))
     S.audit("brand_color_reset")
+    ex("UPDATE users SET pal='' WHERE id=?", (g.user["id"],))
     flash("Back to the default Debut theme.")
-    return redirect(url_for("ws.account"))
+    return redirect(url_for("ws.account", cleared=1) + "#vibe")
 
 
 # ----------------------------------------------------------------- first-time onboarding tour

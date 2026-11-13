@@ -24,7 +24,7 @@ class SafeInt(IntegerConverter):
         kw.setdefault("max", 2**31 - 1)
         super().__init__(map, **kw)
 
-PUBLIC = {"survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
+PUBLIC = {"agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
 VIEWER_WRITE_OK = {"auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
@@ -35,6 +35,9 @@ CREATOR_OK = {"dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_s
               "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "presence", "push_key", "push_subscribe", "push_unsubscribe", "kudos", "kudos_send", "react", "presence", "push_key", "push_subscribe", "push_unsubscribe", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
 FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order_assign": "content_ops", "discover": "influencers", "outreach": "influencers",
               "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "marketing_health": "analytics", "ai_studio": "ai", "api_ai": "ai"}
+
+
+import taglines as _tg
 
 
 def _asset_v():
@@ -127,6 +130,9 @@ def create_app(config=None, init=True, database_url=None):
         key = (request.view_args or {}).get("key")
         if g.support and write and ep not in ("admin.exit_support", "admin.support", "auth.logout", "auth.switch_ws"):
             return _forbidden()
+        if write and ep != "auth.logout" and (g.user["email"] or "").endswith("@demo.debut.invalid"):
+            flash("This is a read-only demo. Create your free account to make your own.")
+            return redirect(url_for("dashboard"))
         if g.role == "viewer" and write and ep not in VIEWER_WRITE_OK:
             return _forbidden()
         if g.role == "creator" and (ep not in CREATOR_OK or (key and key not in CREATOR_MODULES)):
@@ -159,6 +165,8 @@ def create_app(config=None, init=True, database_url=None):
                 values["v"] = int(os.stat(os.path.join(app.static_folder, fn)).st_mtime)
             except OSError:
                 pass
+
+    app.jinja_env.globals["TAGS"] = _tg.TAGS
 
     @app.context_processor
     def ctx():
@@ -270,6 +278,12 @@ def create_app(config=None, init=True, database_url=None):
         r.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
         if C.PROD:
             r.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        if r.mimetype == "text/html" and r.status_code < 400 and not r.direct_passthrough and not request.path.startswith("/static") and (not app.testing or request.headers.get("X-Icons")):
+            try:
+                import icons as _ic
+                r.set_data(_ic.swap(r.get_data(as_text=True)))
+            except Exception:
+                pass
         if g.get("user") and r.mimetype == "text/html":
             r.headers["Cache-Control"] = "private, no-store"
         return r

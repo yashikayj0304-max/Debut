@@ -46,7 +46,10 @@ def billing():
 def subscribe(plan):
     if plan not in C.PAID_PLANS:
         abort(404)
+    if plan in C.HIDDEN_PRICE and C.BILLING_MODE != "demo":     # demo mode lets you try every plan; real billing sends Agency buyers to the enquiry form
+        return jsonify(error=f"{C.PLANS[plan]['name']} is set up with our team. Send an enquiry from the pricing page and we will come back with a quote."), 400
     ws, info = g.ws, C.PLANS[plan]
+    cycle = "yearly" if (request.get_json(silent=True) or {}).get("cycle") == "yearly" else "monthly"
     seats, clients = S.seats_used(ws["id"]), S.clients_used(ws["id"])
     if seats > info["seats"]:
         return jsonify(error=f"You have {seats} team members but {info['name']} allows {info['seats']}. Remove members first."), 400
@@ -61,9 +64,10 @@ def subscribe(plan):
         return jsonify(error="Billing is not configured yet."), 400
     if ws["rzp_subscription_id"] and ws["plan_status"] in S.ACTIVE_STATUSES and ws["plan"] in C.PAID_PLANS:
         return jsonify(error="You already have an active subscription. Cancel it first (it stays active until the period ends) or email support to change plans."), 400
-    plan_id = os.environ.get(info["rzp_env"], "")
+    env_name = info["rzp_env"] + ("_YEARLY" if cycle == "yearly" else "")
+    plan_id = os.environ.get(env_name, "")
     if not plan_id:
-        return jsonify(error=f"Razorpay plan ID for {info['name']} is not set (env {info['rzp_env']})."), 400
+        return jsonify(error=f"Razorpay plan ID for {info['name']} ({cycle}) is not set (env {env_name})."), 400
     try:
         sub = _rzp("POST", "/subscriptions", json={"plan_id": plan_id, "total_count": 120, "customer_notify": 1,
                                                    "notes": {"workspace_id": str(ws["id"]), "plan": plan}})

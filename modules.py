@@ -161,7 +161,7 @@ MODULES = OrderedDict([
         fields=[F("metric", "Metric (e.g. Website visits)"), F("channel", "Channel"), F("period", "Date", "date"), F("value", "Actual", "number"),
                 F("target", "Target", "number"), F("campaign", "Campaign"), F("notes", "Notes")],
         cols=["metric", "channel", "period", "value", "target", "campaign"])),
-    ("tasks", dict(title="Tasks", icon="🗂️", group="Growth", desc="Marketing to-dos with owners and due dates.",
+    ("tasks", dict(title="Tasks", icon="✅", group="Growth", desc="Marketing to-dos with owners and due dates.",
         fields=[F("title", "Task"), F("description", "Description", "textarea"), F("assignee", "Assignee"), F("due_date", "Due", "date"),
                 F("priority", "Priority", "select", PRIORITY), F("status", "Status", "select", TASK_STATUS), F("related", "Related to (campaign / plan)")],
         cols=["title", "assignee", "due_date", "priority", "status"], filter="status", kanban="status")),

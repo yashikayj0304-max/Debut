@@ -69,7 +69,7 @@ def _pk():
 MANUAL_ORDER = ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "pitches", "accounts",
                 "personas", "competitors", "key_dates", "reference_links", "brand_kit", "gtm_plans", "keywords", "kpis", "assets", "clients", "retail_audits")
 EXTRA_COLUMNS = {
-    "workspaces": [("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
+    "workspaces": [("founding", "INTEGER DEFAULT 0"), ("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
     "memberships": [("client_name", "TEXT DEFAULT ''")],
     "invites": [("client_name", "TEXT DEFAULT ''")],
     "comments": [("client_visible", "INTEGER DEFAULT 0")],

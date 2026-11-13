@@ -337,7 +337,7 @@ def seed_workspace(wid, industry="general", kit=False):
 def create_workspace(user_id, name, industry="general", kit=False):
     industry = industry if industry in IND.INDUSTRIES else "general"
     wid = ins("workspaces", dict(name=name[:80], slug=make_slug(name), plan="trial", plan_status="trialing", industry=industry, ics_key=secrets.token_hex(6), hook_key=secrets.token_hex(12),
-                                 trial_ends=(today() + dt.timedelta(days=C.TRIAL_DAYS)).isoformat(), owner_id=user_id))
+                                 trial_ends=(today() + dt.timedelta(days=C.TRIAL_DAYS)).isoformat(), owner_id=user_id, founding=1 if C.FOUNDING_OPEN else 0))
     ins("memberships", dict(workspace_id=wid, user_id=user_id, role="owner"))
     seed_workspace(wid, industry, kit)
     return wid
@@ -677,8 +677,8 @@ def hex_shades(hexcolor, secondary=None):
 
 
 def brand_shades(ws):
-    """None for personal-brand workspaces (they always keep the lavender theme) or when no primary colour is set.
+    """None when no primary colour is set (every workspace type can set one).
     A secondary colour only ever refines a workspace that already set a primary one."""
-    if not ws or ws["industry"] == "personal_brand" or not ws["brand_color"]:
+    if not ws or not ws["brand_color"]:
         return None
     return hex_shades(ws["brand_color"], ws["secondary_color"])

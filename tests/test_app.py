@@ -2549,7 +2549,7 @@ def test_gtm_plan_required_fields_and_csv_template(app):
     # CSV template download: header-only, matching the real export's column names
     tpl = o.get("/m/gtm_plans/template")
     assert tpl.status_code == 200 and b"name,product,stage" in tpl.data
-    assert b"Import CSV" in o.get("/m/gtm_plans").data
+    assert b"Import from a CSV file" in o.get("/m/gtm_plans").data
 
 
 # =====================================================================  Required fields rolled out across modules, not just GTM Plans
@@ -2867,8 +2867,8 @@ def test_excel_mock_template_works_for_every_module(app):
         assert r.status_code == 200, key
         wb = load_workbook(io.BytesIO(r.data))
         assert wb.active.title  # non-empty, valid sheet title
-    assert b"Filled-in mock example (Excel)" in o.get("/m/gtm_plans").data
-    assert b"Filled-in mock example (Excel)" in o.get("/m/gtm_plans").data
+    assert b"Download an example sheet (Excel)" in o.get("/m/gtm_plans").data
+    assert b"Download an example sheet (Excel)" in o.get("/m/gtm_plans").data
 
 
 # =====================================================================  Brand deck upload: automatic (no-AI) colour/font/logo extraction, applied to the workspace + saved to Brand Kit
@@ -3405,7 +3405,7 @@ def test_viewer_never_sees_write_buttons_and_landing_hero_not_hijacked(app, mail
     h = vw.get("/m/content_items").data
     assert b"Visible post" in h
     assert b">+ New</a>" not in h
-    assert b"Import CSV" not in h
+    assert b"Import from a CSV file" not in h
     assert b'id="importcsv"' not in h
     assert b"Delete this record?" not in h
     assert b">View</a>" in h
@@ -3544,10 +3544,11 @@ def test_presence_and_mention_chips(app, mails):
 def test_vibe_presets_and_trophies(app):
     c = signup(app, "vibe@x.com", ws="Vibe Co")
     assert "Pick your vibe" in c.get("/account").get_data(as_text=True)
-    assert "Pick your vibe" in c.get("/app").get_data(as_text=True)
+    chip = lambda: re.search(r"<a[^>]*>[^<]*Pick your vibe[^<]*</a>", c.get("/app").get_data(as_text=True))
+    assert chip()
     r = c.post("/account/theme", data={"color": "#ec4899", "secondary": "#fbcfe8"}, follow_redirects=True)
     assert b"#ec4899" in c.get("/app").data
-    assert "Pick your vibe" not in c.get("/app").get_data(as_text=True)
+    assert not chip()      # the dashboard nudge goes away once colours are set (the top-bar picker stays)
     rc = c.get("/recap").get_data(as_text=True)
     assert "Trophy shelf" in rc and "Made it yours" in rc
 
@@ -4254,3 +4255,113 @@ def test_proof_blocks_only_show_with_real_content_and_share_image(app):
 def test_404_has_deb_and_empty_today_is_sleepy(app):
     r = app.test_client().get("/nope-nothing-here")
     assert r.status_code == 404 and b"deb" in r.data
+
+
+def test_analytics_tiles_keep_each_metric_with_its_own_numbers(app):
+    c = signup(app, "an@x.com")
+    c.post("/m/kpis/save", data=dict(metric="ROAS", channel="Paid", period="2026-11-01", value="2.4", target="3"))
+    c.post("/m/kpis/save", data=dict(metric="Orders", channel="Web", period="2026-11-01", value="120", target="300"))
+    html_ = c.get("/analytics").data.decode()
+    tiles = re.findall(r'kpi-tile[^"]*"><span class="muted">([^<]+)</span>\s*<b class="big">([^<]+)</b>', html_)
+    assert dict(tiles) == {"ROAS": "2.4", "Orders": "120"}
+    assert "80% of the 300" not in html_ and "40% of the 300 target" in html_ and "80% of the 3 target" in html_
+    assert 'id="k0"' not in html_            # one data point: tile only, no empty-looking line chart
+    c.post("/m/kpis/save", data=dict(metric="ROAS", channel="Paid", period="2026-11-08", value="3.3", target="3"))
+    html_ = c.get("/analytics").data.decode()
+    assert 'id="k0"' in html_ and "ROAS over time" in html_ and "since the last entry" in html_
+
+
+def test_analytics_empty_state(app):
+    c = signup(app, "an2@x.com")
+    r = c.get("/analytics")
+    assert r.status_code == 200 and b"No results logged yet" in r.data and b'id="bud"' not in r.data
+
+
+@pytest.mark.parametrize("raw,iso", [
+    ("2026-11-13", "2026-11-13"), ("13/11/2026", "2026-11-13"), ("13-11-2026", "2026-11-13"), ("13.11.26", "2026-11-13"),
+    ("1/2/2026", "2026-02-01"),            # ambiguous: day-first (India)
+    ("11/13/2026", "2026-11-13"),          # impossible day-first, so month-first
+    ("13 Nov 2026", "2026-11-13"), ("13-Nov-26", "2026-11-13"), ("Nov 13, 2026", "2026-11-13"), ("13th November 2026", "2026-11-13"),
+    ("2026-11", "2026-11-01"), ("Nov 2026", "2026-11-01"), ("2026/11/13", "2026-11-13"), ("2026-11-13 09:30", "2026-11-13"),
+    ("46339", "2026-11-13"),               # Excel serial
+    ("31/02/2026", ""), ("soon", ""), ("", ""), ("2026-13-45", "")])
+def test_norm_date_understands_real_world_formats(raw, iso):
+    assert views.norm_date(raw) == iso
+
+
+def test_import_fixes_dates_and_dropdown_case_and_says_what_it_could_not(app):
+    c = signup(app, "imp@x.com")
+    csv_ = "Title,Channel,Format,Status,Publish date\nSerum teaser,instagram,Reel / Short,idea,13/11/2026\nBad date,LinkedIn,Post,Idea,whenever\nOdd,Telegram,Post,Idea,14 Nov 2026\n"
+    r = c.post("/m/content_items/import", data=dict(file=(io.BytesIO(csv_.encode()), "c.csv")), content_type="multipart/form-data", follow_redirects=True)
+    body = r.data.decode()
+    rows = {x["title"]: x for x in dbq(app, "SELECT * FROM content_items")}
+    assert rows["Serum teaser"]["publish_date"] == "2026-11-13" and rows["Serum teaser"]["channel"] == "Instagram" and rows["Serum teaser"]["status"] == "Idea"
+    assert rows["Bad date"]["publish_date"] == "" and rows["Odd"]["publish_date"] == "2026-11-14"
+    assert "Imported 3 row(s)" in body and "could not be read" in body and "Telegram" in body
+    assert b"Serum teaser" in c.get("/calendar?y=2026&m=11").data     # and it now actually shows on the calendar
+
+
+def test_saving_a_form_with_a_typed_date_normalises_it(app):
+    c = signup(app, "dt@x.com")
+    c.post("/m/tasks/save", data=dict(title="Call printer", due_date="20/12/2026", priority="High", status="To do"))
+    assert dbq(app, "SELECT due_date FROM tasks WHERE title='Call printer'", one=True)["due_date"] == "2026-12-20"
+
+
+def test_whatnow_suggests_from_the_real_state_of_the_workspace(app):
+    c = signup(app, "wn@x.com")
+    today = dt.date.today()
+    c.post("/m/content_items/save", data=dict(title="Serum teaser", channel="Instagram", format="Post", status="Idea", publish_date=(today + dt.timedelta(days=2)).isoformat()))
+    c.post("/m/leads/save", data=dict(name="Nykaa buyer", stage="New"))
+    c.post("/m/kpis/save", data=dict(metric="Orders", period=today.isoformat(), value="30", target="300"))
+    seen = " ".join(c.get(f"/whatnow?n={i}").data.decode() for i in range(14))
+    assert "Get “Serum teaser” ready" in seen and "Write the caption for “Serum teaser”" in seen
+    assert "Decide the next step for Nykaa buyer" in seen and "Orders is at 10% of target" in seen
+
+
+def test_emoji_stay_inside_the_app_and_line_icons_stay_outside(app):
+    out = app.test_client().get("/", headers={"X-Icons": "1"}).data.decode()
+    assert 'class="ic ic-' in out                       # the public landing page uses the line-icon set
+    c = signup(app, "em@x.com")
+    inside = c.get("/app", headers={"X-Icons": "1"}).data.decode()
+    assert "🫠" in inside and 'class="ic ic-help' not in inside     # "Idk what to do" keeps its emoji
+    pop = open(os.path.join(os.path.dirname(views.__file__), "static", "pop.css")).read()
+    assert "--font-b" not in pop and "body{font-family" not in pop      # body text stays in the original Inter (headings stay Bricolage Grotesque)
+    assert 'font:14px/1.55 "Inter"' in open(os.path.join(os.path.dirname(views.__file__), "static", "style.css")).read()
+
+
+def test_inside_the_app_keeps_emoji_and_only_public_pages_get_line_icons(app):
+    o = signup(app, "emo@x.com")
+    for u in ("/app", "/whatnow", "/calendar", "/m/tasks", "/moodboards", "/analytics", "/m/gtm_plans"):
+        page = o.get(u, headers={"X-Icons": "1"}).data.decode()
+        body = re.sub(r"(?s)<script.*?</script>", "", page)
+        assert '<i class="ic ic-' not in body, u
+    assert "\U0001FAE0 Idk what to do" in o.get("/app", headers={"X-Icons": "1"}).data.decode()
+    out = app.test_client().get("/login", headers={"X-Icons": "1"}).data.decode()
+    assert 'class="ic ic-' in out
+
+
+def test_vibe_picker_lives_in_the_top_bar_with_two_colour_palettes(app):
+    import palettes as P
+    o = signup(app, "vibe@x.com")
+    page = o.get("/app").data.decode()
+    assert 'id="vibeBtn"' in page and "function openVibes" in page and "Pick your vibe" in page
+    assert len(P.PALS) == 24 and {p[5] for p in P.PALS} == {"rich", "soft"} and all(p[2] != p[3] for p in P.PALS)
+    css = open("static/pop.css").read()
+    for key in P.KEYS:
+        assert f"html[data-pal={key}]" in css and f"html[data-theme=dark][data-pal={key}]" in css, key
+    assert o.post("/pal", json={"pal": "grape-soft"}).get_json()["ok"]
+    assert 'data-pal="grape-soft"' in o.get("/app").data.decode()
+    assert o.post("/pal", json={"pal": "not-a-palette"}).status_code == 400
+    o.post("/pal", json={"pal": "auto"})
+    assert "data-pal=" not in o.get("/app").data.decode().split("<head>")[0]
+
+
+def test_every_vibe_keeps_white_button_text_readable():
+    import palettes as P
+    def lum(h):
+        h = h.lstrip("#"); r, g_, b = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+        f = lambda c: c / 12.92 if c <= .03928 else ((c + .055) / 1.055) ** 2.4
+        return .2126 * f(r) + .7152 * f(g_) + .0722 * f(b)
+    for key, _l, c1, c2, c3, tone in P.PALS:
+        shade = c1 if tone == "rich" else "#" + "".join("%02x" % int(int(c1[i:i + 2], 16) * .64) for i in (1, 3, 5))
+        assert 1.05 / (lum(shade) + .05) >= 4.5, key

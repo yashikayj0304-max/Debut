@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% from "_bold.html" import line %}{% block body %}{{ line('ai') }}
 <div class="head"><h1>🤖 AI Marketing Studio</h1></div>
-{% if not has_key %}<div class="card" style="border-color:var(--warn)">⚠ AI is not configured on this server yet (set ANTHROPIC_API_KEY).</div>{% endif %}
+{% if not has_key %}<div class="card" style="border-color:var(--warn)">⚠ AI is not switched on for this workspace yet.{% if role in ('owner', 'admin') %} Add the AI key in your server settings (ANTHROPIC_API_KEY) and this page comes alive.{% else %} Ask your workspace owner to switch it on.{% endif %}</div>{% endif %}
 <p class="muted">AI credits this month: <b id="cred">{{ used }} / {{ limit }}</b>. Most tasks cost 1 credit; bigger ones (calendar, GTM plan, reports) cost 2-3.</p>
 <p class="muted">Generate strategy, copy, briefs, calendars and reports. Outputs are drafts — review before publishing.</p>
 <div class="two"><div class="card">

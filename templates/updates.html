@@ -4,13 +4,13 @@
 <p class="muted">Live headlines from your news sources (cached 15 min). Save useful ones to Reference Links.</p>
 <form class="filters" method="get"><select name="cat" aria-label="Category" onchange="this.form.submit()"><option value="">All categories</option>{% for c in cats %}<option {% if c == cat %}selected{% endif %}>{{ c }}</option>{% endfor %}</select> <input id="newsq" type="search" placeholder="Search headlines…" oninput="var t=this.value.toLowerCase();document.querySelectorAll('.news').forEach(function(n){n.style.display=n.textContent.toLowerCase().indexOf(t)<0?'none':''})" style="max-width:260px"></form>
 {% if errors %}<p class="muted">⚠ Could not load: {{ errors|join(', ') }}</p>{% endif %}
-{% if snap %}<div class="card" style="border-left:4px solid var(--pri)"><b>📌 Snapshot — as of {{ as_of }}</b> <span class="muted">· picked headlines from the last week of October 2026; live feeds below.</span>
-{% for i in snap %}<div class="news"><a class="t" href="{{ i.url }}" target="_blank" rel="noopener">{{ i.title }}</a>
+{% if snap %}<div class="card" style="border-left:4px solid var(--pri)"><b>📌 Snapshot — as of {{ as_of }}</b> <p class="muted" style="margin:4px 0 10px">Picked headlines from the last week of October 2026. Live feeds are below.</p>
+<div class="newsgrid">{% for i in snap %}<div class="news"><a class="t" href="{{ i.url }}" target="_blank" rel="noopener">{{ i.title }}</a>
 <div class="muted">{{ i.source }} · {{ i.date }} · <span class="badge">{{ i.category }}</span></div><div>{{ i.summary }}</div>
-<form method="post" action="{{ url_for('updates_save') }}"><input type="hidden" name="title" value="{{ i.title }}"><input type="hidden" name="url" value="{{ i.url }}"><input type="hidden" name="source" value="{{ i.source }}"><button class="btn ghost sm">＋ Save to references</button></form></div>{% endfor %}</div>
+<form method="post" action="{{ url_for('updates_save') }}"><input type="hidden" name="title" value="{{ i.title }}"><input type="hidden" name="url" value="{{ i.url }}"><input type="hidden" name="source" value="{{ i.source }}"><button class="btn ghost sm">＋ Save to references</button></form></div>{% endfor %}</div></div>
 <h3 style="margin:18px 0 6px">⚡ Live from your feeds</h3>{% endif %}
-<div class="card">{% for i in items %}<div class="news"><a class="t" href="{{ i.url }}" target="_blank" rel="noopener">{{ i.title }}</a>
+<div class="card"><div class="newsgrid">{% for i in items %}<div class="news"><a class="t" href="{{ i.url }}" target="_blank" rel="noopener">{{ i.title }}</a>
 <div class="muted">{{ i.source }} · {{ i.date }} · <span class="badge">{{ i.category }}</span></div><div>{{ i.summary }}</div>
 <form method="post" action="{{ url_for('updates_save') }}"><input type="hidden" name="title" value="{{ i.title }}"><input type="hidden" name="url" value="{{ i.url }}"><input type="hidden" name="source" value="{{ i.source }}"><button class="btn ghost sm">＋ Save to references</button></form></div>
-{% else %}<p class="muted">No items loaded (check your internet connection or feed sources).</p>{% endfor %}</div>
+{% else %}<p class="muted">No items loaded (check your internet connection or feed sources).</p>{% endfor %}</div></div>
 {% endblock %}

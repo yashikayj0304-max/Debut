@@ -14,6 +14,7 @@ TAGS = {
  "pr_contacts": ("Get into the <b>press</b>", "Keep every journalist one click away."),
  "experiments": ("Test it, do not <b>guess</b>", "Small bets, clear winners."),
  "leads": ("Your future clients are <b>out there</b>", "Catch them, follow up, close."),
+ "analytics": ("Numbers that <b>move</b> the plan", "Log results weekly and the trends write themselves."),
  "kpis": ("Numbers that <b>matter</b>", "Log results and spot what is working."),
  "tasks": ("Small wins <b>add up</b>", "Tick it off and keep the streak alive."),
  "key_dates": ("Never miss a <b>moment</b>", "Festivals, launches and deadlines in one list."),

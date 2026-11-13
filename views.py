@@ -368,15 +368,57 @@ def m_edit(key, rid):
     return render_template(tpl, key=key, m=mod(key), row=row, defaults={}, nxt=safe_next(""), team_names=S.team_names(W()), comments=comments, reacts=reactions_for(key, rid), hidden=_hidden(key), required=REQUIRED.get(key, set()), modal=modal)
 
 
-def clean_fields(m, source, quiet=False, partial=False):
-    """Validate/normalise submitted field values. quiet: no flash messages (API use). partial: only fields present in source."""
+_MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+
+
+def norm_date(v):
+    """Turn the date formats people really type or paste (13/11/2026, 13-Nov-26, Nov 13 2026, 2026-11, Excel serials)
+    into ISO yyyy-mm-dd. Day-first is assumed for ambiguous numeric dates (India). Returns '' when it can't be understood."""
+    v = (v or "").strip()
+    if not v:
+        return ""
+    v = re.split(r"[T ](?=\d{1,2}:\d{2})", v)[0].strip()
+    try:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
+            return dt.date.fromisoformat(v).isoformat()
+        m = re.fullmatch(r"(\d{4})[-/.](\d{1,2})(?:[-/.](\d{1,2}))?", v)
+        if m:
+            return dt.date(int(m[1]), int(m[2]), int(m[3] or 1)).isoformat()
+        m = re.fullmatch(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})", v)
+        if m:
+            a, b, y = int(m[1]), int(m[2]), int(m[3])
+            y += 2000 if y < 100 else 0
+            d_, mo = (b, a) if (b > 12 and a <= 12) else (a, b)   # 11/13/2026 can only be month-first
+            return dt.date(y, mo, d_).isoformat()
+        t = re.sub(r"(?<=\d)(st|nd|rd|th)\b", "", v.lower()).replace(",", " ")
+        m = re.fullmatch(r"(\d{1,2})[\s\-/.]+([a-z]{3,9})[\s\-/.]+(\d{2}|\d{4})", t)
+        if m and m[2][:3] in _MONTHS:
+            y = int(m[3]) + (2000 if len(m[3]) == 2 else 0)
+            return dt.date(y, _MONTHS[m[2][:3]], int(m[1])).isoformat()
+        m = re.fullmatch(r"([a-z]{3,9})[\s\-/.]+(\d{1,2})[\s\-/.]+(\d{4})", t)
+        if m and m[1][:3] in _MONTHS:
+            return dt.date(int(m[3]), _MONTHS[m[1][:3]], int(m[2])).isoformat()
+        m = re.fullmatch(r"([a-z]{3,9})[\s\-/.]+(\d{4})", t)
+        if m and m[1][:3] in _MONTHS:
+            return dt.date(int(m[2]), _MONTHS[m[1][:3]], 1).isoformat()
+        if re.fullmatch(r"\d{5}(\.\d+)?", v) and 20000 < float(v) < 80000:   # an Excel serial date
+            return (dt.date(1899, 12, 30) + dt.timedelta(days=int(float(v)))).isoformat()
+    except ValueError:
+        return ""
+    return ""
+
+
+def clean_fields(m, source, quiet=False, partial=False, report=None):
+    """Validate/normalise submitted field values. quiet: no flash messages (API use). partial: only fields present in source.
+    report: a dict that collects what had to be fixed ('dates', 'options') so an import can tell the user."""
     data = {}
     for n, label, typ, opts in m["fields"]:
         if partial and n not in source:
             continue
         if typ == "multi":
             raw = source.getlist(n) if hasattr(source, "getlist") else re.split(r"[,;]", str(source.get(n, "") or ""))
-            data[n] = ", ".join(dict.fromkeys(x.strip() for x in raw if x.strip() in opts))
+            low = {o.lower(): o for o in opts}
+            data[n] = ", ".join(dict.fromkeys(low.get(x.strip().lower(), "") for x in raw if x.strip().lower() in low))
             continue
         v = S.clean_text(source.get(n, ""))
         if typ == "url":
@@ -385,7 +427,18 @@ def clean_fields(m, source, quiet=False, partial=False):
                 flash(f"“{label}” must be a valid http(s) link and was cleared.")
             v = cv
         elif typ == "select" and v and opts and v not in opts:
-            v = opts[0]
+            hit = next((o for o in opts if o.lower() == v.lower()), None)
+            if hit is None and report is not None:
+                report.setdefault("options", []).append(f"{label}: “{v}”")
+            v = hit or opts[0]
+        elif typ == "date" and v:
+            nv = norm_date(v)
+            if not nv:
+                if report is not None:
+                    report.setdefault("dates", []).append(f"{label}: “{v}”")
+                elif not quiet:
+                    flash(f"“{label}” — “{v}” isn't a date we understand, so it was left empty. Try 13/11/2026 or 13 Nov 2026.")
+            v = nv
         elif typ == "number" and v and not re.match(r"^-?\d+(\.\d+)?$", v):
             v = re.sub(r"[^\d.\-]", "", v)
         data[n] = v
@@ -525,7 +578,8 @@ def ideas_schedule():
     return redirect(safe_next(url_for("calendar_view", d=day.isoformat())))
 
 
-PALETTES = ("auto", "sunset", "lagoon", "meadow", "candy", "neon", "citrus")
+import palettes as _palettes
+PALETTES = ("auto", "sunset", "lagoon", "meadow", "candy", "neon", "citrus") + _palettes.KEYS
 
 
 @route("/pal", methods=["POST"])
@@ -675,19 +729,23 @@ def m_import(key):
         lookup[n.lower()] = n
         lookup[label.lower()] = n
     room = g.plan["records"] - S.record_count(W())
-    added = 0
+    added, rep = 0, {}
     for i, raw in enumerate(rd):
         if i >= 2000 or added >= room:
             break
         src = {lookup[k.strip().lower()]: v for k, v in raw.items() if k and k.strip().lower() in lookup and v is not None}
         if not any(src.values()):
             continue
-        data = clean_fields(m, src)
+        data = clean_fields(m, src, report=rep)
         data["workspace_id"] = W()
         ins(key, data)
         added += 1
     S.audit("import", f"{key} x{added}")
     flash(f"Imported {added} row(s)." + (" Plan record limit reached." if added >= room else ""))
+    if rep.get("dates"):
+        flash(f"{len(rep['dates'])} date(s) could not be read and were left empty (e.g. {rep['dates'][0]}). Use 13/11/2026 or 13 Nov 2026.")
+    if rep.get("options"):
+        flash(f"{len(rep['options'])} value(s) didn't match a dropdown option and were set to its first option (e.g. {rep['options'][0]}). Check them in the list.")
     return redirect(url_for("m_list", key=key))
 
 
@@ -1612,11 +1670,17 @@ def recap():
 @route("/analytics")
 def analytics():
     w, series = W(), {}
-    for r in q("SELECT * FROM kpis WHERE workspace_id=? AND period!='' ORDER BY period LIMIT 3000", (w,)):
+    for r in q("SELECT * FROM kpis WHERE workspace_id=? AND period!='' ORDER BY period, id LIMIT 3000", (w,)):
         series.setdefault(r["metric"], []).append(dict(d=r["period"], v=num(r["value"]), t=num(r["target"]) if r["target"] else None))
-    camps = [dict(n=c["name"], b=num(c["budget"]), s=num(c["spent"])) for c in q("SELECT * FROM campaigns WHERE workspace_id=?", (w,))]
+    cards = []
+    for name, pts in list(series.items())[:12]:
+        last, prev = pts[-1], (pts[-2] if len(pts) > 1 else None)
+        pct = round(last["v"] / last["t"] * 100) if last["t"] else None
+        cards.append(dict(name=name, pts=pts, last=last["v"], target=last["t"], when=last["d"], pct=pct,
+                          delta=(last["v"] - prev["v"]) if prev else None, tone=("good" if pct is not None and pct >= 100 else "warn" if pct is not None and pct >= 60 else "bad" if pct is not None else "")))
+    camps = [dict(n=c["name"], b=num(c["budget"]), s=num(c["spent"])) for c in q("SELECT * FROM campaigns WHERE workspace_id=?", (w,)) if num(c["budget"]) or num(c["spent"])]
     funnel = [dict(s=r["stage"], c=r["c"]) for r in q("SELECT stage, COUNT(*) c FROM leads WHERE workspace_id=? GROUP BY stage", (w,))]
-    return render_template("analytics.html", series=dict(list(series.items())[:12]), camps=camps, funnel=funnel)
+    return render_template("analytics.html", cards=cards, camps=camps, funnel=funnel)
 
 
 # ----------------------------------------------------------------- Marketing Health (KPIs + a single gap checklist, for a one-person marketing team)
@@ -2068,6 +2132,19 @@ def whatnow():
         picks.append(dict(icon="📝", title=f"Get this out: {r['title']}", why="It's meant to go live today or earlier.", href=url_for("m_edit", key="content_items", rid=r["id"])))
     for r in q("SELECT * FROM influencers WHERE workspace_id=? AND next_followup!='' AND next_followup<=? AND status NOT IN ('Booked','Delivered','Rejected') ORDER BY next_followup LIMIT 2", (w, t)):
         picks.append(dict(icon="🤳", title=f"Slide into {r['name']}'s DMs", why="Follow-up time. Quick message, done.", href=url_for("outreach", iid=r["id"])))
+    soon_end = (S.today() + dt.timedelta(days=3)).isoformat()
+    for r in q("SELECT * FROM content_items WHERE workspace_id=? AND publish_date>? AND publish_date<=? AND status IN ('Idea','Drafting','Planned') ORDER BY publish_date LIMIT 2", (w, t, soon_end)):
+        picks.append(dict(icon="✍️", title=f"Get “{r['title']}” ready", why=f"It goes live on {r['publish_date']} and is still marked {r['status']}.", href=url_for("m_edit", key="content_items", rid=r["id"])))
+    for r in q("SELECT * FROM content_items WHERE workspace_id=? AND publish_date BETWEEN ? AND ? AND (copy IS NULL OR copy='') AND status NOT IN ('Published','On hold') ORDER BY publish_date LIMIT 2", (w, t, (S.today() + dt.timedelta(days=7)).isoformat())):
+        picks.append(dict(icon="📝", title=f"Write the caption for “{r['title']}”", why=f"It publishes on {r['publish_date']} and has no copy yet.", href=url_for("m_edit", key="content_items", rid=r["id"])))
+    if q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=?", (w,), one=True)["c"] and not q("SELECT 1 FROM content_items WHERE workspace_id=? AND publish_date BETWEEN ? AND ?", (w, t, (S.today() + dt.timedelta(days=7)).isoformat()), one=True):
+        picks.append(dict(icon="📅", title="Nothing is planned for the next 7 days", why="A quiet calendar means a quiet feed. Pick two ideas and give them dates.", href=url_for("ideas")))
+    for r in q("SELECT * FROM leads WHERE workspace_id=? AND stage NOT IN ('Won','Lost') AND (next_step IS NULL OR next_step='') ORDER BY id DESC LIMIT 1", (w,)):
+        picks.append(dict(icon="🧲", title=f"Decide the next step for {r['name'] or r['company'] or 'a lead'}", why="A lead with no next step goes cold fast.", href=url_for("m_edit", key="leads", rid=r["id"])))
+    for r in q("SELECT * FROM kpis WHERE workspace_id=? AND target!='' AND value!='' ORDER BY period DESC, id DESC LIMIT 40", (w,)):
+        if num(r["target"]) and num(r["value"]) / num(r["target"]) < 0.6 and not any(p_["title"].startswith(f"{r['metric']} is") for p_ in picks):
+            picks.append(dict(icon="📉", title=f"{r['metric']} is at {round(num(r['value']) / num(r['target']) * 100)}% of target", why="The biggest gap on your scoreboard. See what moved it.", href=url_for("analytics")))
+            break
     picks += next_tools(w, 3)
     picks.append(dict(icon="💡", title="Steal an idea", why="Stuck? The Idea Bank has starters for your industry.", href=url_for("ideas")))
     picks.append(dict(icon="🖼️", title="Vibe check", why="Pin a few images to a mood board. Zero pressure.", href=url_for("moodboards")))

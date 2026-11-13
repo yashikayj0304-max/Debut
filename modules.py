@@ -158,7 +158,7 @@ MODULES = OrderedDict([
                 F("stage", "Stage", "select", ["New", "MQL", "SQL", "Opportunity", "Won", "Lost"]), F("value", "Deal value", "number"), F("next_step", "Next step"), F("notes", "Notes", "textarea")],
         cols=["name", "company", "source", "stage", "value", "next_step"], filter="stage", kanban="stage")),
     ("kpis", dict(title="Results Log (KPIs)", icon="📈", group="Growth", desc="Log metrics over time; charts on the Analytics page.",
-        fields=[F("metric", "Metric (e.g. Website visits)"), F("channel", "Channel"), F("period", "Date", "date"), F("value", "Actual", "number"),
+        fields=[F("metric", "Metric"), F("channel", "Channel"), F("period", "Date", "date"), F("value", "Actual", "number"),
                 F("target", "Target", "number"), F("campaign", "Campaign"), F("notes", "Notes")],
         cols=["metric", "channel", "period", "value", "target", "campaign"])),
     ("tasks", dict(title="Tasks", icon="✅", group="Growth", desc="Marketing to-dos with owners and due dates.",

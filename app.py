@@ -49,6 +49,11 @@ def _asset_v():
         return 0
 
 
+# Pages a visitor sees before signing in. Only these (and any page shown while logged out) get the line-icon set;
+# inside the app the original emoji stay, because that is what the team recognises.
+OUTSIDE_PAGES = {"landing", "features", "templates_gallery", "changelog", "pricing"}
+
+
 def create_app(config=None, init=True, database_url=None):
     app = Flask(__name__)
     app.url_map.converters["int"] = SafeInt
@@ -167,6 +172,8 @@ def create_app(config=None, init=True, database_url=None):
                 pass
 
     app.jinja_env.globals["TAGS"] = _tg.TAGS
+    import palettes as _pl
+    app.jinja_env.globals["VIBE_PALS"] = _pl.PALS
 
     @app.context_processor
     def ctx():
@@ -278,7 +285,7 @@ def create_app(config=None, init=True, database_url=None):
         r.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
         if C.PROD:
             r.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        if r.mimetype == "text/html" and r.status_code < 400 and not r.direct_passthrough and not request.path.startswith("/static") and (not app.testing or request.headers.get("X-Icons")):
+        if r.mimetype == "text/html" and r.status_code < 400 and not r.direct_passthrough and not request.path.startswith("/static") and (not app.testing or request.headers.get("X-Icons")) and (not g.get("user") or request.endpoint in OUTSIDE_PAGES):
             try:
                 import icons as _ic
                 r.set_data(_ic.swap(r.get_data(as_text=True)))

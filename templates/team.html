@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import line %}{% block body %}{{ line('team') }}
 <div class="head"><h1>👥 Team &amp; roles</h1><span class="muted">{{ seats_used }} of {{ seats }} seats used ({{ plan['name'] }}){% if clients_allowed %} · {{ clients_used }} of {{ clients_allowed }} client-portal seats{% endif %}</span></div>
 <table><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>
 {% for m in members %}<tr><td>{{ m['name'] }}</td><td>{{ m['email'] }}</td><td>

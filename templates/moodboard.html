@@ -28,7 +28,7 @@
 <li><b>Resize it</b> — drag the little triangle in a card's bottom-right corner.</li>
 <li><b>Bring to front</b> — just click or drag a card; it automatically layers above the others.</li>
 <li><b>Edit it</b> — double-click a card to change its text, colour or link in place. Double-click an image card to swap the picture itself.</li>
-<li><b>Zoom &amp; pan</b> — use the <b>− / 100% / +</b> controls (or Ctrl/Cmd + scroll) to zoom the canvas, and scroll or drag the background to pan around a big board.</li>
+<li><b>Zoom &amp; pan</b> — use the <b>− / + </b> buttons, type a percentage in the Zoom box and press Enter (or Ctrl/Cmd + scroll) to zoom the canvas, and scroll or drag the background to pan around a big board.</li>
 <li><b>Tidy up</b> — the "🧹 Tidy up" button re-stacks every card into a neat grid if things get messy.</li>
 <li><b>Not sure where to start?</b> — go back to <a href="{{ url_for('moodboards') }}">All boards</a> and click "✨ Load a sample board" to see a worked example you can edit or delete.</li>
 </ul>
@@ -37,7 +37,7 @@
 
 <div class="mb-zoombar">
 <button type="button" class="btn ghost sm" onclick="zoomBy(-0.1)" title="Zoom out">−</button>
-<span id="zoomLabel" class="muted">100%</span>
+<label class="muted" style="display:inline-flex;align-items:center;gap:4px">Zoom <input id="zoomLabel" class="zoomin" type="number" min="25" max="300" step="5" value="100" inputmode="numeric" aria-label="Zoom percent, type a number and press Enter"> %</label>
 <button type="button" class="btn ghost sm" onclick="zoomBy(0.1)" title="Zoom in">+</button>
 <button type="button" class="btn ghost sm" onclick="zoomReset()" title="Reset zoom">Reset</button>
 <span class="muted mb-zoom-tip" style="margin-left:10px">Tip: Ctrl/Cmd + scroll to zoom</span>
@@ -93,14 +93,16 @@ function toggle(id){var el=document.getElementById(id);['mb-note','mb-color','mb
 // ---------- zoom (Miro-style: buttons, Ctrl/Cmd+scroll, pointer math scaled accordingly) ----------
 var BOARD_ID={{ b['id'] }};
 var zoom=1;
-(function(){try{var s=sessionStorage.getItem('mbZoom-'+BOARD_ID);if(s)zoom=Math.max(0.4,Math.min(2,parseFloat(s)||1));}catch(e){}})();
+(function(){try{var s=sessionStorage.getItem('mbZoom-'+BOARD_ID);if(s)zoom=Math.max(0.25,Math.min(3,parseFloat(s)||1));}catch(e){}})();
 function applyZoom(){
  var c=document.getElementById('canvas');if(!c)return;
  c.style.transform='scale('+zoom+')';
- document.getElementById('zoomLabel').textContent=Math.round(zoom*100)+'%';
+ var zl=document.getElementById('zoomLabel');if(document.activeElement!==zl)zl.value=Math.round(zoom*100);
  try{sessionStorage.setItem('mbZoom-'+BOARD_ID,String(zoom));}catch(e){}
 }
-function zoomBy(d){zoom=Math.max(0.4,Math.min(2,Math.round((zoom+d)*100)/100));applyZoom();}
+function zoomBy(d){zoom=Math.max(0.25,Math.min(3,Math.round((zoom+d)*100)/100));applyZoom();}
+function zoomTo(v){v=parseFloat(v);if(!isFinite(v))v=100;zoom=Math.max(0.25,Math.min(3,v/100));applyZoom();document.getElementById('zoomLabel').value=Math.round(zoom*100);}
+(function(){var z=document.getElementById('zoomLabel');z.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();zoomTo(z.value);z.blur();}});z.addEventListener('change',function(){zoomTo(z.value);});})();
 function zoomReset(){zoom=1;applyZoom();}
 applyZoom();
 var canvasWrap=document.getElementById('canvasWrap');

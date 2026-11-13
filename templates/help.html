@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block title %}Help &amp; guides{% endblock %}{% block body %}
 <div class="head"><h1>❓ Help &amp; guides</h1><div>{% if role != 'client' %}<button class="btn ghost" onclick="startTour()">🧭 Take the tour again</button>{% endif %} <a class="btn" href="/feedback?from=/help">💬 Ask us or send feedback</a></div></div>
-<input id="hq" class="hq" type="search" placeholder="Search help: try “invite”, “dark mode”, “undo”, “phone”…" aria-label="Search help" autocomplete="off">
+<input id="hq" class="hq" type="search" placeholder="Search help: try “invite”, “vibe”, “undo”, “phone”…" aria-label="Search help" autocomplete="off">
 <div id="hnone" class="card hnone">Nothing matches that. Try a shorter word, or <a href="/feedback?from=/help">ask us</a>.</div>
 {% if HUBS %}<div class="card" data-h><b>🧭 Your menu, hub by hub</b><p class="muted">This is the live map of your side panel, so it always matches what you see. Tap a hub to open it. If you renamed or moved things with ✎ Edit menu, your own names show in the side panel itself.</p>
 <div class="hgrid">{% for h in HUBS %}<a class="hub" href="{{ h.href }}"><b>{{ h.icon }} {{ h.label }}</b><small>{% for t in h.tabs %}{{ t.label }}{{ ' · ' if not loop.last }}{% endfor %}</small></a>{% endfor %}</div></div>{% endif %}
@@ -35,8 +35,6 @@
 <tr><td>See what's needed to bring in real Instagram/Facebook/Google Ads numbers</td><td>⚙ Account &gt; Connected accounts</td></tr>
 <tr><td>Change plan or payment details</td><td>💳 Plan (Billing)</td></tr>
 <tr><td>Add anything fast (content, task, campaign, lead, key date)</td><td>＋ Create (top bar), or the big ＋ at the bottom on a phone</td></tr>
-<tr><td>Colour palette</td><td>Click 🎨 in the top bar (on a small phone: open your profile menu, then “Colour palette”). Pick Sunset, Lagoon, Meadow, Candy, Neon or Citrus, or “Workspace colours” to go back to your brand colours. Every palette has its own light and dark look, and your choice follows your account to other devices.</td></tr>
-<tr><td>Dark mode</td><td>Click 🌙 in the top bar (or “Dark / light” in the footer when logged out). Click ☀️ to switch back.</td></tr>
 <tr><td>Move cards on a board</td><td>Grab a card and drop it in another column, or up and down inside a column. On a phone, hold the ⠿ grip. Keyboard: focus a card, then Alt + arrow keys. Use <b>Sort</b> for due date, priority, A–Z and more, and <b>Group by</b> to flip the columns (the Launch Checklist can group by phase).</td></tr>
 <tr><td>Put a list in your own order</td><td>In any list, drag the ⠿ grip. Pick <b>✋ My order</b> in the Sort menu to bring it back. Click a column title in table view to sort by that column.</td></tr>
 <tr><td>Reorder your pins</td><td>With two or more pinned pages, drag the ⠿ next to a pin to reorder them.</td></tr>

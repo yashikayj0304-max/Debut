@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}Jargon buster{% endblock %}{% block body %}
+{% extends "base.html" %}{% block title %}Jargon buster{% endblock %}{% from "_bold.html" import line %}{% block body %}{{ line('glossary') }}
 <div class="head"><h1>📖 Jargon buster</h1><a class="btn ghost" href="{{ url_for('help_centre') }}">❓ Help &amp; guides</a></div>
 <p class="muted">Marketing people love short words. Here's what they actually mean, in plain English, and where to find them in {{ C.APP_NAME }}.</p>
 <input id="gq" class="gq" type="search" placeholder="Search a word, e.g. UTM" aria-label="Search the jargon buster" autofocus>

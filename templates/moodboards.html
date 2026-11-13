@@ -2,19 +2,12 @@
 {{ bold("Collect the <b>look</b> before you make it", "Boards keep every shoot and campaign on-brand.") }}
 <div class="head"><h1>🖼️ Mood Boards</h1><form method="post" action="{{ url_for('board_sample') }}"><button class="btn ghost" title="See a worked example with sample notes, colours and links already placed">✨ Load a sample board</button></form></div><p class="muted">Collect images, colours, notes and links into visual boards for each campaign or launch.</p>
 
-<details class="card howto" style="margin-bottom:16px"{{ " open" if not boards else "" }}><summary><b>🧭 How it works</b></summary>
-<p class="muted" style="margin-top:6px">A mood board is a free-form, drag-anywhere canvas — like a Miro board, scoped to your workspace. Every card saves itself the moment you move, resize or edit it; there's nothing to "save" separately.</p>
-<ol style="margin:10px 0 0;padding-left:20px;line-height:1.85;font-size:13.5px">
-<li><b>Create a board</b> below, then add images, notes, colour swatches and links from the toolbar on it.</li>
-<li><b>Drag, resize, double-click to edit</b> — every card is fully editable in place, including swapping a picture with a new one.</li>
-<li><b>Zoom in/out</b> on a board to work on a big, busy canvas, just like Miro.</li>
-</ol>
-<p class="muted" style="margin-top:10px">New to mood boards? Click <b>"✨ Load a sample board"</b> above for a ready-made example — four card types already placed, so you can see the format before building your own. Every board also has its own <b>"❓ How to use"</b> button with the full walkthrough.</p>
-</details>
+<details class="card howto" style="margin-bottom:16px"><summary><b>🧭 How it works</b> <span class="muted">(30 seconds)</span></summary>
+<ol style="margin:10px 0 0;padding-left:20px;line-height:1.8;font-size:13.5px"><li>Make a board, then add images, notes, colours and links.</li><li>Drag, resize or double-click to edit. It saves itself.</li><li>Zoom with the + / − buttons or type a percentage.</li></ol></details>
 
-<div class="card" style="margin-bottom:16px"><b>🚀 Start from a template</b> <span class="muted">— a ready-made board you can edit, with colours and notes already placed.</span>
+<div class="card" style="margin-bottom:16px"><b>🚀 Start from a template</b> <span class="muted">Skip the blank page.</span>
 <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">{% for k, label in [('diwali','🪔 Diwali 2026 festive'),('launch','🚀 Product launch'),('influencer','🤳 Influencer collab'),('brand','🎨 Brand identity')] %}<form method="post" action="{{ url_for('board_from_template', tkey=k) }}"><button class="btn ghost sm">{{ label }}</button></form>{% endfor %}</div></div>
-<form method="post" action="{{ url_for('board_new') }}" class="card two"><label>Board name<input name="name" required placeholder="e.g. Diwali 2026 — chocolate gifting"></label><label>Description<input name="description"></label><div><button class="btn">Create board</button></div></form>
+<form method="post" action="{{ url_for('board_new') }}" class="card two"><label>Board name<input name="name" required placeholder="e.g. Diwali 2026 — chocolate gifting"></label><label>Description<input name="description" aria-label="Board description" placeholder="What is this board for?"></label><div><button class="btn">Create board</button></div></form>
 <div class="grid">{% for b in boards %}<a class="tile" href="{{ url_for('board_view', bid=b['id']) }}">
 {% if covers[b['id']] %}<img src="{{ media(covers[b['id']]['content']) }}" style="width:100%;height:120px;object-fit:cover;border-radius:12px;margin-bottom:8px;border:2px solid var(--out,#1b1433)">{% else %}<div class="bcover bc{{ loop.index0 % 5 }}" aria-hidden="true"><i></i><i></i><i></i></div>{% endif %}
 <b style="font-size:16px">{{ b['name'] }}</b><span class="muted">{{ b['n'] }} items · {{ b['description'] }}</span></a>{% else %}{{ empty('board', 'No boards yet', 'Create one above, or load the sample to see how it works first.') }}{% endfor %}</div>

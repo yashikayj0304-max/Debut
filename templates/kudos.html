@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_mascot.html" import deb %}{% from "_empty.html" import empty %}{% block title %}Kudos{% endblock %}{% block body %}
+{% extends "base.html" %}{% from "_mascot.html" import deb %}{% from "_empty.html" import empty %}{% block title %}Kudos{% endblock %}{% from "_bold.html" import line %}{% block body %}{{ line('kudos') }}
 <div class="head"><h1>🎉 Kudos wall</h1></div>
 <p class="muted">Shout out a teammate who nailed something. They get a notification and it lands on the wall.</p>
 {% if role != 'viewer' %}<div class="card kudos-send">{% if mates %}<form method="post" action="{{ url_for('kudos_send') }}" class="nice">

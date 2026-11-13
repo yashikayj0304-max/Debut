@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}
+{% extends "base.html" %}{% from "_empty.html" import empty %}{% from "_bold.html" import line %}{% block body %}{{ line('utm') }}
 <div class="head"><h1>🏷️ UTM Link Builder</h1><a class="btn" href="{{ url_for('utm_new') }}">＋ New UTM link</a></div>
 <p class="muted">Tracking links so every click is attributable in Google Analytics. Build one, copy it, paste it into your post, ad or email.</p>
 {% if rows %}<table class="stack"><tr><th>Label</th><th>Campaign</th><th>Source / medium</th><th>Link</th><th></th></tr>

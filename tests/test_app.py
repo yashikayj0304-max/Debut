@@ -200,9 +200,10 @@ def test_free_ai_credits_and_seats(app, monkeypatch, mails):
 
 
 def test_landing_and_pricing_show_free_plan(app):
-    for p in ("/", "/pricing"):
-        html = app.test_client().get(p).data.decode()
-        assert "forever" in html and "Start free" in html and "Starter" in html and "Agency" in html
+    land = app.test_client().get("/").data.decode()
+    assert "forever" in land and "Start free" in land and "See plans" in land
+    html = app.test_client().get("/pricing").data.decode()
+    assert "forever" in html and "Start free" in html and "Starter" in html and "Agency" in html
 
 
 def test_record_limit(app, monkeypatch):
@@ -1546,11 +1547,12 @@ def test_pulse_refresh_command_logic(app, monkeypatch):
 def test_brand_theming_business_vs_personal_brand(app, mails):
     biz = _as(app, "biz@x.com", "Acme Co", "d2c")
     pb = _as(app, "pb@x.com", "Priya Brand", "personal_brand")
-    # personal_brand: no theming card, route blocked
+    # personal_brand can pick a vibe too (it used to be locked, which made "Pick your vibe" look broken)
     page = pb.get("/account").data.decode()
-    assert "Brand colours" in page and "always use the Debut lavender theme" in page and "account/theme\"" not in page
-    assert pb.post("/account/theme", data=dict(color="#112233")).status_code == 403
-    assert pb.get("/app").data.decode().count("#112233") == 0
+    assert "Brand colours" in page and "account/theme\"" in page
+    assert pb.post("/account/theme", data=dict(color="#112233", secondary="#ff8800")).status_code == 302
+    page = pb.get("/app").data.decode().lower()
+    assert "--pri:#112233" in page and "--sec:" in page and "#ff8800" in page
     # business workspace can set a colour
     r = biz.post("/account/theme", data=dict(color="#1E88E5"))
     assert r.status_code == 302
@@ -1733,7 +1735,7 @@ def test_ics_calendar_feed(app):
         ins("content_items", dict(workspace_id=1, title="Diwali; sale, launch\nwith gold theme", channel="Instagram", status="Planned", copy="some copy, with; special\nchars", publish_date="2026-11-01"))
     page = o.get("/calendar").data.decode()
     import re as _re
-    m = _re.search(r'/calendar/([^"\']+\.ics)', page)
+    m = _re.search(r'value="[^"]*/calendar/([^"/]+\.ics)"', page)
     assert m, "no .ics link found on the calendar page"
     ics_path = "/calendar/" + m.group(1)
 
@@ -1752,7 +1754,7 @@ def test_ics_calendar_feed(app):
     assert o.post("/calendar/reset-link", headers={"X-CSRFToken": tok}).status_code == 302
     assert o.get(ics_path).status_code == 404
     new_page = o.get("/calendar").data.decode()
-    new_path = "/calendar/" + _re.search(r'/calendar/([^"\']+\.ics)', new_page).group(1)
+    new_path = "/calendar/" + _re.search(r'value="[^"]*/calendar/([^"/]+\.ics)"', new_page).group(1)
     assert new_path != ics_path
     assert o.get(new_path).status_code == 200
 
@@ -3412,7 +3414,7 @@ def test_viewer_never_sees_write_buttons_and_landing_hero_not_hijacked(app, mail
     assert b"Save changes" not in vw.get("/m/content_items/1/edit?modal=1").data
     # the landing page hero and the dashboard banner use different class names
     land = app.test_client().get("/").data
-    assert b'class="hero"' in land and b"dhero" not in land
+    assert b'class="hero hero2"' in land and b'class="dhero"' not in land
     assert b'class="dhero"' in o.get("/app").data
 
 
@@ -3435,14 +3437,15 @@ def test_dark_mode_pinned_and_empty_state_present(app, mails):
     css = o.get("/static/polish.css").data.decode()
     assert "html[data-theme=dark]" in css
     anon = app.test_client().get("/").data.decode()
-    assert "Dark / light" in anon and "chips" in anon
+    assert "bento" in anon
     assert "🎉" in o.post("/m/tasks/save", data=dict(title="Ship it", status="Done"), follow_redirects=True).data.decode()
 
 
 def test_landing_feature_overviews_clickable(app):
     html = app.test_client().get("/").data.decode()
-    assert html.count('class="chip" data-f') == 5 and html.count('class="card fcard"') == 15
-    assert 'id="featDlg"' in html and "Mood boards" in html and "See overview" in html
+    assert html.count('class="bt ') == 6 and html.count('data-f="') >= 5
+    assert 'id="featDlg"' in html and "Mood boards" in html
+    assert app.test_client().get("/features").data.decode().count('class="card fcard"') == 15
     assert html.index('id="featDlg"') > html.index("</section>")  # dialog sits in the body, not inside the title block
 
 
@@ -3683,17 +3686,19 @@ def test_viewers_cannot_drag_or_reorder(app, mails):
 def test_plan_cards_show_only_what_each_step_adds(app):
     import config as C
     cards = {c["key"]: c for c in C.plan_cards()}
-    assert [c["key"] for c in C.plan_cards()] == ["free", "starter", "team", "agency"]
-    assert cards["starter"]["base"] == "Free" and "KPI tracking & analytics" in cards["starter"]["adds"]
+    assert [c["key"] for c in C.plan_cards()] == ["free", "creator", "starter", "team", "agency"]
+    assert cards["starter"]["base"] == "Creator" and "KPI tracking & analytics" in cards["starter"]["adds"]
+    assert cards["agency"]["hidden"] is True and cards["team"]["hidden"] is False
     assert "KPI tracking & analytics" not in cards["team"]["adds"]            # already in Starter, so Team does not repeat it
     assert "Content Ops: creator network, orders, invoices" in cards["team"]["adds"] and cards["team"]["popular"] is True
     assert any("5 → 25" in a for a in cards["agency"]["adds"])
     # billing mode compares against the customer's CURRENT plan, so Agency from Free lists everything it adds
     from_free = {c["key"]: c for c in C.plan_cards("free")}
     assert "CSV import" in from_free["agency"]["adds"] and from_free["agency"]["base"] == "Free"
-    assert all(len(r[1]) == 4 for r in C.plan_matrix())
+    assert all(len(r[1]) == 5 for r in C.plan_matrix())
+    assert C.plan_matrix()[0][1][-1] == "Ask us"                              # Agency price is never shown
     page = app.test_client().get("/pricing").data.decode()
-    assert page.count("Most popular") <= 1 and "Everything in <b>Starter</b>, plus:" in page and "Compare every plan side by side" in page
+    assert page.count("Most popular") <= 1 and "Everything in <b>Starter</b>, plus:" in page and "Compare plans" in page
 
 
 def test_unlock_page_explains_the_benefit_and_keeps_a_way_back(app):
@@ -3720,9 +3725,12 @@ def test_comfort_settings_and_page_address(app):
 
 def test_landing_explains_purpose_for_newcomers_and_pros(app):
     html = app.test_client().get("/").data.decode()
-    for t in ("Main character energy", "from one place", "How it works", "Which sounds like you?", "Launch plans (GTM)", "trackable links (UTM)", "Made for professionals too", "Quick answers", "Ready to start?"):
+    for t in ("Main character energy", "from one place", "How it works", "Which sounds like you?", "Made for professionals too", "Quick answers", "Ready to start?"):
         assert t in html, t
-    assert html.count("lp-group") >= 4 and html.count('class="card fcard"') == 15
+    feat = app.test_client().get("/features").data.decode()
+    for t in ("Launch plans (GTM)", "trackable links (UTM)"):
+        assert t in feat, t
+    assert feat.count("lp-group") >= 4 and feat.count('class="card fcard"') == 15
 
 
 def test_idk_shortcut_on_dashboard_and_create_menu(app):
@@ -4049,7 +4057,7 @@ def test_css_links_are_versioned_and_old_saved_menus_are_dropped(app):
 def test_bold_design_layer(app):
     o = signup(app, "bold@x.com")
     page = o.get("/app").data.decode()
-    assert "pop.css" in page and 'id="palMenu"' in page and "setPal(" in page and 'localStorage.getItem("pal")' in page
+    assert "pop.css" in page and 'id="palMenu"' not in page and "togglePal" not in page
     assert 'class="bigline"' in page and 'class="statstrip"' in page
     css = open("static/pop.css").read()
     for k in ("sunset", "lagoon", "meadow", "candy", "neon", "citrus"):
@@ -4062,24 +4070,19 @@ def test_bold_design_layer(app):
 
 def test_popups_use_palette_colours():
     css = open("static/pop.css").read()
-    for sel in ("dialog::backdrop", ".dd-menu{", ".toasts .flash{", ".tour-pop{", ".palmenu{", "dialog.overlay-modal"):
+    for sel in ("dialog::backdrop", ".dd-menu{", ".toasts .flash{", ".tour-pop{", "dialog.overlay-modal"):
         assert sel in css, sel
 
 
-def test_palette_follows_the_account(app):
+def test_no_palette_or_theme_switchers(app):
     o = signup(app, "pal@x.com")
-    assert o.post("/pal", json={"pal": "evil<script>"}, headers={"X-CSRFToken": "x"}).status_code in (400, 403)
     page = o.get("/app").data.decode()
-    assert "setPal(" in page
-    r = o.post("/pal", json={"pal": "lagoon"})
-    assert r.status_code == 200 and r.get_json()["pal"] == "lagoon"
-    assert '"lagoon"' in o.get("/app").data.decode().split("</script>")[0]  # applied from the account on a fresh device
-    assert o.post("/pal", json={"pal": "auto"}).status_code == 200
-    assert app.test_client().post("/pal", json={"pal": "neon"}).status_code in (302, 401, 403)
+    assert "Colour palette" not in page and "Dark / light mode" not in page and 'class="tb-ic tb-theme"' in page  # toggle lives in the top bar only
+    assert "prefers-color-scheme" in page  # the look simply follows the device
 
 
 def test_bold_pages_render_for_every_role(app, mails):
-    pages = ("/app", "/pulse", "/updates", "/ideas", "/calendar", "/analytics", "/moodboards", "/team-hub", "/marketing-health")
+    pages = ("/app", "/pulse", "/updates", "/ideas", "/calendar", "/analytics", "/moodboards", "/team-hub", "/marketing-health", "/content-ops")
     for role in ("admin", "lead", "creator", "viewer"):
         o = signup(app, f"own{role}@x.com")
         c = _join(app, o, mails, f"{role}@x.com", role, role.title())
@@ -4090,3 +4093,164 @@ def test_bold_pages_render_for_every_role(app, mails):
         d = c.get("/app", follow_redirects=True).data.decode()
         if role == "creator":
             assert "statstrip" not in d
+
+
+def test_compare_plans_agency_form_and_founding(app, mails):
+    o = signup(app, "plan@x.com")
+    for url in ("/pricing", "/billing"):
+        page = o.get(url).data.decode()
+        assert 'id="cmpDlg"' in page and "Compare plans" in page and "cmp-i" in page, url
+        assert "9,999" not in page, url                                  # Agency price is hidden everywhere
+        assert "Talk to us" in page, url
+    assert "9,999" not in o.get("/upgrade/group").data.decode() if o.get("/upgrade/group").status_code == 200 else True
+    # the Agency enquiry form stores the lead for the team and rejects junk
+    anon = app.test_client()
+    assert anon.get("/agency").status_code == 200
+    assert anon.post("/agency", data=dict(name="A", email="bad", company="X")).status_code == 400
+    r = anon.post("/agency", data=dict(name="Ana", email="ana@agency.com", company="Pixel Co", size="6-15 people", clients="12", message="hi"))
+    assert r.status_code == 302 and "sent=1" in r.headers["Location"]
+    row = dbq(app, "SELECT kind, message FROM feedback WHERE kind='agency'", one=True)
+    assert row and "Pixel Co" in row["message"] and "ana@agency.com" in row["message"]
+    assert anon.post("/agency", data=dict(name="Bot", email="b@b.com", company="Z", website="spam")).status_code == 302
+    assert len(dbq(app, "SELECT id FROM feedback WHERE kind='agency'")) == 1            # honeypot hit is dropped
+    # founding member flag + test strip
+    assert dbq(app, "SELECT founding FROM workspaces", one=True)["founding"] == 1
+    assert "Founding member" in o.get("/billing").data.decode()
+    assert "TEST MODE" in o.get("/pricing").data.decode()
+
+
+def test_templates_and_changelog_public(app):
+    c = app.test_client()
+    t = c.get("/templates"); l = c.get("/changelog")
+    assert t.status_code == 200 and b"Diwali campaign plan" in t.data
+    assert l.status_code == 200 and b"What's new" in l.data or b"What&#39;s new" in l.data
+
+
+def test_emoji_swapped_for_icons(app):
+    h = app.test_client().get("/", headers={"X-Icons": "1"}).data.decode()
+    assert 'class="ic ic-' in h and "\U0001F4C5" not in h.split("<body")[1].split("<script")[0]
+    import re as _re
+    o = signup(app, "icons@x.com")
+    for u in ("/app", "/calendar", "/moodboards", "/m/leads"):
+        page = o.get(u, headers={"X-Icons": "1"}).data.decode()
+        assert 'class="ic ic-' in page, u
+        assert not any(('"></i>' in sc and 'class="ic ic-' in sc.replace("'<i class=\"ic ic-'", "")) for sc in _re.findall(r"<script[^>]*>(.*?)</script>", page, _re.S)), u  # never touch code
+    css = open("static/pop.css").read()
+    assert ".ic-cal{" in css and ".ic{" in css
+
+
+def test_zoom_box_story_card_pmf_trial_and_badge(app):
+    o = signup(app, "round@x.com")
+    mb = o.post("/moodboards/new", data=dict(name="B"), follow_redirects=True)
+    assert mb.status_code == 200
+    page = mb.data.decode()
+    assert 'id="zoomLabel"' in page and 'type="number"' in page and "zoomTo(" in page
+    rc = o.get("/recap").data.decode()
+    assert "Share to Story" in rc and "height=1920" in rc.replace(" ", "")
+    d = o.get("/app").data.decode()
+    assert "pmfcard" not in d and "trialcard" not in d            # brand-new account: neither prompt yet
+    with app.app_context():
+        from db import ex
+        ex("UPDATE users SET created_at='2020-01-01 00:00:00' WHERE email='round@x.com'")
+        ex("UPDATE workspaces SET trial_ends=? WHERE id=1", ((__import__('datetime').date.today() + __import__('datetime').timedelta(days=1)).isoformat(),))
+    d = o.get("/app").data.decode()
+    assert "pmfcard" in d and "trialcard" in d and "Your trial ends in 1 day" in d
+    assert o.post("/pmf", data=dict(a="very"), follow_redirects=True).status_code == 200
+    assert "pmfcard" not in o.get("/app").data.decode()
+
+
+def test_icon_swap_leaves_attributes_and_code_alone():
+    import icons
+    out = icons.swap('<a title="a>b \U0001F4C5" onclick="x>1?\'\U0001F525\':0">\U0001F4C5</a> \U0001F525 hi<script>var a="\U0001F525<svg></svg>";var b="\U0001F4C5";</script>')
+    assert out.count('class="ic ') == 2 and 'title="a>b \U0001F4C5"' in out and 'role="img"' in out
+    assert 'var a="\U0001F525<svg></svg>";var b="\U0001F4C5";' in out
+
+
+def test_install_manifest_analytics_gestures(app):
+    c = app.test_client()
+    m = c.get("/manifest.webmanifest").get_json()
+    assert {s["form_factor"] for s in m["screenshots"]} == {"wide", "narrow"} and m["shortcuts"]
+    import os
+    assert os.path.exists("static/icons/shot-wide.png") and os.path.exists("static/icons/shot-narrow.png")
+    h = c.get("/").data.decode()
+    assert "clarity.ms" not in h and "posthog.init" not in h        # analytics stay off until keys are configured
+    import config as C
+    old = (C.CLARITY_ID, C.POSTHOG_KEY)
+    C.CLARITY_ID, C.POSTHOG_KEY = "abc123", "phc_test"
+    try:
+        h = c.get("/").data.decode()
+        assert "clarity.ms/tag" in h and "posthog.init" in h
+    finally:
+        C.CLARITY_ID, C.POSTHOG_KEY = old
+    o = signup(app, "gest@x.com")
+    p = o.get("/app").data.decode()
+    assert "swipe-ok" in open("static/pop.css").read() and "touchstart" in p and "navigating" in p
+
+
+def test_task_snooze_and_vibe_collapse(app):
+    o = signup(app, "snz@x.com")
+    o.post("/m/tasks/save", data=dict(title="Snooze me", due_date="2026-11-14", status="To do"))
+    tok = _csrf_token(o) if "_csrf_token" in globals() else None
+    r = o.post("/m/tasks/1/snooze", headers={"X-Requested-With": "fetch"})
+    assert r.status_code == 200 and r.get_json()["ok"] and r.get_json()["due"] > "2026-11-14"[:4]
+    assert o.post("/m/tasks/999/snooze").status_code == 404
+    acc = o.get("/account").data.decode()
+    assert 'id="vibeGrid"' in acc and "Show all 32 vibes" in acc
+
+
+def test_try_the_demo_is_read_only_and_resets(app):
+    c = app.test_client()
+    r = c.get("/demo")
+    assert r.status_code == 302
+    home = c.get("/app").data.decode()
+    assert "Chai &amp; Co" in home and "read-only" in home
+    assert b"Monsoon chai" in c.get("/m/content_items").data and b"Meera Kapoor" in c.get("/m/leads").data
+    assert c.get("/calendar").status_code == 200 and c.get("/moodboards").status_code == 200 and c.get("/analytics", follow_redirects=True).status_code == 200
+    tok = c.get("/m/tasks/new?modal=1")
+    # every write is refused with a friendly redirect, nothing is saved
+    before = c.get("/m/leads").data
+    for path in ("/m/leads/save", "/m/tasks/1/snooze", "/account/profile", "/account/password", "/account/theme"):
+        resp = c.post(path, data=dict(name="Hacker", title="x"))
+        assert resp.status_code in (302, 403, 404), path
+    assert b"Hacker" not in c.get("/m/leads").data
+    # a second visit does not duplicate rows; a new day re-seeds from scratch
+    c2 = app.test_client(); c2.get("/demo")
+    n = c2.get("/m/content_items").data.count(b"Monsoon chai-and-pakoda")
+    assert n == 1
+    with app.app_context():
+        from db import ex, q
+        ex("UPDATE workspaces SET period_end='2020-01-01' WHERE slug='chai-and-co-demo'")
+        wid = q("SELECT id FROM workspaces WHERE slug='chai-and-co-demo'", one=True)["id"]
+        ex("INSERT INTO leads (workspace_id, name) VALUES (?, 'Vandal')", (wid,))
+    c3 = app.test_client(); c3.get("/demo")
+    page = c3.get("/m/leads").data
+    assert b"Vandal" not in page and b"Meera Kapoor" in page
+
+
+def test_features_page_and_landing_trim(app):
+    c = app.test_client()
+    land = c.get("/").data.decode()
+    assert "Try the demo" in land and "See plans" in land and 'class="plans"' not in land and "+8 more" in land
+    assert land.count('class="card fcard"') == 0
+    feat = c.get("/features").data.decode()
+    assert feat.count('class="card fcard"') == 15 and 'id="featDlg"' in feat and "Built for your lane" in feat
+
+
+def test_proof_blocks_only_show_with_real_content_and_share_image(app):
+    import config as C
+    c = app.test_client()
+    h = c.get("/").data.decode()
+    assert "beta marketers" not in h and "Who built this" not in h and "What beta users say" not in h and "og.png" in h
+    old = (C.BETA_USERS, C.FOUNDER_NAME, C.TESTIMONIALS)
+    C.BETA_USERS, C.FOUNDER_NAME, C.TESTIMONIALS = 42, "Asha", ["Saved me hours"]
+    try:
+        h = c.get("/").data.decode()
+        assert "Loved by 42+ beta marketers" in h and "Who built this" in h and "Saved me hours" in h
+    finally:
+        C.BETA_USERS, C.FOUNDER_NAME, C.TESTIMONIALS = old
+    assert c.get("/static/icons/og.png").status_code == 200
+
+
+def test_404_has_deb_and_empty_today_is_sleepy(app):
+    r = app.test_client().get("/nope-nothing-here")
+    assert r.status_code == 404 and b"deb" in r.data

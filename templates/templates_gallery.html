@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}Templates — {{ C.APP_NAME }}{% endblock %}{% from "_bold.html" import line %}{% block body %}
+<h1 style="text-align:center">Start from a template</h1><p class="muted" style="text-align:center">Pick one, sign up free, and it opens ready to edit.</p>
+<div class="bento-sec tpl-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">{% for ic,t,d,tag in items %}<a class="bt" href="{{ url_for('auth.signup') }}"><b>{{ ic }} {{ t }}</b><span>{{ d }}</span><small class="muted">{{ tag }} · Use this →</small></a>{% endfor %}</div>
+{% endblock %}

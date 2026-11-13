@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Agency plan — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="card agency-card"><div class="head"><h1>🏢 Agency plan</h1></div>
+{% if sent %}<div class="banner okbar">🎉 <b>Thanks!</b> We got your details and will reply within one working day with a plan and a price made for your team.</div><p><a class="btn" href="{{ url_for('pricing') }}">Back to plans</a></p>
+{% else %}
+<p class="muted">Agency is built around your team: many clients, client logins and heavy AI use. So instead of a fixed price we ask a few questions and quote what fits. No spam, no sales call unless you want one.</p>
+<form method="post" class="agency-form">
+<input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
+<div class="two"><label>Your name<input name="name" value="{{ f.name or '' }}" required autocomplete="name"></label>
+<label>Work email<input type="email" name="email" value="{{ f.email or '' }}" required autocomplete="email"></label></div>
+<div class="two"><label>Company or agency<input name="company" value="{{ f.company or '' }}" required autocomplete="organization"></label>
+<label>Phone / WhatsApp <span class="muted">(optional)</span><input name="phone" value="{{ f.phone or '' }}" autocomplete="tel"></label></div>
+<div class="two"><label>Team size<select name="size">{% for s in sizes %}<option {{ 'selected' if f.size == s }}>{{ s }}</option>{% endfor %}</select></label>
+<label>How many clients do you manage?<input name="clients" value="{{ f.clients or '' }}" inputmode="numeric" placeholder="e.g. 12"></label></div>
+<label>Anything we should know? <span class="muted">(optional)</span><textarea name="message" rows="4">{{ f.message or '' }}</textarea></label>
+<button class="btn" type="submit">Send enquiry</button> <a class="btn ghost" href="{{ url_for('pricing') }}">Compare plans</a></form>{% endif %}</div>{% endblock %}

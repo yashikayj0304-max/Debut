@@ -1,13 +1,17 @@
+{% if C.BILLING_TEST %}<div class="teststrip">🧪 TEST MODE: no real money is charged on this page.</div>{% endif %}
+<div class="plans-top"><button type="button" class="btn ghost cmp-open" onclick="document.getElementById('cmpDlg').showModal()" aria-haspopup="dialog"><span class="cmp-i" aria-hidden="true">ⓘ</span> Compare plans</button>
+<label class="yrsw"><input type="checkbox" id="yrToggle" onchange="togglePlanYear(this.checked)"> Pay yearly <b>(2 months free)</b></label></div>
 {% set _billing = (cta == 'billing') %}{% set _cards = C.plan_cards(cur if _billing else '') %}{% set _currank = (_cards|selectattr('key', 'equalto', cur)|map(attribute='rank')|first) if (_billing and cur in ('free','starter','team','agency')) else -1 %}
 <div class="plans">{% for c in _cards %}
 <div class="plan {{ 'cur' if cur == c.key }} {{ 'pop' if c.popular and not _billing }}"><h3>{{ c.name }}</h3><div class="pwho">{{ c.who }}</div>
 {% if c.price == 0 %}<div class="price">₹0</div><div class="per">free forever</div>
-{% else %}<div class="price">₹{{ '{:,}'.format(c.price) }}</div><div class="per">per month {{ C.PRICE_NOTE }}</div>{% endif %}
+{% elif c.hidden %}<div class="price pquote">Let's talk</div><div class="per">pricing tailored to your team</div>
+{% else %}<div class="price"><span class="pamt" data-m="{{ '{:,}'.format(c.price) }}" data-y="{{ '{:,}'.format(c.yearly) }}">₹{{ '{:,}'.format(c.price) }}</span></div><div class="per"><span class="pper">per month</span> {{ C.PRICE_NOTE }}</div>{% endif %}
 <div class="pnums">{% for big, label, delta in c.nums %}<div><b>{{ big }}</b><span>{{ label }}</span>{% if delta %}<i>{{ delta }}</i>{% endif %}</div>{% endfor %}</div>
 <div class="pincl">{% if c.base %}Everything in <b>{{ c.base }}</b>, plus:{% else %}What you get:{% endif %}</div>
 <ul>{% if not c.base %}<li>Calendar, mood boards, GTM plans, tasks, campaigns, leads and more</li>{% endif %}{% for a in c.adds %}<li>{{ a }}</li>{% endfor %}</ul>
 {% if c.nudge and not (_billing and cur == c.key) %}<div class="pnudge">✨ {{ c.nudge }}</div>{% endif %}
-{% if _billing %}{% if cur == c.key %}<span class="pill">Current plan</span>{% elif c.key != 'free' and can_buy %}<button class="btn" onclick="subscribe('{{ c.key }}')">{{ ('Upgrade to' if c.rank > _currank else 'Switch to') if cur_paid or _currank >= 0 else 'Choose' }} {{ c.name }}</button>{% if _currank > c.rank %}<small class="muted pdown">Fewer limits than your current plan</small>{% endif %}{% endif %}
-{% else %}<a class="btn {{ 'ghost' if c.key == 'free' }}" href="{{ url_for('auth.signup') }}">{{ 'Start free' if c.key == 'free' else 'Get started' }}</a>{% endif %}</div>{% endfor %}</div>
-<details class="compare"><summary>Compare every plan side by side</summary><div class="cmpwrap"><table class="cmp"><tr><th></th>{% for c in _cards %}<th>{{ c.name }}</th>{% endfor %}</tr>
-{% for label, vals in C.plan_matrix() %}<tr><td>{{ label }}</td>{% for v in vals %}<td class="{{ 'yes' if v == '✓' else ('no' if v == '—' else '') }}">{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div></details>
+{% if c.hidden and not (_billing and cur == c.key) %}<a class="btn" href="{{ url_for('agency_enquiry') }}">Talk to us</a>{% elif _billing %}{% if cur == c.key %}<span class="pill">Current plan</span>{% elif c.key != 'free' and can_buy %}<button class="btn" onclick="subscribe('{{ c.key }}')">{{ ('Upgrade to' if c.rank > _currank else 'Switch to') if cur_paid or _currank >= 0 else 'Choose' }} {{ c.name }}</button>{% if _currank > c.rank %}<small class="muted pdown">Fewer limits than your current plan</small>{% endif %}{% endif %}
+{% else %}<a class="btn {{ 'ghost' if c.key == 'free' }}" href="{{ url_for('auth.signup') }}">{{ 'Start free' if c.key == 'free' else 'Start ' ~ C.TRIAL_DAYS ~ '-day free trial' }}</a>{% endif %}</div>{% endfor %}</div>
+{% include "_cmpdlg.html" %}
+<script>function togglePlanYear(y){document.querySelectorAll('.pamt').forEach(function(e){e.textContent='₹'+(y?e.dataset.y:e.dataset.m)});document.querySelectorAll('.pper').forEach(function(e){e.textContent=y?'per year':'per month'});window.PLAN_CYCLE=y?'yearly':'monthly';}</script>

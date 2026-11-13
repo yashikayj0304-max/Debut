@@ -1,0 +1,4 @@
+<dialog id="cmpDlg" class="cmpdlg" aria-labelledby="cmpT"><div class="cmp-head"><h2 id="cmpT">Compare plans</h2><button type="button" class="btn ghost sm" onclick="this.closest('dialog').close()" aria-label="Close comparison">✕ Close</button></div>
+<div class="cmpwrap"><table class="cmp"><tr><th></th>{% for c in C.plan_cards('') %}<th>{{ c.name }}</th>{% endfor %}</tr>
+{% for label, vals in C.plan_matrix() %}<tr><td>{{ label }}</td>{% for v in vals %}<td class="{{ 'yes' if v == '✓' else ('no' if v == '—' else '') }}">{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div>
+<p class="muted cmp-note">Agency is quoted for your team. <a href="{{ url_for('agency_enquiry') }}">Send an enquiry</a> and we will come back with a plan and price.</p></dialog>

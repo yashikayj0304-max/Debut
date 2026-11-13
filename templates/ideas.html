@@ -6,13 +6,7 @@
 <dialog id="helpModal" class="overlay-modal" style="max-width:520px">
 <div class="overlay-head"><b style="margin-right:auto;padding-left:4px">❓ How the Idea Bank works</b><button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').close()">✕ Close</button></div>
 <div class="overlay-body">
-<ul style="margin:0;padding-left:20px;line-height:1.9;font-size:13.5px">
-<li><b>Content ideas</b> — ready-made post ideas for your industry, grouped by content pillar. Click <b>+ Add</b> to drop one straight into your content list, pre-filled and ready to schedule.</li>
-<li><b>Campaign &amp; promotion ideas</b> — full campaign concepts with objective, channel and KPI target already filled in. Click <b>+ Create campaign</b> to start one from scratch.</li>
-<li><b>KPI scorecard</b> — the metrics worth tracking for your industry, with how to measure each one. Click <b>+ Log</b> to start tracking it (paid plans).</li>
-<li><b>Persona templates</b> — common buyer personas for your industry, with their pain points already written. Click <b>+ Add persona</b> to save one to your Personas list.</li>
-<li><b>Wrong industry showing?</b> — change it any time in <a href="{{ url_for('ws.account') }}">Account</a> to get a tailored set of ideas.</li>
-</ul>
+<ul style="margin:0;padding-left:20px;line-height:1.9;font-size:13.5px"><li><b>Content ideas</b>: tap <b>+ Add</b> to drop one into your content list.</li><li><b>Campaign ideas</b>: tap <b>+ Create campaign</b> to start from one.</li><li><b>KPIs and personas</b>: ready-made for your industry. Wrong industry? Change it in <a href="{{ url_for('ws.account') }}">Account</a>.</li></ul>
 </div>
 </dialog>
 <div class="card"><b>Content ideas</b><p class="muted">Pick a date and press <b>📅 Schedule</b> to drop an idea straight onto your calendar, or <b>+ Add</b> to fill in the details first.</p>

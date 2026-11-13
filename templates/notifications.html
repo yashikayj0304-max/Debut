@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_empty.html" import empty %}{% block body %}
+{% extends "base.html" %}{% from "_empty.html" import empty %}{% from "_bold.html" import line %}{% block body %}{{ line('notifications') }}
 <div class="head"><h1>🔔 Notifications</h1><form method="post" action="{{ url_for('notifications_read') }}"><button class="btn ghost sm">Mark all read</button></form></div>
 <div class="card pushcard" id="pushCard" hidden><b>📲 Get pinged on your phone</b><p class="muted">Turn on push and Debut nudges you when someone assigns you work, @mentions you or sends kudos, even when the tab is closed.</p><button class="btn sm" id="pushBtn" type="button" onclick="enablePush()">Turn on push</button> <span class="muted" id="pushMsg"></span></div>
 <div class="card">{% for n in rows %}<div class="news" style="{{ '' if n['is_read'] else 'background:var(--pri2);border-radius:8px;padding-left:10px' }}">

@@ -2,8 +2,8 @@
 {% set np = C.PLANS.get(need_key) %}
 <div class="card unlock"><div class="unlock-ic">🔓</div><h1>{{ pitch[0] if pitch else feature|replace('_',' ')|title }} is one step up</h1>
 {% if pitch %}<p class="unlock-lead">{{ pitch[1] }}</p>{% endif %}
-<p class="muted">Your {{ plan['name'] }} plan doesn't include it. It switches on with <b>{{ need }}</b>{% if np %} (₹{{ '{:,}'.format(np.price) }}/mo {{ C.PRICE_NOTE }}){% endif %}.</p>
+<p class="muted">Your {{ plan['name'] }} plan doesn't include it. It switches on with <b>{{ need }}</b>{% if np and need_key not in C.HIDDEN_PRICE %} (₹{{ '{:,}'.format(np.price) }}/mo {{ C.PRICE_NOTE }}){% endif %}.</p>
 {% if np %}<ul class="unlock-list"><li><b>{{ np.seats }}</b> team seat{{ 's' if np.seats > 1 }}</li><li><b>{{ np.ai_credits }}</b> AI credits a month</li><li><b>{{ '{:,}'.format(np.records) }}</b> records</li></ul>{% endif %}
-<div class="unlock-act">{% if role in ('owner','admin') %}<a class="btn" href="{{ url_for('billing.billing') }}">Upgrade to {{ need }}</a>{% else %}<p>Ask your workspace owner to upgrade — it takes them a minute.</p>{% endif %}
-<a class="btn ghost" href="{{ url_for('dashboard') }}">Back to my work</a></div>
-<p class="muted small">Nothing you've added is lost. You can keep using everything on {{ plan['name'] }}.</p></div>{% endblock %}
+<div class="unlock-act">{% if role in ('owner','admin') %}<a class="btn" href="{{ url_for('agency_enquiry') if need_key in C.HIDDEN_PRICE else url_for('billing.billing') }}">{{ 'Talk to us about ' if need_key in C.HIDDEN_PRICE else 'Upgrade to ' }}{{ need }}</a>{% else %}<p>Ask your workspace owner to upgrade — it takes them a minute.</p>{% endif %}
+<button type="button" class="btn ghost cmp-open" onclick="document.getElementById('cmpDlg').showModal()"><span class="cmp-i" aria-hidden="true">ⓘ</span> Compare plans</button><a class="btn ghost" href="{{ url_for('dashboard') }}">Back to my work</a></div>
+<p class="muted small">Nothing you've added is lost. You can keep using everything on {{ plan['name'] }}.</p></div>{% include "_cmpdlg.html" %}{% include "_cmpdlg.html" %}{% endblock %}

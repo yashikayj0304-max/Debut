@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}{{ ws['name'] }} report {{ r.label }}{% endblock %}{% block body %}
+{% extends "base.html" %}{% block title %}{{ ws['name'] }} report {{ r.label }}{% endblock %}{% from "_bold.html" import line %}{% block body %}{{ line('report') }}
 <div class="report">
 <div class="head"><div><h1>📑 {{ ws['name'] }}: marketing report</h1><span class="muted">{{ r.label }}</span></div>
 <div class="noprint"><a class="btn ghost sm" href="?month={{ prev_m }}">◀ {{ prev_m }}</a> <a class="btn ghost sm" href="?month={{ next_m }}">{{ next_m }} ▶</a> <button class="btn sm" onclick="window.print()">Print / save PDF</button></div></div>

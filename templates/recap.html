@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_mascot.html" import deb %}{% block title %}Your recap{% endblock %}{% block body %}
+{% extends "base.html" %}{% from "_mascot.html" import deb %}{% block title %}Your recap{% endblock %}{% from "_bold.html" import line %}{% block body %}{{ line('recap') }}
 <div class="recap">
 <div class="rcard" id="recapCard">
 <div class="rc-top"><span class="rc-chip">✨ {{ month }} {{ year }} in {{ ws['name'] }}</span><span class="rc-brand">Debut</span></div>
@@ -6,24 +6,26 @@
 <div class="rc-stats">{% for icon, label, n in stats %}<div class="rc-stat"><span>{{ icon }}</span><b>{{ n }}</b><small>{{ label }}</small></div>{% endfor %}</div>
 <div class="rc-foot">{% if streak %}<span class="rc-streak">🔥 {{ streak }}-day streak</span>{% else %}<span class="rc-streak">🌱 Start a streak today</span>{% endif %}</div>
 </div>
-<div class="rc-actions"><button type="button" class="btn" onclick="shareRecap()">📤 Share</button><button type="button" class="btn ghost" onclick="downloadRecap()">⬇ Save as image</button><button type="button" class="btn ghost" onclick="copyRecap()">📋 Copy text</button></div>
+<div class="rc-actions"><button type="button" class="btn" onclick="shareStory()">📲 Share to Story</button><button type="button" class="btn ghost" onclick="shareRecap()">📤 Share text</button><button type="button" class="btn ghost" onclick="downloadRecap()">⬇ Save as image</button><button type="button" class="btn ghost" onclick="copyRecap()">📋 Copy text</button></div>
 <p class="muted" id="rcMsg" style="min-height:20px"></p>
 </div>
 <script>
 var RC={vibe:{{ vibe|tojson }},month:{{ (month ~ ' ' ~ year)|tojson }},ws:{{ ws['name']|tojson }},streak:{{ streak }},total:{{ total }},stats:{{ stats|map('list')|list|tojson }}};
 function rcText(){return "✨ "+RC.month+" in "+RC.ws+": "+RC.vibe+"! "+RC.stats.map(function(s){return s[0]+" "+s[2]+" "+s[1].toLowerCase();}).join(" · ")+(RC.streak?(" · 🔥 "+RC.streak+"-day streak"):"")+" #Debut";}
 function rcSay(t){var m=document.getElementById("rcMsg");m.textContent=t;setTimeout(function(){m.textContent="";},2600);}
-function copyRecap(){var t=rcText();if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){rcSay("Copied. Go post it ✨");},function(){rcSay(t);});}else rcSay(t);}
+function copyRecap(){var t=rcText();if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){rcSay("Copied. Go post it.");},function(){rcSay(t);});}else rcSay(t);}
 function shareRecap(){var t=rcText();if(navigator.share){navigator.share({title:"My Debut recap",text:t}).catch(function(){});}else copyRecap();}
-function downloadRecap(){var c=document.createElement("canvas");c.width=1080;c.height=1350;var x=c.getContext("2d"),cs=getComputedStyle(document.documentElement),pri=cs.getPropertyValue("--pri").trim()||"#7c5cd6";
- var g=x.createLinearGradient(0,0,1080,1350);g.addColorStop(0,pri);g.addColorStop(1,"#ff6b9d");x.fillStyle=g;x.fillRect(0,0,1080,1350);
- x.fillStyle="#fff";x.strokeStyle="#1b1433";x.lineWidth=6;x.beginPath();x.roundRect(60,60,960,1230,48);x.fill();x.stroke();
+function buildStory(){var c=document.createElement("canvas");c.width=1080;c.height=1920;var x=c.getContext("2d"),cs=getComputedStyle(document.documentElement),pri=cs.getPropertyValue("--pri").trim()||"#7c5cd6";
+ var g=x.createLinearGradient(0,0,1080,1920);g.addColorStop(0,pri);g.addColorStop(1,"#ff6b9d");x.fillStyle=g;x.fillRect(0,0,1080,1920);
+ x.fillStyle="#fff";x.strokeStyle="#1b1433";x.lineWidth=6;x.beginPath();x.roundRect(60,60,960,1800,48);x.fill();x.stroke();
  x.fillStyle="#1b1433";x.font="700 36px sans-serif";x.fillText("✨ "+RC.month+" · "+RC.ws,110,150);
- x.font="800 96px sans-serif";var w=RC.vibe.split(" "),y=330,line="";w.forEach(function(a){if(x.measureText(line+a).width>860){x.fillText(line,110,y);y+=110;line="";}line+=a+" ";});x.fillText(line,110,y);
+ x.font="800 96px sans-serif";var w=RC.vibe.split(" "),y=560,line="";w.forEach(function(a){if(x.measureText(line+a).width>860){x.fillText(line,110,y);y+=110;line="";}line+=a+" ";});x.fillText(line,110,y);
  x.font="500 44px sans-serif";x.fillText(RC.total?("You made "+RC.total+" things in 30 days."):"Just getting started.",110,y+90);
- RC.stats.forEach(function(s,i){var bx=110+(i%2)*450,by=y+170+Math.floor(i/2)*240;x.fillStyle="#f4efff";x.strokeStyle="#1b1433";x.beginPath();x.roundRect(bx,by,420,210,32);x.fill();x.stroke();x.fillStyle="#1b1433";x.font="800 96px sans-serif";x.fillText(String(s[2]),bx+30,by+110);x.font="600 34px sans-serif";x.fillText(s[0]+" "+s[1],bx+30,by+170);});
- x.font="800 44px sans-serif";x.fillStyle="#1b1433";x.fillText(RC.streak?("🔥 "+RC.streak+"-day streak"):"🌱 Start a streak today",110,1210);x.textAlign="right";x.fillText("Debut",970,1210);
- var a=document.createElement("a");a.download="my-debut-recap.png";a.href=c.toDataURL("image/png");a.click();rcSay("Saved. Go post it ✨");}
+ RC.stats.forEach(function(s,i){var bx=110+(i%2)*450,by=y+190+Math.floor(i/2)*250;x.fillStyle="#f4efff";x.strokeStyle="#1b1433";x.beginPath();x.roundRect(bx,by,420,210,32);x.fill();x.stroke();x.fillStyle="#1b1433";x.font="800 96px sans-serif";x.fillText(String(s[2]),bx+30,by+110);x.font="600 34px sans-serif";x.fillText(s[0]+" "+s[1],bx+30,by+170);});
+ x.font="800 44px sans-serif";x.fillStyle="#1b1433";x.fillText(RC.streak?("🔥 "+RC.streak+"-day streak"):"🌱 Start a streak today",110,1700);x.textAlign="right";x.fillText("Made with Debut",970,1700);x.font="600 32px sans-serif";x.fillText(location.host,970,1760);return c;}
+function downloadRecap(){var c=buildStory();
+ var a=document.createElement("a");a.download="my-debut-recap.png";a.href=c.toDataURL("image/png");a.click();rcSay("Saved. Go post it.");}
+function shareStory(){var c=buildStory();c.toBlob(function(b){var f=new File([b],"my-debut-recap.png",{type:"image/png"});if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],text:rcText()}).catch(function(){});}else{downloadRecap();rcSay("Saved as a 9:16 image. Add it to your Story.");}},"image/png");}
 </script>
 <h2 style="margin-top:28px">🏆 Trophy shelf <small class="muted">{{ badges|selectattr(3)|list|length }}/{{ badges|length }}</small></h2>
 <div class="shelf">{% for ic, nm, how, got in badges %}<div class="trophy{{ ' got' if got else '' }}" title="{{ how }}"><span>{{ ic }}</span><b>{{ nm }}</b><small>{{ 'Unlocked' if got else how }}</small></div>{% endfor %}</div>

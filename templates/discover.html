@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import line %}{% block body %}{{ line('discover') }}
 <div class="head"><h1>🔭 Discover Influencers</h1><a class="btn ghost" href="{{ url_for('m_list', key='influencers') }}">My influencer list</a></div>
 <p class="muted">Enter a niche and this builds ready-made search links for every major platform. Open the results, pick prospects, and log them with “+ Add prospect”. Emails and follower counts must be verified on the profile itself.</p>
 <form class="card disco-form" method="get"><label>Niche / keyword<input name="kw" value="{{ kw }}" placeholder="e.g. chocolate dessert, home baker, fitness, parenting" required></label>

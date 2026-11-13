@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import line %}{% block body %}{{ line('integrations') }}
 <div class="head"><h1>🔌 Integrations</h1></div>
 <div class="card"><b>🌐 Website lead capture form</b><p class="muted">Share this link, or embed it on your site, to collect leads straight into your Leads list &mdash; no code required.</p>
 <p><code>{{ form_url }}</code></p>

@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block body %}
+{% extends "base.html" %}{% from "_bold.html" import line %}{% block body %}{{ line('ai') }}
 <div class="head"><h1>🤖 AI Marketing Studio</h1></div>
 {% if not has_key %}<div class="card" style="border-color:var(--warn)">⚠ AI is not configured on this server yet (set ANTHROPIC_API_KEY).</div>{% endif %}
 <p class="muted">AI credits this month: <b id="cred">{{ used }} / {{ limit }}</b>. Most tasks cost 1 credit; bigger ones (calendar, GTM plan, reports) cost 2-3.</p>

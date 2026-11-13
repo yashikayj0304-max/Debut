@@ -1,7 +1,12 @@
 {% extends "base.html" %}{% from "_bold.html" import line %}{% from "_empty.html" import empty %}{% block body %}
 {{ line('analytics') }}
-<div class="head"><h1>📊 Analytics</h1><a class="btn" href="{{ url_for('m_new', key='kpis', next='/analytics') }}" onclick="return openOverlay(this.href,'')">+ Log KPI</a></div>
-<p class="muted">Built from your Results Log, Campaigns and Leads. Log a number every week and the trend lines appear.</p>
+<div class="head"><h1>📊 Numbers</h1><div><a class="btn ghost sm" href="{{ url_for('m_list', key='kpis') }}">All logged results</a> <a class="btn ghost sm" href="{{ url_for('report') }}">Monthly report</a> <a class="btn" href="{{ url_for('m_new', key='kpis', next='/analytics') }}" onclick="return openOverlay(this.href,'')">+ Log KPI</a></div></div>
+<p class="muted">Your results, campaigns and leads in one place. Log a number every week, or import a platform report, and the trend lines appear.</p>
+<details class="card syncbox"{% if not cards %} open{% endif %}><summary><b>⬆ Bring in real numbers</b> <span class="muted">from Instagram, Meta, Google Ads or Google Analytics</span></summary>
+<p class="muted" style="margin:8px 0">Download the report from the platform (Export → CSV), then drop it here. Dates, metrics and the channel are worked out for you, and importing the same report again only refreshes it.</p>
+<form method="post" action="{{ url_for('analytics_import') }}" enctype="multipart/form-data" class="syncform"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="file" name="file" accept=".csv,.tsv,.txt" required aria-label="Report file">
+<select name="channel" aria-label="Channel"><option value="">Detect the channel</option>{% for c in ['Instagram','Meta Ads','Google Ads','Website','LinkedIn','YouTube','Email','Other'] %}<option>{{ c }}</option>{% endfor %}</select><button class="btn sm">Import numbers</button></form>
+<small class="muted">Where to find it: Meta Ads Manager → Reports → Export · Instagram → Insights → Export data · Google Ads → Download → CSV · GA4 → Share → Download file → CSV.</small></details>
 {% if cards %}
 <div class="kpi-tiles">{% for c in cards %}<div class="card kpi-tile {{ c.tone }}"><span class="muted">{{ c.name }}</span>
 <b class="big">{{ '{:,.2f}'.format(c.last).rstrip('0').rstrip('.') }}</b>

@@ -3790,11 +3790,14 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     tools = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     in_hubs = {href for g in tools for _, href in g["items"]}
     allnav = set(re.findall(r'<a href="(/[^"]*)"', h.split('id="allTools" hidden>', 1)[1].split('<details class="ngrp side-foot"', 1)[0]))
-    assert allnav and allnav <= in_hubs | {"/m/utm_links"}, sorted(allnav - in_hubs)
+    assert allnav and allnav <= in_hubs | {"/m/utm_links", "/m/kpis"}, sorted(allnav - in_hubs)
     p = o.get("/calendar").data.decode()
     assert 'class="hubtabs"' in p and 'class="ht on"' in p and "Board" in p and "List" in p and "Key dates" in p
     sales = o.get("/m/leads").data.decode()
-    assert 'class="hubtabs"' in sales and "Client report" in sales and "Clients" in sales  # client report sits with clients
+    assert 'class="hubtabs"' in sales and "Clients" in sales
+    res = o.get("/analytics").data.decode()  # results pages are one hub: numbers, report, health, recap
+    assert 'class="hubtabs"' in res and "Report" in res and "Marketing health" in res and "Recap" in res and "Results log" not in res.split("hubtabs", 1)[1].split("</nav>", 1)[0]
+    assert 'class="ht on"' in o.get("/m/kpis").data.decode()  # the logged-results list still lights up its hub
     team = o.get("/team-hub").data.decode()
     for t in ("Team hub", "Team &amp; roles", "Activity", "Kudos wall"):
         assert t in team, t
@@ -4231,7 +4234,8 @@ def test_try_the_demo_is_read_only_and_resets(app):
 def test_features_page_and_landing_trim(app):
     c = app.test_client()
     land = c.get("/").data.decode()
-    assert "Try the demo" in land and "See plans" in land and 'class="plans"' not in land and "+8 more" in land
+    assert "Try the demo" in land and "See pricing" in land and 'id="prices"' in land and 'class="plans"' not in land
+    assert land.count("<section") <= 9 and land.index('id="prices"') < land.index("Which sounds like you?") < land.index("Quick answers")   # short page: prices come early
     assert land.count('class="card fcard"') == 0
     feat = c.get("/features").data.decode()
     assert feat.count('class="card fcard"') == 15 and 'id="featDlg"' in feat and "Built for your lane" in feat
@@ -4365,3 +4369,100 @@ def test_every_vibe_keeps_white_button_text_readable():
     for key, _l, c1, c2, c3, tone in P.PALS:
         shade = c1 if tone == "rich" else "#" + "".join("%02x" % int(int(c1[i:i + 2], 16) * .64) for i in (1, 3, 5))
         assert 1.05 / (lum(shade) + .05) >= 4.5, key
+
+
+def test_dashboard_kpi_chips_start_tracking(app):
+    n = app.test_client()
+    n.post("/signup", data=dict(name="D", email="kc@x.com", workspace="Brand", industry="d2c", password="Sup3rSecret!", agree="1"))
+    h = n.get("/app").get_data(as_text=True)
+    assert 'class="badge kpichip"' in h and "/m/kpis/new" in h
+
+
+def test_signup_focus_shortens_menu_and_nothing_is_lost(app):
+    c = app.test_client()
+    r = c.get("/signup")
+    assert 'name="focus"' in r.get_data(as_text=True)
+    c.post("/signup", data=dict(name="F", email="f@x.com", workspace="Foc", industry="d2c", password="Sup3rSecret!", agree="1", focus=["content"]))
+    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "content"
+    h = c.get("/app").get_data(as_text=True)
+    assert 'data-hub="content"' in h and 'data-hub="sales"' not in h and 'data-hub="more"' in h
+    assert "/m/leads" in h                                   # still reachable via More tools
+    c.post("/account/focus", data=dict(all="1"))
+    h = c.get("/app").get_data(as_text=True)
+    assert 'data-hub="sales"' in h
+    c.post("/account/focus", data=dict(focus=["sales", "bogus"]))
+    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "sales"
+
+
+def test_tagline_is_a_kicker_not_a_second_headline():
+    css = open("static/pop.css").read()
+    assert ".bigline:has(+ .head)" in css
+
+
+META = "Reporting starts,Reporting ends,Campaign name,Amount spent (INR),Impressions,Reach,Link clicks,CTR (all),Results\n2026-11-01,2026-11-01,Diwali,\"1,200.50\",\"15,000\",9000,310,2.07%,12\n2026-11-02,2026-11-02,Diwali,900,11000,7000,250,2.27%,9\n,,Total,2100.5,26000,16000,560,,21\n"
+GOOGLE = "Campaign performance\n1 November 2026 - 7 November 2026\nDay,Campaign,Clicks,Impr.,CTR,Avg. CPC,Cost,Conv.\n2026-11-03,Search,120,\"4,000\",3.00%,\"12.50\",\"1,500.00\",8\n2026-11-04,Search,100,3500,2.86%,13,1300,6\nTotal: Account,--,220,7500,--,--,2800,14\n"
+GA4 = "# ----------------------------------------\n# Reports snapshot\n# Start date: 20261101\nDate,Sessions,Active users,New users,Engagement rate\n20261101,420,300,210,61.5%\n20261102,380,280,190,58%\n"
+
+
+def test_datasync_reads_real_platform_exports():
+    import datasync, views
+    rows, info = datasync.read_export(META, "ads.csv", "", views.norm_date)
+    ms = {(r["metric"], r["period"]): r["value"] for r in rows}
+    assert info["channel"] == "Meta Ads" and ms[("Spend", "2026-11-01")] == 1200.5 and ms[("Impressions", "2026-11-01")] == 15000
+    assert ms[("CTR %", "2026-11-02")] == 2.27 and ms[("Link clicks", "2026-11-01")] == 310
+    assert info["skipped"] == 1 and not any(r["metric"] == "Campaign Name" for r in rows)   # the Total row has no date; text columns are ignored
+    rows, info = datasync.read_export(GOOGLE, "google.csv", "", views.norm_date)
+    assert info["channel"] == "Google Ads" and {r["metric"] for r in rows} >= {"Clicks", "Impressions", "Spend", "Conversions"} and info["skipped"] == 1
+    rows, info = datasync.read_export(GA4, "ga4.csv", "", views.norm_date)
+    assert info["channel"] == "Website" and any(r["metric"] == "Sessions" and r["period"] == "2026-11-01" and r["value"] == 420 for r in rows)
+    assert datasync.read_export("hello\nworld", "x.csv")[1].get("error")
+
+
+def test_analytics_import_fills_numbers_and_is_repeatable(app):
+    import io
+    o = app.test_client()
+    o.post("/signup", data=dict(name="D", email="sync@x.com", workspace="Brand", industry="d2c", password="Sup3rSecret!", agree="1"))
+    page = o.get("/analytics").data.decode()
+    assert "Bring in real numbers" in page and "analytics/import" in page and "All logged results" in page
+    def go(txt, name="meta-ads.csv", **kw):
+        return o.post("/analytics/import", data=dict(file=(io.BytesIO(txt.encode()), name), **kw), content_type="multipart/form-data", follow_redirects=True).data.decode()
+    h = go(META)
+    assert "Added" in h and "Meta Ads" in h and "Skipped 1 row" in h
+    n1 = dbq(app, "SELECT COUNT(*) c FROM kpis WHERE channel='Meta Ads'", one=True)["c"]
+    assert n1 >= 10
+    h = go(META)
+    assert "refreshed" in h and dbq(app, "SELECT COUNT(*) c FROM kpis WHERE channel='Meta Ads'", one=True)["c"] == n1   # same report twice does not duplicate
+    h = go(GA4, "any.csv", channel="Instagram")
+    assert dbq(app, "SELECT COUNT(*) c FROM kpis WHERE channel='Instagram' AND metric='Sessions'", one=True)["c"] == 2   # chosen channel wins
+    assert "Spend" in o.get("/analytics").data.decode()
+    assert "Could not find" in go("just some words")
+
+
+def test_landing_shows_prices_without_clicking_and_menus_are_short(app):
+    c = app.test_client()
+    h = c.get("/").get_data(as_text=True)
+    assert 'id="prices"' in h and "₹399" in h and "₹3,999" in h and "₹0" in h and "Let's talk" in h
+    assert "Paid plans from" in h
+    # feature pop-up is a brief: no checklist, no 15-icon grid
+    d = c.get("/features").get_data(as_text=True)
+    assert "fd-step" in d and "fd-dot" not in d and "<ul>'+f[3]" not in d
+    # profile menu holds only profile, help, feedback and log out; sound, vibe and theme live in the top bar
+    c.post("/signup", data=dict(name="D", email="menu@x.com", workspace="Brand", industry="d2c", password="Sup3rSecret!", agree="1"))
+    a = c.get("/app").get_data(as_text=True)
+    menu = a.split('class="dd-menu">', 1)[1].split("</form></div>", 1)[0]
+    assert "Profile" in menu and "Help &amp; guides" in menu and "Send feedback" in menu and "Log out" in menu
+    assert "Sound and voice" not in menu and "Pick your vibe" not in menu
+    bar = a.split('class="tb-right"', 1)[1].split('class="dd"', 1)[0] if 'class="tb-right"' in a else a
+    assert 'id="vibeBtn"' in a and "tb-snd" in a and "tb-theme" in a
+
+
+def test_plan_details_are_always_visible(app):
+    h = app.test_client().get("/pricing").get_data(as_text=True)
+    assert "What is included" in h and '<details class="pdetail"' not in h and 'class="pnums"' in h
+    assert "Compare plans" in h and 'id="cmpDlg"' in h
+
+
+def test_plan_cards_show_whats_included_openly(app):
+    h = app.test_client().get("/pricing").get_data(as_text=True)
+    assert "What is included" in h and '<details class="pdetail"' not in h and "Compare plans" in h
+    assert "team seats" in h      # the included numbers are on the card itself

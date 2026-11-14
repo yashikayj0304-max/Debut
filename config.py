@@ -129,7 +129,7 @@ PLANS = OrderedDict([
                   blurb="Plan and organise your marketing, free forever")),
     ("trial", dict(name="Free trial", price=0, seats=5, clients=5, watch=25, ai_credits=40, records=2000, boards=999, features=ALL_FEATURES,
                    blurb=f"{TRIAL_DAYS} days of the Team plan")),
-    ("creator", dict(name="Creator", price=399, seats=1, clients=0, watch=5, ai_credits=20, records=800, boards=10, features={"ai", "import"},
+    ("creator", dict(name="Spark", price=399, seats=1, clients=0, watch=5, ai_credits=20, records=800, boards=10, features={"ai", "import"},
                      blurb="Creators, students & first-time marketers", rzp_env="RAZORPAY_PLAN_CREATOR")),
     ("starter", dict(name="Starter", price=999, seats=1, clients=0, watch=10, ai_credits=40, records=1500, boards=20, features={"influencers", "analytics", "ai", "import"},
                      blurb="Solo marketers & freelancers", rzp_env="RAZORPAY_PLAN_STARTER")),

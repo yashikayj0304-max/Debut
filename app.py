@@ -136,8 +136,11 @@ def create_app(config=None, init=True, database_url=None):
         if g.support and write and ep not in ("admin.exit_support", "admin.support", "auth.logout", "auth.switch_ws"):
             return _forbidden()
         if write and ep != "auth.logout" and (g.user["email"] or "").endswith("@demo.debut.invalid"):
-            flash("This is a read-only demo. Create your free account to make your own.")
-            return redirect(url_for("dashboard"))
+            try:
+                S.audit("demo_blocked", ep or "", wid=g.ws["id"], uid=g.user["id"])      # counted, so we can see which locked buttons people reach for
+            except Exception:
+                pass
+            return render_template("demo_nudge.html"), 403
         if g.role == "viewer" and write and ep not in VIEWER_WRITE_OK:
             return _forbidden()
         if g.role == "creator" and (ep not in CREATOR_OK or (key and key not in CREATOR_MODULES)):
@@ -305,6 +308,17 @@ def create_app(config=None, init=True, database_url=None):
                 pass
         if g.get("user") and r.mimetype == "text/html":
             r.headers["Cache-Control"] = "private, no-store"
+        if request.path.startswith("/static/") and r.status_code == 200:
+            r.headers["Cache-Control"] = "public, max-age=604800"          # CSS, JS and images change only on a new release
+        try:       # gzip text responses: the pages and stylesheets are several times smaller on a phone connection
+            if (r.status_code == 200 and not r.direct_passthrough and "gzip" in request.headers.get("Accept-Encoding", "") and "Content-Encoding" not in r.headers
+                    and (r.mimetype.startswith("text/") or r.mimetype in ("application/json", "application/javascript", "image/svg+xml")) and len(r.get_data()) > 800):
+                import gzip
+                r.set_data(gzip.compress(r.get_data(), 5))
+                r.headers["Content-Encoding"] = "gzip"
+                r.headers.add("Vary", "Accept-Encoding")
+        except Exception:
+            pass
         return r
 
     def _err(code, msg):

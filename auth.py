@@ -143,6 +143,8 @@ def signup():
         if not inv:
             from hubs import clean_focus
             ex("UPDATE users SET focus=? WHERE id=?", (clean_focus(request.form.getlist("focus")), uid))
+            if f.get("starter_posts"):
+                S.seed_suggested_posts(wid, industry)
         start_session(uid, wid)
         S.audit("signup", email, wid=wid, uid=uid)
         S.audit("dpdp_consent", f"{email} accepted Terms/Privacy at signup", wid=wid, uid=uid)

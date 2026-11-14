@@ -54,8 +54,22 @@ def mod(key):
     return MODULES[key]
 
 
+CREATOR_OWN = {"tasks": "assignee", "content_items": "owner", "content_orders": "creator"}
+
+
+def cscope(key):
+    """A freelancer (creator role) only works with what is assigned to them: tasks where they are the assignee, content where
+    they are the owner, orders where they are the creator. Returns (sql condition, args); ("1=1", []) for everyone else."""
+    col = CREATOR_OWN.get(key)
+    if g.role != "creator" or not col:
+        return "1=1", []
+    keys = [k for k in {(g.user["name"] or "").strip().lower(), (g.user["email"] or "").strip().lower()} if k]
+    return f"LOWER(TRIM({col})) IN ({','.join('?' * len(keys))})", keys
+
+
 def row_or_404(key, rid):
-    return q(f"SELECT * FROM {key} WHERE id=? AND workspace_id=?", (rid, W()), one=True) or abort(404)
+    c, ca = cscope(key)
+    return q(f"SELECT * FROM {key} WHERE id=? AND workspace_id=? AND {c}", [rid, W()] + ca, one=True) or abort(404)
 
 
 def locked(key):
@@ -76,8 +90,11 @@ def landing():
 def demo():
     import demo as _demo
     from auth import start_session
-    uid, wid = _demo.ensure_demo()
+    uid, wid = _demo.ensure_demo(request.args.get("v", "chai"))
     start_session(uid, wid)
+    to = request.args.get("to", "")
+    if to.startswith("/") and not to.startswith("//") and "\\" not in to and len(to) < 80:      # land on the matching page of the demo, never off-site
+        return redirect(to)
     return redirect(url_for("dashboard"))
 
 
@@ -100,7 +117,7 @@ TEMPLATES_GALLERY = [
     ("📬", "Newsletter launch", "Name, first 4 issues and a sign-up push.", "Email"),
 ]
 CHANGELOG = [
-    ("This week", ["Plans: compare dialog, yearly toggle and a Creator plan", "Agency enquiries go through a short form", "Add your calendar to Google Calendar in one tap", "Pick your vibe: palettes now follow your account"]),
+    ("This week", ["Plans: compare dialog, yearly toggle and a Spark plan", "Agency enquiries go through a short form", "Add your calendar to Google Calendar in one tap", "Pick your vibe: palettes now follow your account"]),
     ("Earlier", ["Idea Bank, Team hub and Content ops dashboards", "Bold headline bands and big-number tiles", "Undo and duplicate on every list"]),
 ]
 
@@ -203,15 +220,17 @@ def dashboard():
         return redirect(url_for("portal"))
     w, today = W(), S.today()
     t, wk = today.isoformat(), (today + dt.timedelta(days=7)).isoformat()
-    upcoming = q("SELECT * FROM content_items WHERE workspace_id=? AND publish_date BETWEEN ? AND ? ORDER BY publish_date", (w, t, wk))
-    overdue = q("SELECT * FROM tasks WHERE workspace_id=? AND status!='Done' AND due_date!='' AND due_date<? ORDER BY due_date", (w, t))
-    due_soon = q("SELECT * FROM tasks WHERE workspace_id=? AND status!='Done' AND due_date BETWEEN ? AND ? ORDER BY due_date", (w, t, wk))
+    _ci, _cia = cscope("content_items")
+    _ct, _cta = cscope("tasks")
+    upcoming = q(f"SELECT * FROM content_items WHERE workspace_id=? AND {_ci} AND publish_date BETWEEN ? AND ? ORDER BY publish_date", [w] + _cia + [t, wk])
+    overdue = q(f"SELECT * FROM tasks WHERE workspace_id=? AND {_ct} AND status!='Done' AND due_date!='' AND due_date<? ORDER BY due_date", [w] + _cta + [t])
+    due_soon = q(f"SELECT * FROM tasks WHERE workspace_id=? AND {_ct} AND status!='Done' AND due_date BETWEEN ? AND ? ORDER BY due_date", [w] + _cta + [t, wk])
     camps = q("SELECT * FROM campaigns WHERE workspace_id=?", (w,))
     budget, spent = sum(num(c["budget"]) for c in camps), sum(num(c["spent"]) for c in camps)
     live = len([c for c in camps if c["status"] == "Live"])
     total = q("SELECT COUNT(*) c FROM launch_checklist WHERE workspace_id=?", (w,), one=True)["c"]
     done = q("SELECT COUNT(*) c FROM launch_checklist WHERE workspace_id=? AND status='Done'", (w,), one=True)["c"]
-    pipeline = q("SELECT status, COUNT(*) c FROM content_items WHERE workspace_id=? GROUP BY status", (w,))
+    pipeline = q(f"SELECT status, COUNT(*) c FROM content_items WHERE workspace_id=? AND {_ci} GROUP BY status", [w] + _cia)
     leads = q("SELECT stage, COUNT(*) c FROM leads WHERE workspace_id=? GROUP BY stage", (w,))
     refs = q("SELECT * FROM reference_links WHERE workspace_id=? ORDER BY id DESC LIMIT 5", (w,))
     promos = q("SELECT * FROM promotions WHERE workspace_id=? AND (status='Live' OR start_date BETWEEN ? AND ?) ORDER BY start_date", (w, t, (today + dt.timedelta(days=14)).isoformat()))
@@ -220,13 +239,34 @@ def dashboard():
     # "Today": one short, auto-built list for a founder running marketing solo - what's overdue from
     # before (the rollover from yesterday and earlier) plus what's actually due today, so there's one
     # place to look each morning instead of checking every module by hand.
-    content_catchup = q("SELECT * FROM content_items WHERE workspace_id=? AND publish_date!='' AND publish_date<=? AND status NOT IN ('Published','On hold') ORDER BY publish_date", (w, t))
+    content_catchup = q(f"SELECT * FROM content_items WHERE workspace_id=? AND {_ci} AND publish_date!='' AND publish_date<=? AND status NOT IN ('Published','On hold') ORDER BY publish_date", [w] + _cia + [t])
     due_today_tasks = [r for r in due_soon if r["due_date"] == t]
+    # teams: "Mine" shows what is assigned to you (plus anything nobody owns); owners see everyone by default
+    team_n = q("SELECT COUNT(*) c FROM memberships WHERE workspace_id=? AND role!='client'", (w,), one=True)["c"]
+    can_toggle = team_n > 1 and g.role in ("owner", "admin", "lead", "manager")
+    who = request.args.get("who") or ("all" if g.role in ("owner", "admin") else "mine")
+    if can_toggle and who == "mine":
+        me = {(g.user["name"] or "").strip().lower(), (g.user["email"] or "").strip().lower()} - {""}
+        keep = lambda r, col: (r[col] or "").strip().lower() in me or not (r[col] or "").strip()
+        overdue = [r for r in overdue if keep(r, "assignee")]
+        due_today_tasks = [r for r in due_today_tasks if keep(r, "assignee")]
+        content_catchup = [r for r in content_catchup if keep(r, "owner")]
+    review_items = []
+    if g.role in ("owner", "admin", "lead", "manager"):
+        review_items = [dict(icon="👀", text=f"Waiting for your review: {r['title']}", href=url_for("m_edit", key="content_items", rid=r["id"]))
+                        for r in q("SELECT id, title FROM content_items WHERE workspace_id=? AND status='Review' ORDER BY publish_date LIMIT 5", (w,))]
+    rhythm = []
+    if g.role in ("owner", "admin", "lead", "manager"):
+        if today.weekday() == 0 and len(upcoming) < 3 and q("SELECT 1 FROM content_items WHERE workspace_id=? LIMIT 1", (w,), one=True):
+            rhythm.append(dict(icon="🗓️", text=f"Plan the week: only {len(upcoming)} post{'s' if len(upcoming) != 1 else ''} scheduled in the next 7 days", href=url_for("calendar_view")))
+        if today.weekday() >= 4 and "analytics" in g.plan["features"] and q("SELECT 1 FROM kpis WHERE workspace_id=? LIMIT 1", (w,), one=True) and not q("SELECT 1 FROM kpis WHERE workspace_id=? AND period>=?", (w, (today - dt.timedelta(days=6)).isoformat()), one=True):
+            rhythm.append(dict(icon="📈", text="Log this week's numbers (or import a platform report)", href=url_for("analytics")))
     today_items = (
-        [dict(icon="⏰", text=f"Overdue: {r['title']}", href=url_for("m_edit", key="tasks", rid=r["id"])) for r in overdue] +
+        [dict(icon="⏰", text=f"Overdue: {r['title']}", href=url_for("m_edit", key="tasks", rid=r["id"]), tid=r["id"], name=r["title"]) for r in overdue] +
         [dict(icon="📝", text=f"{'Publish today' if r['publish_date'] == t else 'Overdue to publish'}: {r['title']}", href=url_for("m_edit", key="content_items", rid=r["id"])) for r in content_catchup] +
-        [dict(icon="🗂️", text=f"Due today: {r['title']}", href=url_for("m_edit", key="tasks", rid=r["id"])) for r in due_today_tasks] +
-        [dict(icon="🤳", text=f"Follow up: {r['name']}", href=url_for("outreach", iid=r["id"])) for r in followups]
+        [dict(icon="🗂️", text=f"Due today: {r['title']}", href=url_for("m_edit", key="tasks", rid=r["id"]), tid=r["id"], name=r["title"]) for r in due_today_tasks] +
+        [dict(icon="🤳", text=f"Follow up: {r['name']}", href=url_for("outreach", iid=r["id"])) for r in followups] +
+        review_items + rhythm
     )
     today_more = max(0, len(today_items) - 8)
     today_items = today_items[:8]
@@ -235,8 +275,10 @@ def dashboard():
         if locked(k) or (g.role == "creator" and k not in CREATOR_MODULES):
             continue
         m = MODULES[k]
-        tiles.append((m["icon"], m["title"], q(f"SELECT COUNT(*) c FROM {k} WHERE workspace_id=?", (w,), one=True)["c"], url_for("m_list", key=k)))
-    tiles.append(("🖼️", "Mood Boards", q("SELECT COUNT(*) c FROM boards WHERE workspace_id=?", (w,), one=True)["c"], url_for("moodboards")))
+        _c, _ca = cscope(k)
+        tiles.append((m["icon"], m["title"], q(f"SELECT COUNT(*) c FROM {k} WHERE workspace_id=? AND {_c}", [w] + _ca, one=True)["c"], url_for("m_list", key=k)))
+    if True:
+        tiles.append(("🖼️", "Mood Boards", q("SELECT COUNT(*) c FROM boards WHERE workspace_id=?", (w,), one=True)["c"], url_for("moodboards")))
     cnt = lambda tbl: q(f"SELECT COUNT(*) c FROM {tbl} WHERE workspace_id=?", (w,), one=True)["c"]
     industry = g.ws["industry"]
     # the "audience" step changes with the kind of business: opportunities for personal brands, accounts for B2B, audits for FMCG/retail
@@ -274,7 +316,7 @@ def dashboard():
             pmf_ask = True
     return render_template("dashboard.html", trial_card=trial_card, pmf_ask=pmf_ask, next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
-                           today_items=today_items, today_more=today_more,
+                           today_items=today_items, today_more=today_more, can_toggle=can_toggle, who=who,
                            steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
                            ind=IND.get(g.ws["industry"]), pulse=S.latest_pulse(w),
                            usage=dict(records=S.record_count(w), boards=cnt("boards"), credits=S.credits_used(w)) if g.plan_key == "free" else None)
@@ -316,6 +358,10 @@ def m_list(key):
         gap_banner = cnt or None
     qs, f = request.args.get("q", "").strip(), request.args.get("f", "")
     sql, args, where = f"SELECT * FROM {key} WHERE workspace_id=?", [W()], []
+    _c, _ca = cscope(key)
+    if _ca:
+        where.append(_c)
+        args += _ca
     if qs:
         searchable = [x for x in m["fields"] if x[0] not in hidden]
         where.append("(" + " OR ".join(f"LOWER({qi(x[0])}) LIKE ?" for x in searchable) + ")")
@@ -527,6 +573,8 @@ def m_save(key):
             flash(f"Your {g.plan['name']} plan can track {g.plan['watch']} items in Market Pulse. Remove one" + (" or upgrade:" + C.upsell(g.plan_key, "watch", "watch", "topics") if C.next_plan(g.plan_key) else "."))
             return redirect(url_for("m_list", key="watchlist"))
         data["workspace_id"] = W()
+        if g.role == "creator" and CREATOR_OWN.get(key) and not (data.get(CREATOR_OWN[key]) or "").strip():
+            data[CREATOR_OWN[key]] = g.user["name"] or g.user["email"]
         rid = ins(key, data)
         S.audit("create", f"{key}#{rid}")
         first_win = FIRST_WINS.get(key) if q(f"SELECT COUNT(*) c FROM {key} WHERE workspace_id=?", (W(),), one=True)["c"] == 1 else None
@@ -877,7 +925,8 @@ def kanban(key):
     sort = request.args.get("sort") or ("manual" if "manual" in codes else "new")
     if sort not in codes:
         sort = "manual" if "manual" in codes else "new"
-    rows = q(f"SELECT * FROM {key} WHERE workspace_id=? ORDER BY {order_sql(key, m, sort)} LIMIT 500", (W(),))
+    _c, _ca = cscope(key)
+    rows = q(f"SELECT * FROM {key} WHERE workspace_id=? AND {_c} ORDER BY {order_sql(key, m, sort)} LIMIT 500", [W()] + _ca)
     return render_template("kanban.html", key=key, m=m, field=field, base=base, groups=groups, opts=opts, rows=rows, title_f=m["fields"][0][0],
                            sub_f=m["cols"][1] if len(m["cols"]) > 1 else m["fields"][0][0], sort=sort, choices=choices,
                            can_drag=g.role != "viewer", manual=(sort == "manual"),
@@ -1068,7 +1117,8 @@ def search():
                 continue
             fields = [f[0] for f in m["fields"] if f[2] in ("text", "textarea", "url")][:6]
             where = " OR ".join(f"LOWER({qi(f)}) LIKE ?" for f in fields)
-            rows = q(f"SELECT * FROM {key} WHERE workspace_id=? AND ({where}) ORDER BY id DESC LIMIT 5", [W()] + [f"%{term.lower()}%"] * len(fields))
+            _c, _ca = cscope(key)
+            rows = q(f"SELECT * FROM {key} WHERE workspace_id=? AND {_c} AND ({where}) ORDER BY id DESC LIMIT 5", [W()] + _ca + [f"%{term.lower()}%"] * len(fields))
             if rows:
                 results.append((key, m, rows, m["fields"][0][0]))
     return render_template("search.html", term=term, results=results, tools=find_tools(term), has_key=bool(C.ANTHROPIC_API_KEY))
@@ -1089,7 +1139,8 @@ def calendar_view():
         abort(400)
     ch = request.args.get("channel", "")
     start, end = weeks[0][0].isoformat(), weeks[-1][-1].isoformat()
-    sql, args = "SELECT * FROM content_items WHERE workspace_id=? AND publish_date BETWEEN ? AND ?", [w, start, end]
+    _c, _ca = cscope("content_items")
+    sql, args = f"SELECT * FROM content_items WHERE workspace_id=? AND {_c} AND publish_date BETWEEN ? AND ?", [w, *_ca, start, end]
     if ch:
         sql += " AND channel=?"
         args.append(ch)
@@ -1106,9 +1157,17 @@ def calendar_view():
             kd.setdefault(r["end_date"], []).append("🏁 " + r["name"] + " ends")
     for r in q("SELECT * FROM events WHERE workspace_id=? AND date BETWEEN ? AND ?", (w, start, end)):
         kd.setdefault(r["date"], []).append("🎪 " + r["name"] + " (" + r["mode"] + ")")
+    for _d, _names in kd.items():       # "Children's Day" and "Children's Day (India)" on one date are one thing
+        _seen, _keep = [], []
+        for _n in _names:
+            _base = re.sub(r"\s*\(.*?\)", "", _n).strip().lower()
+            if _base not in _seen:
+                _seen.append(_base)
+                _keep.append(_n)
+        kd[_d] = _keep
     py, pm = (y, mth - 1) if mth > 1 else (y - 1, 12)
     ny, nm = (y, mth + 1) if mth < 12 else (y + 1, 1)
-    unscheduled = q("SELECT * FROM content_items WHERE workspace_id=? AND (publish_date='' OR publish_date IS NULL) ORDER BY id DESC LIMIT 50", (w,))
+    unscheduled = q(f"SELECT * FROM content_items WHERE workspace_id=? AND {_c} AND (publish_date='' OR publish_date IS NULL) ORDER BY id DESC LIMIT 50", [w] + _ca)
     key_ = g.ws["ics_key"] or secrets.token_hex(6)
     if not g.ws["ics_key"]:
         ex("UPDATE workspaces SET ics_key=? WHERE id=?", (key_, w))
@@ -1727,11 +1786,33 @@ def analytics():
     for name, pts in list(series.items())[:12]:
         last, prev = pts[-1], (pts[-2] if len(pts) > 1 else None)
         pct = round(last["v"] / last["t"] * 100) if last["t"] else None
-        cards.append(dict(name=name, pts=pts, last=last["v"], target=last["t"], when=last["d"], pct=pct,
-                          delta=(last["v"] - prev["v"]) if prev else None, tone=("good" if pct is not None and pct >= 100 else "warn" if pct is not None and pct >= 60 else "bad" if pct is not None else "")))
+        vals = [p["v"] for p in pts][-12:]
+        lo, hi = min(vals), max(vals)
+        spark = ""
+        if len(vals) > 1:
+            span = (hi - lo) or 1
+            spark = " ".join(f"{'M' if i == 0 else 'L'}{i * 100 / (len(vals) - 1):.1f},{26 - (x - lo) / span * 22:.1f}" for i, x in enumerate(vals))
+        cards.append(dict(name=name, pts=pts, last=last["v"], target=last["t"], when=last["d"], pct=pct, spark=spark,
+                          delta=(last["v"] - prev["v"]) if prev else None,
+                          tone=("win" if pct is not None and pct > 100 else "good" if pct is not None and pct > 90 else "mid" if pct is not None and pct >= 60 else "low" if pct is not None else "")))
     camps = [dict(n=c["name"], b=num(c["budget"]), s=num(c["spent"])) for c in q("SELECT * FROM campaigns WHERE workspace_id=?", (w,)) if num(c["budget"]) or num(c["spent"])]
     funnel = [dict(s=r["stage"], c=r["c"]) for r in q("SELECT stage, COUNT(*) c FROM leads WHERE workspace_id=? GROUP BY stage", (w,))]
-    return render_template("analytics.html", cards=cards, camps=camps, funnel=funnel)
+    moves = []      # change over the last 4 entries, as a percentage of where it started
+    for c in cards:
+        vs = [p["v"] for p in c["pts"]][-4:]
+        if len(vs) >= 3 and vs[0]:
+            moves.append((c["name"], round((vs[-1] - vs[0]) / abs(vs[0]) * 100)))
+    working = []
+    if moves:
+        best, worst = max(moves, key=lambda m: m[1]), min(moves, key=lambda m: m[1])
+        if best[1] > 0:
+            working.append(f"{best[0]} is your strongest mover: up {best[1]}% over your last few entries. Do more of whatever fed it.")
+        if worst[1] < 0 and worst[0] != best[0]:
+            working.append(f"{worst[0]} slipped {abs(worst[1])}%. Check what changed around then before you add more effort.")
+        hit = [c["name"] for c in cards if c["pct"] is not None and c["pct"] > 100]
+        if hit:
+            working.append("Over target: " + ", ".join(hit[:3]) + ".")
+    return render_template("analytics.html", cards=cards, camps=camps, funnel=funnel, working=working)
 
 
 # ----------------------------------------------------------------- Marketing Health (KPIs + a single gap checklist, for a one-person marketing team)
@@ -1853,10 +1934,10 @@ def ai_guard(cost):
     """Shared checks before any AI call: configured, verified email, platform daily cap, monthly credits. Returns (error_response, used, limit)."""
     if not C.ANTHROPIC_API_KEY:
         return (jsonify(error="AI is not configured on this server yet."), 400), 0, 0
-    if not g.user["email_verified"]:
+    if S.needs_verify(g.user):
         return (jsonify(error="Please verify your email to use AI Studio (use the link in the yellow banner, or press Resend link)."), 403), 0, 0
     used, limit = S.credits_used(W()), g.plan["ai_credits"]
-    if C.AI_DAILY_CAP and q("SELECT COALESCE(SUM(credits),0) c FROM ai_usage WHERE created_at>=?", (S.today().isoformat(),), one=True)["c"] + cost > C.AI_DAILY_CAP:
+    if C.AI_DAILY_CAP and q("SELECT COALESCE(SUM(credits),0) c FROM ai_usage WHERE created_at>=?", (dt.datetime.now(dt.timezone.utc).date().isoformat(),), one=True)["c"] + cost > C.AI_DAILY_CAP:
         S.audit("ai_daily_cap_hit")
         return (jsonify(error="AI Studio is very busy today and has reached its daily limit. Please try again tomorrow."), 503), used, limit
     if used + cost > limit:
@@ -1929,7 +2010,7 @@ def api_ask():
         return jsonify(error="Type a question first."), 400
     if not C.ANTHROPIC_API_KEY:
         return jsonify(error="AI is not configured on this server yet."), 400
-    if not g.user["email_verified"]:
+    if S.needs_verify(g.user):
         return jsonify(error="Please verify your email to use Ask Debut."), 403
     cost = C.AI_COST.get("ask_debut", 1)
     err, used, limit = ai_guard(cost)

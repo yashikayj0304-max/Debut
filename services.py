@@ -13,8 +13,16 @@ import industries as IND
 log = logging.getLogger("gtm")
 
 
+IST = dt.timezone(dt.timedelta(hours=5, minutes=30))     # India has no daylight saving, so a fixed offset is exact
+
+
+def now_ist():
+    return dt.datetime.now(IST)
+
+
 def today():
-    return dt.date.today()
+    """Today's date in India. The server runs in UTC, so a plain date.today() is still "yesterday" until 5:30 am IST."""
+    return now_ist().date()
 
 
 def sha(s):
@@ -284,8 +292,11 @@ def apply_industry(wid, industry, personas=False):
                 n["checklist"] += 1
     y = today().year
     have = {(r["name"], r["date"]) for r in q("SELECT name, date FROM key_dates WHERE workspace_id=?", (wid,))}
+    horizon = (today() + dt.timedelta(days=400)).isoformat()
     for name, md, kind in ind["key_dates"]:
         for yy in (y, y + 1):
+            if f"{yy}-{md}" < today().isoformat() or f"{yy}-{md}" > horizon:
+                continue      # only what is still ahead: a fresh account should not start with a year of past dates
             if (name, f"{yy}-{md}") not in have:
                 ins("key_dates", dict(workspace_id=wid, name=name, date=f"{yy}-{md}", kind=kind))
                 n["dates"] += 1
@@ -321,9 +332,14 @@ def seed_workspace(wid, industry="general", kit=False):
     for n, u, c in FEEDS:
         ins("feeds", dict(workspace_id=wid, name=n, url=u, category=c))
     y = today().year
+    horizon = (today() + dt.timedelta(days=400)).isoformat()
     for name, md, kind in KEY_DATES:
+        if "halloween" in name.lower() and industry not in ("d2c", "fashion"):
+            continue      # a SaaS or a clinic has no Halloween campaign
         for yy in (y, y + 1):
-            ins("key_dates", dict(workspace_id=wid, name=name, date=f"{yy}-{md}", kind=kind))
+            ds = f"{yy}-{md}"
+            if today().isoformat() <= ds <= horizon:      # upcoming only: a new account should not open on a year of past dates
+                ins("key_dates", dict(workspace_id=wid, name=name, date=ds, kind=kind))
     for n, ch, au, su, bo in OUTREACH:
         ins("outreach_templates", dict(workspace_id=wid, name=n, channel=ch, audience=au, subject=su, body=bo))
     for sv, un in [("Blog article (SEO)", "per word"), ("Website copy", "per project"), ("Social media pack (12 posts)", "per month"), ("Video script", "per piece"),
@@ -341,6 +357,36 @@ def create_workspace(user_id, name, industry="general", kit=False):
     ins("memberships", dict(workspace_id=wid, user_id=user_id, role="owner"))
     seed_workspace(wid, industry, kit)
     return wid
+
+
+def needs_verify(user):
+    """Email verification only blocks features when this server can actually send the verification mail; otherwise nobody could ever pass it."""
+    return bool(C.SMTP_HOST) and not user["email_verified"]
+
+
+def seed_suggested_posts(wid, industry, n=6):
+    """Fill the next two weeks with ideas from the industry bank so a new calendar is never empty. They are plain 'Idea' items the person can edit, move or delete."""
+    ideas = (IND.get(industry) or {}).get("ideas") or []
+    if not ideas:
+        return 0
+    start = today()
+    offsets = [1, 3, 5, 8, 10, 12, 14][:n]
+    usable = [x for x in ideas if "[" not in x[1]] or ideas      # skip fill-in-the-blank templates
+    seen, made = set(), 0
+    step = max(1, len(usable) // max(1, n))
+    for i, off in enumerate(offsets):
+        pick = usable[(i * step) % len(usable)]
+        j = 0
+        while pick[1] in seen and j < len(usable):
+            j += 1
+            pick = usable[(i * step + j) % len(usable)]
+        if pick[1] in seen:
+            continue
+        seen.add(pick[1])
+        ins("content_items", dict(workspace_id=wid, title=pick[1][:120], channel=pick[2], format=pick[3], status="Idea", publish_date=(start + dt.timedelta(days=off)).isoformat(),
+                                  notes=f"Suggested by Debut ({pick[0]}). Edit it, move it, or delete it."))
+        made += 1
+    return made
 
 
 def delete_workspace_data(wid):

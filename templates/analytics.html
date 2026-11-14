@@ -8,8 +8,9 @@
 <select name="channel" aria-label="Channel"><option value="">Detect the channel</option>{% for c in ['Instagram','Meta Ads','Google Ads','Website','LinkedIn','YouTube','Email','Other'] %}<option>{{ c }}</option>{% endfor %}</select><button class="btn sm">Import numbers</button></form>
 <small class="muted">Where to find it: Meta Ads Manager → Reports → Export · Instagram → Insights → Export data · Google Ads → Download → CSV · GA4 → Share → Download file → CSV.</small></details>
 {% if cards %}
+{% if working %}<div class="card workbox"><b>💡 What's working</b><ul>{% for w in working %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
 <div class="kpi-tiles">{% for c in cards %}<div class="card kpi-tile {{ c.tone }}"><span class="muted">{{ c.name }}</span>
-<b class="big">{{ '{:,.2f}'.format(c.last).rstrip('0').rstrip('.') }}</b>
+<b class="big">{{ '{:,.2f}'.format(c.last).rstrip('0').rstrip('.') }}{% if c.tone == 'win' %} 🎉{% endif %}</b>{% if c.spark %}<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="{{ c.spark }}"/></svg>{% endif %}
 {% if c.target %}<div class="kpi-bar" role="img" aria-label="{{ c.pct }}% of target"><i style="width:{{ [c.pct, 100]|min }}%"></i></div><small>{{ c.pct }}% of the {{ '{:,.2f}'.format(c.target).rstrip('0').rstrip('.') }} target</small>{% else %}<small class="muted">No target set. Add one to see progress.</small>{% endif %}
 {% if c.delta is not none %}<small class="delta {{ 'up' if c.delta > 0 else 'down' if c.delta < 0 else '' }}">{{ '▲' if c.delta > 0 else '▼' if c.delta < 0 else '•' }} {{ '{:,.2f}'.format(c.delta|abs).rstrip('0').rstrip('.') }} since the last entry</small>{% else %}<small class="muted">First entry, {{ c.when }}. Log it again to see the trend.</small>{% endif %}</div>{% endfor %}</div>
 {% else %}{{ empty('chart', 'No results logged yet', 'Log a number from the Results Log and this page fills in by itself.') }}{% endif %}

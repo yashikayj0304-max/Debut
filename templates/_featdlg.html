@@ -18,10 +18,27 @@ api:["🔌","Integrations and API","Plays nice with your tools.",["Lead form","A
 security:["🔐","Secure by design","Your work stays yours.",["2-step login","Roles","Audit log"]],
 mobile:["📱","On your phone","Fits in your pocket.",["Install it","Thumb-friendly","Light and dark"]],
 group:["👑","Group mode","Lead without the mess.",["Approvals","Balanced workload","Client portals"]]};
+var DEMO_TO={calendar:"/calendar",boards:"/moodboards",gtm:"/m/gtm_plans",contentops:"/content-ops",influencers:"/m/influencers",promos:"/m/promotions",ai:"/ai",kpis:"/analytics",pulse:"/pulse",collab:"/m/content_items",reports:"/report",api:"/app",security:"/app",mobile:"/app",group:"/team-hub"};
+var DESC={
+calendar:"See every post, sale and festival on one calendar. Drag a card to a new day, and sync it to Google Calendar.",
+boards:"Collect images, colours and references for a shoot or campaign before you spend a rupee. Share the board with one link.",
+gtm:"Answer a few questions and get a launch plan with a checklist, ideal customers and competitors, all in one place.",
+contentops:"Send briefs to creators, track drafts and review rounds, and keep track of payouts. Your margins stay hidden from freelancers.",
+influencers:"Find creators that fit, keep notes on every conversation, and send follow-ups from ready-made templates.",
+promos:"Plan a sale, a launch or an event with a built-in checklist and budget. It lands on your calendar automatically.",
+ai:"Get a first draft of captions, briefs and plans that already know your brand, in seconds.",
+kpis:"Log your numbers or import a report from Meta, Google or GA4. See progress against target, week by week.",
+pulse:"A live feed of headlines, trends and competitor news for your industry, so you hear it first.",
+collab:"Tag teammates, send posts for approval and get a daily digest, so nothing waits in someone's inbox.",
+reports:"Turn the month into one clean page: what you posted, what it cost and what worked. Share it as a link or PDF.",
+api:"Capture leads from your website form and connect Zapier, Make or your own tools through an API.",
+security:"Two-step login, roles for every teammate and an activity log. Export all your data whenever you like.",
+mobile:"Install it on your phone like an app. Light and dark modes, built for thumbs.",
+group:"Give a team lead the keys to approvals and workload, and give each client a private portal for their own work."};
 (function(){var d=document.getElementById("featDlg"),b=document.getElementById("fdBody");
 var ICM={'🤖':'bot','📈':'chart','📡':'radar','💬':'chat','📑':'doc','🔌':'plug','🔐':'lock','📱':'phone','👑':'crown','🖼':'img','🚀':'rocket','✍':'note','🤳':'camera','🎪':'event','📅':'cal'};function icn(e){return '<i class="ic ic-'+(ICM[String(e).replace(/\uFE0F/g,'')]||'sparkle')+'" aria-hidden="true"></i>';}
 function esc(t){return String(t).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
-function show(k){var f=FEATS[k];if(!f)return;var ks=Object.keys(FEATS),n=ks.length,ix=ks.indexOf(k),pv=ks[(ix+n-1)%n],nx=ks[(ix+1)%n];b.innerHTML='<div class="fd-ic">'+icn(f[0])+'</div><h2>'+esc(f[1])+'</h2><p class="fd-lead">'+esc(f[2])+'</p><div class="fd-cta"><a class="btn" href="{{ url_for('auth.signup') }}">Try it free</a> <a class="btn ghost" href="{{ url_for('demo') }}">See it live</a></div><div class="fd-step"><button type="button" class="fd-arrow" data-f="'+pv+'" aria-label="Previous: '+esc(FEATS[pv][1])+'">‹</button><span>'+(ix+1)+' of '+n+'</span><button type="button" class="fd-arrow" data-f="'+nx+'" aria-label="Next: '+esc(FEATS[nx][1])+'">›</button></div>';if(!d.open)d.showModal();}
+function show(k){var f=FEATS[k];if(!f)return;b.innerHTML='<div class="fd-ic">'+icn(f[0])+'</div><h2>'+esc(f[1])+'</h2><p class="fd-lead">'+esc(f[2])+'</p><p class="fd-desc">'+esc(DESC[k]||"")+'</p><div class="fd-cta"><a class="btn" href="{{ url_for('auth.signup') }}">Try it free</a> <a class="btn ghost" href="{{ url_for('demo') }}?to='+encodeURIComponent(DEMO_TO[k]||"/app")+'">See it live</a></div>';if(!d.open)d.showModal();}
 document.addEventListener("click",function(e){var t=e.target.closest("[data-f]");if(t&&(t.closest(".chips")||t.closest(".bento")||t.closest(".fcard")||t.closest("#featDlg")))show(t.dataset.f);else if(e.target===d)d.close();});
 document.addEventListener("keydown",function(e){if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("fcard")){e.preventDefault();show(e.target.dataset.f);}});
 })();

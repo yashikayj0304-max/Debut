@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block title %}Agency plan — {{ C.APP_NAME }}{% endblock %}{% block body %}
 <div class="card agency-card"><div class="head"><h1>🏢 Agency plan</h1></div>
-{% if sent %}<div class="banner okbar">🎉 <b>Thanks!</b> We got your details and will reply within one working day with a plan and a price made for your team.</div><p><a class="btn" href="{{ url_for('pricing') }}">Back to plans</a></p>
+{% if sent %}<div class="banner okbar">🎉 <b>Thanks!</b> We got your details and will reply within one working day with a plan and a price made for your team.</div><p><a class="btn" href="{{ url_for('landing') ~ '#prices' }}">Back to plans</a></p>
 {% else %}
 <p class="muted">Agency is built around your team: many clients, client logins and heavy AI use. So instead of a fixed price we ask a few questions and quote what fits. No spam, no sales call unless you want one.</p>
 <form method="post" class="agency-form">
@@ -12,4 +12,4 @@
 <div class="two"><label>Team size<select name="size">{% for s in sizes %}<option {{ 'selected' if f.size == s }}>{{ s }}</option>{% endfor %}</select></label>
 <label>How many clients do you manage?<input name="clients" value="{{ f.clients or '' }}" inputmode="numeric" placeholder="e.g. 12"></label></div>
 <label>Anything we should know? <span class="muted">(optional)</span><textarea name="message" rows="4">{{ f.message or '' }}</textarea></label>
-<button class="btn" type="submit">Send enquiry</button> <a class="btn ghost" href="{{ url_for('pricing') }}">Compare plans</a></form>{% endif %}</div>{% endblock %}
+<button class="btn" type="submit">Send enquiry</button> <a class="btn ghost" href="{{ url_for('landing') ~ '#prices' }}">Compare plans</a></form>{% endif %}</div>{% endblock %}

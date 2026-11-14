@@ -132,7 +132,7 @@ def test_trial_expiry_falls_back_to_free(app, monkeypatch):
     monkeypatch.setitem(C.PLANS["free"], "boards", 1)
     o = signup(app, "o@x.com")
     assert o.get("/m/events").status_code == 200 and b"Free plan usage" not in o.get("/app").data   # trial: everything unlocked
-    dbx(app, "UPDATE workspaces SET trial_ends=?", ((dt.date.today() - dt.timedelta(days=1)).isoformat(),))
+    dbx(app, "UPDATE workspaces SET trial_ends=?", ((S.today() - dt.timedelta(days=1)).isoformat(),))
     dash = o.get("/app").data
     assert b"Free plan usage" in dash and b"now" in dash and b"Free</b> plan" in dash
     assert o.get("/m/events").status_code == 403 and o.get("/content-ops").status_code == 403 and o.get("/m/influencers").status_code == 403
@@ -441,7 +441,7 @@ def test_industry_signup_kit_and_switch(app, monkeypatch):
     w = wid_of(app, "h@x.com")
     assert dbq(app, "SELECT industry FROM workspaces WHERE id=?", (w,), one=True)["industry"] == "hospitality"
     assert dbq(app, "SELECT COUNT(*) c FROM launch_checklist WHERE item LIKE 'Audit your Google Business%'", one=True)["c"] == 1
-    assert dbq(app, "SELECT COUNT(*) c FROM key_dates WHERE name='World Tourism Day'", one=True)["c"] == 2
+    assert dbq(app, "SELECT COUNT(*) c FROM key_dates WHERE name='World Tourism Day'", one=True)["c"] == 1   # only the occurrence still ahead
     assert dbq(app, "SELECT COUNT(*) c FROM feeds WHERE name='Hospitality industry news'", one=True)["c"] == 1
     assert dbq(app, "SELECT COUNT(*) c FROM personas WHERE name='Weekend leisure couple'", one=True)["c"] == 1
     body = c.get("/ideas").data.decode()
@@ -517,7 +517,7 @@ def test_team_hub_and_approvals(app, mails):
     o = signup(app, "o@x.com")
     lead = _join(app, o, mails, "lead@x.com", "lead", "Lena Lead")
     cr = _join(app, o, mails, "cr@x.com", "creator", "Cy Creator")
-    today = dt.date.today()
+    today = S.today()
     yday, tom = (today - dt.timedelta(days=1)).isoformat(), (today + dt.timedelta(days=1)).isoformat()
     lead.post("/m/tasks/save", data=dict(title="Overdue thing", assignee="Cy Creator", due_date=yday, status="To do"))
     lead.post("/m/tasks/save", data=dict(title="Nobody owns this", status="To do"))
@@ -704,9 +704,9 @@ def test_comments_mentions_notifications(app, mails):
 def test_daily_digest(app, mails):
     o = signup(app, "o@x.com")
     lead = _join(app, o, mails, "lead@x.com", "lead", "Lena Lead")
-    y = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    y = (S.today() - dt.timedelta(days=1)).isoformat()
     lead.post("/m/tasks/save", data=dict(title="Chase the printer", assignee="Lena Lead", due_date=y, status="To do"))
-    lead.post("/m/content_items/save", data=dict(title="Big post", channel="Email", status="Review", owner="Lena Lead", publish_date=dt.date.today().isoformat()))
+    lead.post("/m/content_items/save", data=dict(title="Big post", channel="Email", status="Review", owner="Lena Lead", publish_date=S.today().isoformat()))
     dbx(app, "UPDATE users SET email_verified=1 WHERE email IN ('lead@x.com','o@x.com')")
     mails.clear()
     with app.app_context():
@@ -867,7 +867,7 @@ def test_admin_requires_2fa_when_enforced(app, monkeypatch):
 
 def test_client_report_and_share_link(app):
     o = signup(app, "o@x.com", ws="Report Co")
-    m = dt.date.today().strftime("%Y-%m")
+    m = S.today().strftime("%Y-%m")
     o.post("/m/kpis/save", data=dict(metric="Sessions", channel="Website", period=f"{m}-05", value="120", target="150"))
     o.post("/m/campaigns/save", data=dict(name="Diwali push", status="Live", budget="1000", spent="400", channel="Instagram"))
     o.post("/m/content_items/save", data=dict(title="Festive reel", channel="Instagram", status="Published", publish_date=f"{m}-10"))
@@ -1016,6 +1016,7 @@ def test_launch_readiness_pages_and_seo(app, monkeypatch):
 
 def test_ai_cost_controls_and_maintenance_mode(app, monkeypatch):
     monkeypatch.setattr(C, "ANTHROPIC_API_KEY", "k")
+    monkeypatch.setattr(C, "SMTP_HOST", "smtp.test")
 
     class R:
         status_code = 200
@@ -1066,7 +1067,7 @@ def test_feedback_and_launch_metrics(app, mails, monkeypatch):
     assert dbq(app, "SELECT resolved FROM feedback WHERE id=?", (fid,), one=True)["resolved"] == 1
     m = boss.get("/admin/").data.decode()
     assert "Launch metrics" in m and "Open feedback" in m and "New users" in m and "Signups by day" in m
-    dbx(app, "UPDATE workspaces SET trial_ends=? WHERE name='Pilot Co'", ((dt.date.today() + dt.timedelta(days=2)).isoformat(),))
+    dbx(app, "UPDATE workspaces SET trial_ends=? WHERE name='Pilot Co'", ((S.today() + dt.timedelta(days=2)).isoformat(),))
     assert "Trials ending in the next 3 days" in boss.get("/admin/").data.decode() and "u@x.com" in boss.get("/admin/").data.decode()
     # feedback is removed with the workspace
     wid = wid_of(app, "u@x.com")
@@ -1448,10 +1449,10 @@ def test_public_holidays_import(app, monkeypatch, mails):
     o = signup(app, "o@x.com")
     vw = _join(app, o, mails, "vw@x.com", "viewer", "Vik")
     before = dbq(app, "SELECT COUNT(*) c FROM key_dates", one=True)["c"]
-    r = o.post("/pulse/holidays", data=dict(country="IN", year=str(dt.date.today().year)))
+    r = o.post("/pulse/holidays", data=dict(country="IN", year=str(S.today().year)))
     assert r.status_code == 302 and dbq(app, "SELECT COUNT(*) c FROM key_dates", one=True)["c"] == before + 2
     assert dbq(app, "SELECT kind FROM key_dates WHERE name='Diwali'", one=True)["kind"] == "Festival"
-    o.post("/pulse/holidays", data=dict(country="IN", year=str(dt.date.today().year)))
+    o.post("/pulse/holidays", data=dict(country="IN", year=str(S.today().year)))
     assert dbq(app, "SELECT COUNT(*) c FROM key_dates", one=True)["c"] == before + 2                                # no duplicates
     assert o.post("/pulse/holidays", data=dict(country="ZZ", year="2026")).status_code == 400 and o.post("/pulse/holidays", data=dict(country="IN", year="abc")).status_code == 400
     assert vw.post("/pulse/holidays", data=dict(country="IN", year="2026")).status_code == 403
@@ -1511,6 +1512,7 @@ def test_ai_live_web_research(app, monkeypatch):
 
 def test_pulse_ai_brief(app, monkeypatch, mails):
     fake_web(monkeypatch)
+    monkeypatch.setattr(C, "SMTP_HOST", "smtp.test")      # the verified-email rule applies only where mail can actually be sent
     monkeypatch.setattr(C, "ANTHROPIC_API_KEY", "k")
     o = signup(app, "o@x.com")
     seen = _claude(monkeypatch, [{"content": [{"type": "text", "text": "BRIEF: direct booking offers [1] are working."}]}])
@@ -3117,14 +3119,14 @@ def test_gap_banner_on_content_items_sums_both_missing_date_and_overdue_gaps(app
     # (content_items = no publish date, content_overdue = past date but not Published) - make sure the
     # banner's count is the sum of both, and that it only clears once both are actually resolved
     o = signup(app, "contentbanner@x.com")
-    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    yesterday = (S.today() - dt.timedelta(days=1)).isoformat()
     o.post("/m/content_items/save", data=dict(title="No date yet", status="Idea"))                       # gap #1: missing publish_date
     o.post("/m/content_items/save", data=dict(title="Missed it", status="Idea", publish_date=yesterday))  # gap #2: overdue, not Published
     html = o.get("/m/content_items").data.decode()
     assert BANNER_TEXT in html and "2 gap" in html
     # resolve only the first gap (give it a publish date) - banner must still show 1 remaining gap
     cid1 = dbq(app, "SELECT id FROM content_items WHERE workspace_id=? AND title='No date yet'", (wid_of(app, "contentbanner@x.com"),), one=True)["id"]
-    o.post("/m/content_items/save", data=dict(id=cid1, title="No date yet", status="Idea", publish_date=S.today().isoformat() if hasattr(S, "today") else dt.date.today().isoformat()))
+    o.post("/m/content_items/save", data=dict(id=cid1, title="No date yet", status="Idea", publish_date=S.today().isoformat() if hasattr(S, "today") else S.today().isoformat()))
     html2 = o.get("/m/content_items").data.decode()
     assert BANNER_TEXT in html2 and "1 gap" in html2
     # now resolve the second gap too (mark it Published) - banner must clear entirely
@@ -3165,7 +3167,7 @@ def test_dashboard_today_card_shows_all_caught_up_when_nothing_is_due(app):
 
 def test_dashboard_today_card_surfaces_overdue_task_and_overdue_content(app):
     o = signup(app, "today2@x.com")
-    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    yesterday = (S.today() - dt.timedelta(days=1)).isoformat()
     o.post("/m/tasks/save", data=dict(title="Call supplier", status="To do", due_date=yesterday, next="/app"))
     o.post("/m/content_items/save", data=dict(title="Diwali post", status="Scheduled", publish_date=yesterday, next="/app"))
     html = o.get("/app").data.decode()
@@ -3176,7 +3178,7 @@ def test_dashboard_today_card_surfaces_overdue_task_and_overdue_content(app):
 
 def test_dashboard_today_card_shows_due_today_separately_from_overdue(app):
     o = signup(app, "today3@x.com")
-    t = dt.date.today().isoformat()
+    t = S.today().isoformat()
     o.post("/m/tasks/save", data=dict(title="Send newsletter", status="To do", due_date=t, next="/app"))
     o.post("/m/content_items/save", data=dict(title="Launch reel", status="Scheduled", publish_date=t, next="/app"))
     html = o.get("/app").data.decode()
@@ -3186,7 +3188,7 @@ def test_dashboard_today_card_shows_due_today_separately_from_overdue(app):
 
 def test_dashboard_today_card_caps_at_eight_and_links_to_marketing_health_for_more(app):
     o = signup(app, "today4@x.com")
-    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    yesterday = (S.today() - dt.timedelta(days=1)).isoformat()
     for i in range(12):
         o.post("/m/tasks/save", data=dict(title=f"Task {i}", status="To do", due_date=yesterday, next="/app"))
     html = o.get("/app").data.decode()
@@ -3198,7 +3200,7 @@ def test_today_item_link_actually_opens_the_right_record(app):
     # the cap/more-link test above checks the list truncates correctly; this checks an individual
     # Today item's href is a real, correct link to that exact record (not just a well-formed url_for)
     o = signup(app, "todayclick@x.com")
-    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    yesterday = (S.today() - dt.timedelta(days=1)).isoformat()
     o.post("/m/tasks/save", data=dict(title="Call the printer", due_date=yesterday, status="To do"))
     dash = o.get("/app").data.decode()
     assert "Call the printer" in dash
@@ -3229,7 +3231,7 @@ def test_verify_email_shows_confirmation_page(app, mails):
 
 def test_dashboard_today_card_escapes_user_entered_titles(app):
     o = signup(app, "xsstoday@x.com")
-    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    yesterday = (S.today() - dt.timedelta(days=1)).isoformat()
     o.post("/m/tasks/save", data=dict(title="<script>alert(1)</script>", status="To do", due_date=yesterday, next="/app"))
     html = o.get("/app").data.decode()
     assert "<script>alert(1)</script>" not in html
@@ -3688,7 +3690,7 @@ def test_plan_cards_show_only_what_each_step_adds(app):
     import config as C
     cards = {c["key"]: c for c in C.plan_cards()}
     assert [c["key"] for c in C.plan_cards()] == ["free", "creator", "starter", "team", "agency"]
-    assert cards["starter"]["base"] == "Creator" and "KPI tracking & analytics" in cards["starter"]["adds"]
+    assert cards["starter"]["base"] == "Spark" and "KPI tracking & analytics" in cards["starter"]["adds"]
     assert cards["agency"]["hidden"] is True and cards["team"]["hidden"] is False
     assert "KPI tracking & analytics" not in cards["team"]["adds"]            # already in Starter, so Team does not repeat it
     assert "Content Ops: creator network, orders, invoices" in cards["team"]["adds"] and cards["team"]["popular"] is True
@@ -3726,10 +3728,11 @@ def test_comfort_settings_and_page_address(app):
 
 def test_landing_explains_purpose_for_newcomers_and_pros(app):
     html = app.test_client().get("/").data.decode()
-    for t in ("Main character energy", "from one place", "How it works", "Which sounds like you?", "Made for professionals too", "Quick answers", "Ready to start?"):
+    for t in ("in one place", "See it in action", "How it works", "Which sounds like you?", "Quick answers", "60 seconds away"):
         assert t in html, t
+    assert "Made for professionals too" not in html
     feat = app.test_client().get("/features").data.decode()
-    for t in ("Launch plans (GTM)", "trackable links (UTM)"):
+    for t in ("Launch plans (GTM)", "trackable links (UTM)", "Made for professionals too"):
         assert t in feat, t
     assert feat.count("lp-group") >= 4 and feat.count('class="card fcard"') == 15
 
@@ -4156,7 +4159,7 @@ def test_zoom_box_story_card_pmf_trial_and_badge(app):
     with app.app_context():
         from db import ex
         ex("UPDATE users SET created_at='2020-01-01 00:00:00' WHERE email='round@x.com'")
-        ex("UPDATE workspaces SET trial_ends=? WHERE id=1", ((__import__('datetime').date.today() + __import__('datetime').timedelta(days=1)).isoformat(),))
+        ex("UPDATE workspaces SET trial_ends=? WHERE id=1", ((S.today() + __import__('datetime').timedelta(days=1)).isoformat(),))
     d = o.get("/app").data.decode()
     assert "pmfcard" in d and "trialcard" in d and "Your trial ends in 1 day" in d
     assert o.post("/pmf", data=dict(a="very"), follow_redirects=True).status_code == 200
@@ -4208,7 +4211,7 @@ def test_try_the_demo_is_read_only_and_resets(app):
     assert r.status_code == 302
     home = c.get("/app").data.decode()
     assert "Chai &amp; Co" in home and "read-only" in home
-    assert b"Monsoon chai" in c.get("/m/content_items").data and b"Meera Kapoor" in c.get("/m/leads").data
+    assert b"Winter kulhad chai" in c.get("/m/content_items").data and b"Meera Kapoor" in c.get("/m/leads").data
     assert c.get("/calendar").status_code == 200 and c.get("/moodboards").status_code == 200 and c.get("/analytics", follow_redirects=True).status_code == 200
     tok = c.get("/m/tasks/new?modal=1")
     # every write is refused with a friendly redirect, nothing is saved
@@ -4216,10 +4219,12 @@ def test_try_the_demo_is_read_only_and_resets(app):
     for path in ("/m/leads/save", "/m/tasks/1/snooze", "/account/profile", "/account/password", "/account/theme"):
         resp = c.post(path, data=dict(name="Hacker", title="x"))
         assert resp.status_code in (302, 403, 404), path
+        if resp.status_code == 403:
+            assert b"look-around copy" in resp.data
     assert b"Hacker" not in c.get("/m/leads").data
     # a second visit does not duplicate rows; a new day re-seeds from scratch
     c2 = app.test_client(); c2.get("/demo")
-    n = c2.get("/m/content_items").data.count(b"Monsoon chai-and-pakoda")
+    n = c2.get("/m/content_items").data.count(b"Winter kulhad chai reel")
     assert n == 1
     with app.app_context():
         from db import ex, q
@@ -4231,10 +4236,44 @@ def test_try_the_demo_is_read_only_and_resets(app):
     assert b"Vandal" not in page and b"Meera Kapoor" in page
 
 
+def test_demo_is_busy_current_and_has_three_variants(app):
+    import datetime as dt
+    import services as S
+    from db import q
+    c = app.test_client(); c.get("/demo")
+    with app.app_context():
+        w = q("SELECT id FROM workspaces WHERE slug='chai-and-co-demo'", one=True)["id"]
+        t = S.today().isoformat()
+        n = lambda sql, *a: q(sql, (w,) + a, one=True)["c"]
+        assert n("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status='Done'") >= 12
+        assert n("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND due_date=? AND title LIKE 'Approve the Shaadi%'", t) == 1
+        assert n("SELECT COUNT(DISTINCT period) c FROM kpis WHERE workspace_id=? AND metric='Orders'") >= 10
+        assert n("SELECT COUNT(*) c FROM campaigns WHERE workspace_id=?") == 3 and n("SELECT COUNT(*) c FROM influencers WHERE workspace_id=?") == 3
+        assert n("SELECT COUNT(*) c FROM boards WHERE workspace_id=?") == 3 and n("SELECT COUNT(*) c FROM board_items WHERE workspace_id=? AND kind='image'") >= 6
+        assert n("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND publish_date>?", (S.today() + dt.timedelta(days=35)).isoformat()) >= 3      # December is not empty
+        assert n("SELECT COUNT(*) c FROM key_dates WHERE workspace_id=? AND date<?", t) == 0
+    assert b"Approve the Shaadi gift box reel" in c.get("/app").data
+    rec = c.get("/recap").data.decode()
+    assert "12" in rec
+    for v, word in (("neon", b"Kesari"), ("riya", b"Glow Lab")):
+        cc = app.test_client(); assert cc.get(f"/demo?v={v}").status_code == 302
+        assert word in cc.get("/m/leads").data + cc.get("/m/content_items").data + cc.get("/m/clients").data
+
+
+def test_pages_are_gzipped_and_static_is_cached(app):
+    c = app.test_client()
+    r = c.get("/", headers={"Accept-Encoding": "gzip"})
+    import gzip
+    assert r.headers.get("Content-Encoding") == "gzip" and b"Start free" in gzip.decompress(r.data)
+    assert c.get("/").headers.get("Content-Encoding") is None
+    s = c.get("/static/pop.css")
+    assert "max-age=604800" in s.headers.get("Cache-Control", "")
+
+
 def test_features_page_and_landing_trim(app):
     c = app.test_client()
     land = c.get("/").data.decode()
-    assert "Try the demo" in land and "See pricing" in land and 'id="prices"' in land and 'class="plans"' not in land
+    assert "Try the demo" in land and "See pricing" not in land and "60 seconds away" in land and 'id="prices"' in land and 'class="plans"' in land and "Compare plans" in land   # full plans on the home page itself
     assert land.count("<section") <= 9 and land.index('id="prices"') < land.index("Which sounds like you?") < land.index("Quick answers")   # short page: prices come early
     assert land.count('class="card fcard"') == 0
     feat = c.get("/features").data.decode()
@@ -4313,7 +4352,7 @@ def test_saving_a_form_with_a_typed_date_normalises_it(app):
 
 def test_whatnow_suggests_from_the_real_state_of_the_workspace(app):
     c = signup(app, "wn@x.com")
-    today = dt.date.today()
+    today = S.today()
     c.post("/m/content_items/save", data=dict(title="Serum teaser", channel="Instagram", format="Post", status="Idea", publish_date=(today + dt.timedelta(days=2)).isoformat()))
     c.post("/m/leads/save", data=dict(name="Nykaa buyer", stage="New"))
     c.post("/m/kpis/save", data=dict(metric="Orders", period=today.isoformat(), value="30", target="300"))
@@ -4442,10 +4481,12 @@ def test_landing_shows_prices_without_clicking_and_menus_are_short(app):
     c = app.test_client()
     h = c.get("/").get_data(as_text=True)
     assert 'id="prices"' in h and "₹399" in h and "₹3,999" in h and "₹0" in h and "Let's talk" in h
+    assert "What is included" in h and "cmpDlg" in h and h.index('id="prices"') < h.index("What is inside")   # right under the first screen, comparison is a pop-up
+    assert 'href="/pricing"' not in h.split("<main", 1)[-1] and "#prices" in h
     assert "Paid plans from" in h
     # feature pop-up is a brief: no checklist, no 15-icon grid
     d = c.get("/features").get_data(as_text=True)
-    assert "fd-step" in d and "fd-dot" not in d and "<ul>'+f[3]" not in d
+    assert "var DESC=" in d and "fd-step" not in d and "fd-dot" not in d     # one slide: title, short explanation, button
     # profile menu holds only profile, help, feedback and log out; sound, vibe and theme live in the top bar
     c.post("/signup", data=dict(name="D", email="menu@x.com", workspace="Brand", industry="d2c", password="Sup3rSecret!", agree="1"))
     a = c.get("/app").get_data(as_text=True)
@@ -4466,3 +4507,126 @@ def test_plan_cards_show_whats_included_openly(app):
     h = app.test_client().get("/pricing").get_data(as_text=True)
     assert "What is included" in h and '<details class="pdetail"' not in h and "Compare plans" in h
     assert "team seats" in h      # the included numbers are on the card itself
+
+
+def test_freelancer_only_sees_work_assigned_to_them(app):
+    import re
+    o = app.test_client()
+    o.post("/signup", data=dict(name="Priya", email="own@x.com", workspace="Cafe", industry="hospitality", password="Sup3rSecret!", agree="1"))
+    html = o.post("/team/invite", data=dict(email="sana@x.com", role="creator"), follow_redirects=True).get_data(as_text=True)
+    tok = re.search(r"/invite/([\w\-]+)", html).group(1)
+    f = app.test_client()
+    f.post("/signup", data=dict(name="Sana", email="sana@x.com", workspace="", password="Sup3rSecret!", agree="1", invite=tok))
+    o.post("/m/tasks/save", data=dict(title="Internal budget review", assignee="Priya", due_date="2020-01-01", status="To do"))
+    o.post("/m/tasks/save", data=dict(title="Shoot reels for Sana", assignee="Sana", due_date="2020-01-01", status="To do"))
+    o.post("/m/content_items/save", data=dict(title="Secret launch plan", channel="Instagram", status="Idea", publish_date="2030-01-01", owner="Priya"))
+    t = f.get("/m/tasks").get_data(as_text=True)
+    assert "Shoot reels for Sana" in t and "Internal budget review" not in t
+    h = f.get("/app").get_data(as_text=True)
+    assert "Shoot reels for Sana" in h and "Internal budget review" not in h
+    assert "Secret launch plan" not in f.get("/m/content_items").get_data(as_text=True)
+    assert "Secret launch plan" not in f.get("/calendar?y=2030&m=1").get_data(as_text=True)
+    assert "Secret launch plan" not in f.get("/search?q=secret").get_data(as_text=True)
+    rid = app.test_client  # the owner's item is also closed by direct link
+    import db
+    with app.app_context():
+        iid = db.q("SELECT id FROM content_items WHERE title='Secret launch plan'", one=True)["id"]
+    assert f.get(f"/m/content_items/{iid}/edit").status_code == 404
+    f.post("/m/content_items/save", data=dict(title="My own draft", channel="Instagram", status="Idea"))
+    assert "My own draft" in f.get("/m/content_items").get_data(as_text=True)   # what they create is theirs
+    assert "Internal budget review" in o.get("/m/tasks").get_data(as_text=True)   # the owner still sees everything
+
+
+def test_today_team_toggle_review_and_weekly_rhythm(app, monkeypatch):
+    import re, datetime as dt, services
+    o = app.test_client()
+    o.post("/signup", data=dict(name="Priya", email="t@x.com", workspace="Cafe", industry="hospitality", password="Sup3rSecret!", agree="1"))
+    assert "whotog" not in o.get("/app").get_data(as_text=True)         # solo: no Mine/Everyone switch
+    html = o.post("/team/invite", data=dict(email="rohan@x.com", role="manager"), follow_redirects=True).get_data(as_text=True)
+    tok = re.search(r"/invite/([\w\-]+)", html).group(1)
+    m = app.test_client()
+    m.post("/signup", data=dict(name="Rohan", email="rohan@x.com", workspace="", password="Sup3rSecret!", agree="1", invite=tok))
+    o.post("/m/tasks/save", data=dict(title="Priya overdue thing", assignee="Priya", due_date="2020-01-01", status="To do"))
+    o.post("/m/tasks/save", data=dict(title="Rohan overdue thing", assignee="Rohan", due_date="2020-01-01", status="To do"))
+    o.post("/m/content_items/save", data=dict(title="Winter reel", channel="Instagram", status="Review", publish_date="2030-01-01", owner="Rohan"))
+    h = m.get("/app").get_data(as_text=True)                            # a manager defaults to their own work
+    assert "whotog" in h and "Rohan overdue thing" in h and "Priya overdue thing" not in h and "Waiting for your review: Winter reel" in h
+    h = m.get("/app?who=all").get_data(as_text=True)
+    assert "Priya overdue thing" in h and "Rohan overdue thing" in h
+    assert "Priya overdue thing" in o.get("/app").get_data(as_text=True)   # owners start on everyone
+    # Monday with a thin week asks to plan it; once numbers have been logged, a quiet Friday asks for this week's
+    monkeypatch.setattr(services, "today", lambda: dt.date(2030, 1, 7))
+    assert "Plan the week" in o.get("/app").get_data(as_text=True)
+    dbx(app, "UPDATE workspaces SET plan='team', plan_status='active'")
+    o.post("/m/kpis/save", data=dict(metric="Orders", channel="Website", period="2029-12-01", value="5"))
+    monkeypatch.setattr(services, "today", lambda: dt.date(2030, 1, 11))
+    assert "Log this week" in o.get("/app").get_data(as_text=True)
+
+
+def test_signup_can_fill_the_next_two_weeks_with_suggested_posts(app):
+    import datetime as dt
+    import services as S
+    c = app.test_client()
+    r = c.post("/signup", data=dict(name="Sug", email="sug@x.com", workspace="Sugar", password="Sup3rSecret!", agree="1", industry="d2c", starter_posts="1"))
+    assert r.status_code == 302
+    w = wid_of(app, "sug@x.com")
+    rows = dbq(app, "SELECT * FROM content_items WHERE workspace_id=? ORDER BY publish_date", (w,))
+    assert 5 <= len(rows) <= 6 and all(x["status"] == "Idea" and "Suggested by Debut" in x["notes"] for x in rows)
+    assert rows[0]["publish_date"] > S.today().isoformat() and rows[-1]["publish_date"] <= (S.today() + dt.timedelta(days=14)).isoformat()
+    assert rows[0]["title"] in c.get("/m/content_items").data.decode().replace("&#39;", "'").replace("&amp;", "&")
+    o = signup(app, "nosug@x.com")                      # not ticked: still a clean, empty start
+    assert dbq(app, "SELECT COUNT(*) c FROM content_items WHERE workspace_id=?", (wid_of(app, "nosug@x.com"),), one=True)["c"] == 0
+    assert "starter_posts" in app.test_client().get("/signup").data.decode()
+
+
+def test_numbers_show_sparklines_colours_and_whats_working(app):
+    o = signup(app, "spark@x.com")
+    w = wid_of(app, "spark@x.com")
+    import datetime as dt
+    import services as S
+    for i, v in enumerate([100, 110, 120, 140]):
+        dbx(app, "INSERT INTO kpis (workspace_id, metric, channel, period, value, target) VALUES (?,?,?,?,?,?)", (w, "Orders", "All", (S.today() - dt.timedelta(days=7 * (3 - i))).isoformat(), v, 120))
+    for i, v in enumerate([50, 48, 45, 40]):
+        dbx(app, "INSERT INTO kpis (workspace_id, metric, channel, period, value, target) VALUES (?,?,?,?,?,?)", (w, "Reach", "All", (S.today() - dt.timedelta(days=7 * (3 - i))).isoformat(), v, 100))
+    dbx(app, "UPDATE workspaces SET plan='team', plan_status='active' WHERE id=?", (w,))
+    html = o.get("/analytics").data.decode()
+    assert 'class="spark"' in html and "What's working" in html.replace("&#39;", "'") and "Orders is your strongest mover" in html and "Reach slipped" in html
+    assert "kpi-tile win" in html and "kpi-tile low" in html and "🎉" in html
+
+
+def test_ai_works_for_unverified_users_when_the_server_cannot_send_mail(app, monkeypatch):
+    monkeypatch.setattr(C, "ANTHROPIC_API_KEY", "k")
+    monkeypatch.setattr(C, "SMTP_HOST", "")
+    import views as V
+    monkeypatch.setattr(V, "claude_call", lambda *a, **k: ("hello", []))
+    o = signup(app, "nomail@x.com")
+    assert o.post("/api/ai", json=dict(task="positioning", product="x")).status_code == 200      # nobody could ever verify without mail, so it must not block
+    monkeypatch.setattr(C, "SMTP_HOST", "smtp.test")
+    assert o.post("/api/ai", json=dict(task="positioning", product="x")).status_code == 403      # with mail set up, verification is required again
+
+
+def test_new_accounts_get_only_upcoming_dates_and_no_irrelevant_halloween(app):
+    import services as S
+    for ind in ("saas", "healthcare", "d2c"):
+        c = app.test_client()
+        c.post("/signup", data=dict(name="K", email=f"{ind}@x.com", workspace=f"K {ind}", password="Sup3rSecret!", agree="1", industry=ind, kit="1", starter_posts="1"))
+        w = wid_of(app, f"{ind}@x.com")
+        rows = dbq(app, "SELECT name, date FROM key_dates WHERE workspace_id=?", (w,))
+        assert rows and all(r["date"] >= S.today().isoformat() for r in rows)
+        has_hal = any("alloween" in r["name"] for r in rows)
+        assert has_hal == (ind == "d2c")
+        assert len(dbq(app, "SELECT id FROM content_items WHERE workspace_id=?", (w,))) >= 4 and not any("[" in r["title"] for r in dbq(app, "SELECT title FROM content_items WHERE workspace_id=?", (w,)))
+
+
+def test_calendar_busy_day_shows_plus_more_wraps_titles_and_dedupes_key_dates(app):
+    o = signup(app, "calbusy@x.com")
+    w = wid_of(app, "calbusy@x.com")
+    import services as S
+    d = S.today().isoformat()
+    for i in range(5):
+        dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date) VALUES (?,?,?,?,?)", (w, f"Busy day post number {i}", "Instagram", "Planned", d))
+    dbx(app, "INSERT INTO key_dates (workspace_id, name, date, kind) VALUES (?,?,?,?)", (w, "Test Day", d, "Festival"))
+    dbx(app, "INSERT INTO key_dates (workspace_id, name, date, kind) VALUES (?,?,?,?)", (w, "Test Day (India)", d, "Festival"))
+    html = o.get("/calendar").data.decode()
+    assert 'class="ct"' in html and "+2 more" in html and html.count("xtra") >= 2
+    assert html.count("★ Test Day") == 2 and "Test Day (India)" not in html      # once in the grid, once in the phone agenda

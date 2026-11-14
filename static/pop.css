@@ -442,6 +442,34 @@ dialog.featdlg{max-width:380px!important}.featdlg .fd-lead{margin:6px 0 16px}.fe
 .lp-steps .card{padding:14px 16px}.lp-steps .card p{margin:4px 0 0;font-size:13.5px}
 .lp-faq{max-width:760px;margin-left:auto!important;margin-right:auto!important}
 .lp-cta{margin-top:28px}
+.whotog{float:right;display:inline-flex;border:1.5px solid var(--line);border-radius:99px;overflow:hidden;font-size:12.5px}.whotog a{padding:3px 12px;text-decoration:none;color:var(--mut);font-weight:700}.whotog a.on{background:var(--p1);color:#fff}
+.ap-steps{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:8px}.ap-steps li{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.14);font-size:14px;line-height:1.35}.ap-steps b{flex:none;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.88);color:#3b2a78;display:grid;place-items:center;font-size:13px}
+/* the pop-up that opens a form shows nothing until it has content, so no empty box flashes on click */
+.ov-load{display:flex;justify-content:center;padding:26px}.ov-load i{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--p1);animation:ovspin .7s linear infinite}@keyframes ovspin{to{transform:rotate(360deg)}}
+.fd-desc{margin:0 0 18px;color:var(--mut);line-height:1.5;font-size:14.5px}
+.plan .pnums{grid-template-columns:1fr!important;gap:6px!important}.plan .pnums div{flex-direction:row!important;flex-wrap:wrap;align-items:baseline;column-gap:7px;row-gap:0;padding:7px 10px!important}.plan .pnums b{font-size:16px!important;overflow-wrap:normal!important;word-break:keep-all}.plan .pnums span{margin-top:0!important}.plan .pnums i{margin-top:0!important;margin-left:auto}
+.lp-bg .f{display:none!important}
+.bigline:has(+ .head){font-size:clamp(18px,1.9vw,22px)!important;font-weight:800!important;margin:2px 0 0!important}
+.tdrow{display:flex;align-items:center;gap:10px;transition:opacity .5s,transform .5s}.tdrow.done{opacity:0;transform:translateX(14px)}.tdrow.done a{text-decoration:line-through}
+.tick{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--p1);background:transparent;cursor:pointer;position:relative;padding:0}.tick:hover{background:color-mix(in srgb,var(--p1) 18%,transparent)}.tick.on{background:var(--p1);animation:tickpop .35s}.tick.on::after{content:"✓";color:#fff;position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:800}@keyframes tickpop{50%{transform:scale(1.3)}}
+:focus-visible{outline:3px solid #7c5cff;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+.seeact{text-align:center;margin:26px 0 10px;font-weight:800}.seeact a{text-decoration:none}
+/* bento tiles move when you hover them */
+.bt-cal:hover .bt-grid i,.bt-cal:hover i u{animation:btshuf .6s ease-in-out}.bt-cal:hover i:nth-child(odd){transform:translateY(-3px)}
+@keyframes btshuf{0%,100%{transform:none}30%{transform:translate(6px,-4px)}60%{transform:translate(-5px,3px)}}
+.bt-kpi:hover .bt-bars u{animation:btgrow .7s cubic-bezier(.2,.8,.2,1) backwards}.bt-kpi:hover .bt-bars u:nth-child(2){animation-delay:.05s}.bt-kpi:hover .bt-bars u:nth-child(3){animation-delay:.1s}.bt-kpi:hover .bt-bars u:nth-child(4){animation-delay:.15s}.bt-kpi:hover .bt-bars u:nth-child(5){animation-delay:.2s}.bt-kpi:hover .bt-bars u:nth-child(6){animation-delay:.25s}
+@keyframes btgrow{from{transform:scaleY(.1)}to{transform:none}}.bt-bars u{transform-origin:bottom}
+.bt-ai:hover .typing{animation:bttype 1.4s steps(30,end)}@keyframes bttype{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+.demosheet{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:90;display:flex;gap:12px;align-items:center;flex-wrap:wrap;max-width:min(560px,calc(100vw - 24px));padding:14px 16px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.28);animation:dsup .25s ease-out}.demosheet[hidden]{display:none}.demosheet span{flex:1 1 200px;font-size:.88rem;color:var(--mut)}.ds-x{position:absolute;top:4px;right:8px;background:none;border:0;font-size:1.3rem;cursor:pointer;color:var(--mut)}@keyframes dsup{from{transform:translate(-50%,20px);opacity:0}}
+@media(max-width:600px){.demobar{flex-wrap:nowrap;gap:8px;font-size:.76rem;padding:6px 10px;justify-content:space-between;white-space:nowrap}.demobar b{flex:none}.demobar .db-t{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}.demobar>a:not(.btn){display:none}.demobar .btn.sm{flex:none;padding:4px 10px;font-size:.76rem}}
+.kpi-tile.low .kpi-bar i{background:#f59e0b}.kpi-tile.mid .kpi-bar i{background:#7c5cff}.kpi-tile.good .kpi-bar i,.kpi-tile.win .kpi-bar i{background:#16a34a}
+.spark{display:block;width:100%;height:30px;margin:6px 0}.spark path{fill:none;stroke:#7c5cff;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}.kpi-tile.low .spark path{stroke:#f59e0b}.kpi-tile.good .spark path,.kpi-tile.win .spark path{stroke:#16a34a}
+.workbox{border:1px solid var(--pri3);margin-bottom:14px}.workbox ul{margin:8px 0 0;padding-left:20px}.workbox li{margin:4px 0}
+.cal .chip{align-items:flex-start!important}.cal .chip .cdot{margin-top:5px}.cal .chip{line-height:1.25;font-size:12px}.cal .chip .ct{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;min-width:0;word-break:break-word}
+.cal td .xtra{display:none!important}.cal td.open .xtra{display:flex!important}.cal td.open .more-n{display:none}.more-n{margin-top:4px;background:none;border:1px dashed var(--line);border-radius:8px;color:var(--pri);font:inherit;font-size:11.5px;font-weight:700;padding:2px 8px;cursor:pointer}
+.cal .chip.Published{opacity:.62;border-left-style:solid}.cal .chip.Published::after{content:"✓";margin-left:auto;font-weight:800;color:#16a34a}.cal .chip.Idea{border-style:dashed!important;background:transparent!important}.cal .chip.Review{box-shadow:0 0 0 2px #f59e0b inset}
+.cal td .daylinks a:not([title="Add content"]){opacity:0;transition:opacity .15s}.cal td:hover .daylinks a,.cal td:focus-within .daylinks a{opacity:1}
 /* ===== icons ===== */
 .ic{display:inline-block;width:1.15em;height:1.15em;vertical-align:-.2em;background:currentColor;-webkit-mask:var(--i) center/contain no-repeat;mask:var(--i) center/contain no-repeat;flex:none}
 .ic-cal{--i:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E")}

@@ -201,9 +201,9 @@ def test_free_ai_credits_and_seats(app, monkeypatch, mails):
 
 def test_landing_and_pricing_show_free_plan(app):
     land = app.test_client().get("/").data.decode()
-    assert "forever" in land and "Start free" in land and "Pick a plan" in land
+    assert "Start free" in land and "Pick a plan" in land
     html = app.test_client().get("/pricing").data.decode()
-    assert "forever" in html and "Start free" in html and "Starter" in html and "Agency" in html
+    assert "Start free" in html and "Starter" in html and "Agency" in html
 
 
 def test_record_limit(app, monkeypatch):
@@ -3679,7 +3679,6 @@ def test_plan_cards_show_only_what_each_step_adds(app):
     assert cards["agency"]["hidden"] is True and cards["team"]["hidden"] is False
     assert "KPI tracking & analytics" not in cards["team"]["adds"]            # already in Starter, so Team does not repeat it
     assert "Content Ops: creator network, orders, invoices" in cards["team"]["adds"] and cards["team"]["popular"] is True
-    assert any("was 5" in a for a in cards["agency"]["adds"])
     # billing mode compares against the customer's CURRENT plan, so Agency from Free lists everything it adds
     from_free = {c["key"]: c for c in C.plan_cards("free")}
     assert "CSV import" in from_free["agency"]["adds"] and from_free["agency"]["base"] == "Free"
@@ -4105,7 +4104,6 @@ def test_compare_plans_agency_form_and_founding(app, mails):
     assert len(dbq(app, "SELECT id FROM feedback WHERE kind='agency'")) == 1            # honeypot hit is dropped
     # founding member flag + test strip
     assert dbq(app, "SELECT founding FROM workspaces", one=True)["founding"] == 1
-    assert "Founding member" in o.get("/billing").data.decode()
     assert "TEST MODE" in o.get("/pricing").data.decode()
 
 

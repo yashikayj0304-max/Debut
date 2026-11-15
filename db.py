@@ -66,8 +66,8 @@ def _pk():
 
 
 # modules whose records can be dragged into a custom order (a sort_order column is added to each)
-MANUAL_ORDER = ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "pitches", "accounts",
-                "personas", "competitors", "key_dates", "reference_links", "brand_kit", "gtm_plans", "keywords", "kpis", "assets", "clients", "retail_audits")
+MANUAL_ORDER = ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "accounts",
+                "personas", "competitors", "key_dates", "reference_links", "brand_kit", "gtm_plans", "keywords", "kpis", "assets", "clients")
 EXTRA_COLUMNS = {
     "workspaces": [("ai_voice", "TEXT DEFAULT ''"), ("ai_lang", "TEXT DEFAULT 'English'"), ("founding", "INTEGER DEFAULT 0"), ("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
     "memberships": [("client_name", "TEXT DEFAULT ''")],
@@ -80,6 +80,8 @@ EXTRA_COLUMNS = {
     # order inside one column (not just dragged between columns) - see kanban() / m_reorder() in views.py
     **{k: [("sort_order", "INTEGER DEFAULT 0")] for k in MANUAL_ORDER},
 }
+EXTRA_COLUMNS["chat_messages"] = [("channel_id", "INTEGER DEFAULT 0"), ("reply_to", "INTEGER DEFAULT 0"), ("ref", "TEXT DEFAULT ''"), ("file", "TEXT DEFAULT ''"), ("file_name", "TEXT DEFAULT ''"), ("pinned", "INTEGER DEFAULT 0")]
+EXTRA_COLUMNS["users"] = EXTRA_COLUMNS["users"] + [("tone", "TEXT DEFAULT 'chill'")]      # tone of voice: chill / normal / corporate
 EXTRA_COLUMNS["workspaces"] = EXTRA_COLUMNS["workspaces"] + [("bio", "TEXT DEFAULT ''")]      # link-in-bio page settings (JSON)
 EXTRA_COLUMNS["content_items"] = EXTRA_COLUMNS["content_items"] + [("studio", "TEXT DEFAULT ''"), ("thumb", "TEXT DEFAULT ''")]      # saved Create-studio design (slides, theme, size)
 
@@ -103,6 +105,14 @@ def init_schema(modules):
         f"CREATE TABLE IF NOT EXISTS api_keys (id {pk}, workspace_id INTEGER NOT NULL, user_id INTEGER, name TEXT DEFAULT '', prefix TEXT DEFAULT '', key_hash TEXT UNIQUE NOT NULL, scope TEXT DEFAULT 'read', last_used TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS survey_responses (id {pk}, data TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS feedback (id {pk}, workspace_id INTEGER, user_id INTEGER, kind TEXT DEFAULT 'idea', page TEXT DEFAULT '', message TEXT NOT NULL, resolved INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS idea_requests (id {pk}, workspace_id INTEGER NOT NULL, user_id INTEGER, title TEXT NOT NULL, channel TEXT DEFAULT '', format TEXT DEFAULT '', proposed_date TEXT DEFAULT '', note TEXT DEFAULT '', status TEXT DEFAULT 'pending', decided_by INTEGER, reason TEXT DEFAULT '', content_id INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS chat_messages (id {pk}, workspace_id INTEGER NOT NULL, from_id INTEGER NOT NULL, to_id INTEGER NOT NULL, body TEXT DEFAULT '', image TEXT DEFAULT '', send_at TEXT DEFAULT '', notified INTEGER DEFAULT 1, is_read INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS channels (id {pk}, workspace_id INTEGER NOT NULL, name TEXT NOT NULL, topic TEXT DEFAULT '', private INTEGER DEFAULT 0, created_by INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS channel_members (id {pk}, channel_id INTEGER NOT NULL, user_id INTEGER NOT NULL)",
+        f"CREATE TABLE IF NOT EXISTS chat_reads (id {pk}, user_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, last_id INTEGER DEFAULT 0)",
+        f"CREATE TABLE IF NOT EXISTS chat_reacts (id {pk}, message_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL)",
+        f"CREATE TABLE IF NOT EXISTS page_locks (id {pk}, workspace_id INTEGER NOT NULL, page_key TEXT NOT NULL)",
+        f"CREATE TABLE IF NOT EXISTS page_access (id {pk}, workspace_id INTEGER NOT NULL, page_key TEXT NOT NULL, user_id INTEGER NOT NULL, status TEXT DEFAULT 'pending', decided_by INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS pulse_runs (id {pk}, workspace_id INTEGER NOT NULL, payload TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS boards (id {pk}, workspace_id INTEGER NOT NULL DEFAULT 0, name TEXT, description TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS board_items (id {pk}, workspace_id INTEGER NOT NULL DEFAULT 0, board_id INTEGER, kind TEXT, content TEXT, caption TEXT DEFAULT '', x INTEGER DEFAULT -1, y INTEGER DEFAULT -1, w INTEGER DEFAULT 240, h INTEGER DEFAULT 170, z INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",

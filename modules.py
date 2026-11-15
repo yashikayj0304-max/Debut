@@ -57,7 +57,6 @@ REQUIRED = {
     "campaigns": {"name"},
     "influencers": {"name"},
     "pr_contacts": {"name"},
-    "experiments": {"hypothesis"},
     "leads": {"name"},
     "kpis": {"metric"},
     "tasks": {"title"},
@@ -72,9 +71,7 @@ REQUIRED = {
     "events": {"name"},
     "outreach_templates": {"name"},
     "utm_links": {"name"},
-    "pitches": {"name"},
     "accounts": {"company"},
-    "retail_audits": {"store"},
 }
 
 STATUS = ["Idea", "Planned", "In progress", "Review", "Approved", "Scheduled", "Published", "On hold"]
@@ -149,10 +146,6 @@ MODULES = OrderedDict([
         fields=[F("name", "Name"), F("outlet", "Outlet"), F("beat", "Beat"), F("email", "Email"), F("last_contacted", "Last contacted", "date"),
                 F("status", "Status", "select", ["Cold", "Pitched", "Responded", "Covered", "Do not contact"]), F("notes", "Notes", "textarea")],
         cols=["name", "outlet", "beat", "last_contacted", "status"], filter="status")),
-    ("experiments", dict(title="Experiments", icon="🧪", group="Campaigns", desc="Test one change at a time to learn what works. Write what you believe, change ONE thing, measure ONE number, then record what happened.",
-        fields=[F("hypothesis", "Hypothesis"), F("channel", "Channel", "select", CHANNELS), F("metric", "Success metric"), F("variant_a", "Variant A", "textarea"),
-                F("variant_b", "Variant B", "textarea"), F("status", "Status", "select", ["Idea", "Running", "Concluded"]), F("result", "Result / decision", "textarea")],
-        cols=["hypothesis", "channel", "metric", "status"], filter="status")),
     ("leads", dict(title="Leads", icon="🧲", group="Growth", desc="Lightweight lead tracker and funnel.",
         fields=[F("name", "Name"), F("company", "Company"), F("email", "Email"), F("phone", "Phone"), F("source", "Source / UTM"),
                 F("stage", "Stage", "select", ["New", "MQL", "SQL", "Opportunity", "Won", "Lost"]), F("value", "Deal value", "number"), F("next_step", "Next step"), F("notes", "Notes", "textarea")],
@@ -257,24 +250,12 @@ KEY_DATES = [  # fixed-date events; add moving festivals yourself (Diwali, Holi,
 
 
 
-MODULES["pitches"] = dict(title="Opportunities", icon="🎤", group="Campaigns", desc="Speaking slots, podcasts, guest articles, media features, collaborations and awards: pitch, follow up, track the outcome.",
-    fields=[F("name", "Opportunity"), F("type", "Type", "select", ["Speaking", "Podcast", "Guest article", "Media feature", "Collaboration", "Award / list", "Panel / webinar", "Community"]),
-            F("host", "Organiser / host"), F("contact", "Contact person"), F("email", "Contact email"), F("status", "Status", "select", ["Idea", "Researching", "Pitched", "In discussion", "Confirmed", "Done", "Declined"]),
-            F("date", "Event / publish date", "date"), F("follow_up", "Follow up on", "date"), F("audience", "Audience / reach"), F("link", "Link", "url"), F("pitch", "Angle / pitch", "textarea"), F("outcome", "Outcome & learnings", "textarea")],
-    cols=["name", "type", "host", "status", "date", "follow_up"], filter="status", kanban="status")
 MODULES["accounts"] = dict(title="Target Companies (Accounts)", icon="🏛️", group="Growth", desc="Account-based marketing: the companies you want, the people who decide, and the next move for each.",
     fields=[F("company", "Company"), F("industry", "Industry"), F("tier", "Tier", "select", ["Tier 1", "Tier 2", "Tier 3"]),
             F("stage", "Stage", "select", ["Target", "Researching", "Engaged", "Meeting booked", "Proposal", "Won", "Lost", "Nurture"]),
             F("contact_name", "Key contact"), F("contact_role", "Contact role"), F("contact_email", "Contact email"), F("linkedin", "LinkedIn", "url"),
             F("trigger", "Buying trigger", "textarea"), F("potential", "Potential value", "number"), F("next_action", "Next action"), F("next_date", "Next action date", "date"), F("owner", "Owner"), F("notes", "Notes", "textarea")],
     cols=["company", "tier", "stage", "contact_name", "potential", "next_date"], filter="stage", kanban="stage")
-MODULES["retail_audits"] = dict(title="Retail Audits", icon="🏪", group="Growth", desc="Store visits: availability, shelf position, POSM, price compliance and competitor activity. Feed your trade and shopper decisions.",
-    fields=[F("store", "Store / outlet"), F("city", "City / area"), F("channel", "Channel", "select", ["Kirana / GT", "Modern trade", "Chemist", "Convenience", "E-commerce / Q-comm", "HoReCa", "Other"]),
-            F("audit_date", "Audit date", "date"), F("auditor", "Auditor"), F("availability", "Availability", "select", ["In stock", "Low stock", "Out of stock"]),
-            F("shelf_position", "Shelf position", "select", ["Eye level", "Mid shelf", "Bottom shelf", "Not visible"]), F("posm", "POSM", "select", ["Present & correct", "Present, damaged", "Missing"]),
-            F("price_check", "Price", "select", ["At MRP", "Discounted", "Above MRP"]), F("competitor", "Competitor activity", "textarea"), F("photo_url", "Photo link", "url"), F("actions", "Actions needed", "textarea")],
-    cols=["store", "city", "channel", "audit_date", "availability", "posm"], filter="availability")
-
 MODULES["watchlist"] = dict(title="News Watchlist (Market Pulse)", icon="🔭", group="Intelligence", desc="What Market Pulse tracks for you: keywords, brands, competitors and subreddits. Competitors you add under Competitors are tracked automatically.",
     fields=[F("term", "Keyword / brand / subreddit"), F("type", "Type", "select", ["Keyword", "Competitor", "Brand", "Subreddit"]), F("region", "Region", "select", ["India", "Global", "Both"]), F("notes", "Notes", "textarea")],
     cols=["term", "type", "region", "notes"], filter="type")

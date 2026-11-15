@@ -319,7 +319,7 @@ INDUSTRIES.update({
 })
 
 # Modules that only appear in the sidebar for these industries (they stay reachable by URL and keep their data if the industry changes)
-MODULE_INDUSTRIES = {"pitches": {"personal_brand", "b2b", "saas", "agency", "startup"}, "accounts": {"b2b", "saas", "agency", "fintech", "startup"}, "retail_audits": {"fmcg", "retail"}}
+MODULE_INDUSTRIES = {"accounts": {"b2b", "saas", "agency", "fintech", "startup"}}
 
 ORDER = ["general", "personal_brand", "d2c", "fmcg", "b2b", "saas", "startup", "hospitality", "retail", "realestate", "education", "healthcare", "fashion", "fintech", "agency"]
 CHOICES = [(k, INDUSTRIES[k]["icon"] + " " + INDUSTRIES[k]["label"]) for k in ORDER]

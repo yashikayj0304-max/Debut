@@ -148,6 +148,34 @@ def cron_evening():
     return jsonify(pushes=S.evening_push())
 
 
+CAMP_KINDS = [("campaigns", "📣 Campaign", "start_date", "end_date"), ("promotions", "🎪 Promotion", "start_date", "end_date"),
+              ("events", "🎟️ Event", "date", "date"), ("gtm_plans", "🚀 Launch plan", "launch_date", "launch_date")]
+
+
+@route("/campaigns")
+def campaigns_all():
+    """One list for campaigns, promotions, events and launch plans (they overlap), with the kind as a filter. Each row opens its own full form."""
+    want = request.args.get("type", "")
+    rows = []
+    for key, label, a, b in CAMP_KINDS:
+        if want and want != key:
+            continue
+        cols = {r[0] for r in mod(key)["fields"]}
+        for r in q(f"SELECT * FROM {key} WHERE workspace_id=? ORDER BY id DESC LIMIT 300", (W(),)):
+            r = dict(r)
+            rows.append(dict(key=key, kind=label, id=r["id"], name=r.get("name") or r.get("product") or "Untitled", channel=r.get("channel") or r.get("channels") or "",
+                             start=r.get(a) or "", end=r.get(b) or "", status=r.get("status") or r.get("stage") or "", budget=r.get("budget") or ""))
+    rows.sort(key=lambda x: (x["start"] == "", x["start"]), reverse=True)
+    counts = {k: q(f"SELECT COUNT(*) c FROM {k} WHERE workspace_id=?", (W(),), one=True)["c"] for k, *_ in CAMP_KINDS}
+    return render_template("campaigns_all.html", rows=rows, want=want, kinds=CAMP_KINDS, counts=counts)
+
+
+@route("/tools")
+def tools_page():
+    """Every tool that is not in the main sidebar, grouped and searchable: this is what "More tools" opens."""
+    return render_template("tools.html")
+
+
 @route("/healthz")
 def healthz():
     return "ok", 200, {"Cache-Control": "no-store"}
@@ -365,13 +393,9 @@ def dashboard():
         tiles.append(("🖼️", "Mood Boards", q("SELECT COUNT(*) c FROM boards WHERE workspace_id=?", (w,), one=True)["c"], url_for("moodboards")))
     cnt = lambda tbl: q(f"SELECT COUNT(*) c FROM {tbl} WHERE workspace_id=?", (w,), one=True)["c"]
     industry = g.ws["industry"]
-    # the "audience" step changes with the kind of business: opportunities for personal brands, accounts for B2B, audits for FMCG/retail
-    if industry in ("personal_brand",):
-        third = ("Add a speaking or podcast opportunity", cnt("pitches") > 0, url_for("m_new", key="pitches"))
-    elif industry in ("b2b", "saas", "agency", "fintech", "startup"):
+    # the "audience" step changes with the kind of business
+    if industry in ("b2b", "saas", "agency", "fintech", "startup"):
         third = ("Add your first target account", cnt("accounts") > 0, url_for("m_new", key="accounts"))
-    elif industry in ("fmcg", "retail"):
-        third = ("Log your first retail audit", cnt("retail_audits") > 0, url_for("m_new", key="retail_audits"))
     else:
         third = ("Add influencer prospects", cnt("influencers") > 0, url_for("discover"))
     steps = ([("Pick your industry (it tailors everything)", industry not in (None, "", "general"), url_for("ws.account"))] if g.role in ("owner", "admin") else []) + [
@@ -414,7 +438,21 @@ def dashboard():
         except Exception:
             promo = None
     prog = _progress() if g.role not in ("viewer", "client") else None
-    return render_template("dashboard.html", spark=_spark(), prog=prog, promo=promo, topped=topped, late_posts=late_posts, week_plan=week_plan, low_cal=low_cal, first_week_card=first_week_card, welcome=welcome, wa_url=wa_url, goals_channels=CHANNELS, fresh=bool(sug), trial_card=trial_card, pmf_ask=pmf_ask, next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
+    month_card = None
+    if g.role not in ("client",):
+        try:
+            m0 = S.today().strftime("%Y-%m")
+            _c = lambda sql, *a: q(sql, (w, *a), one=True)["c"]
+            month_card = dict(
+                posted=_c("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Published' AND publish_date LIKE ?", m0 + "%"),
+                planned=_c("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status!='Published' AND publish_date LIKE ?", m0 + "%"),
+                tasks=_c("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status='Done'"),
+                leads=_c("SELECT COUNT(*) c FROM leads WHERE workspace_id=? AND created_at LIKE ?", m0 + "%"),
+                month=S.today().strftime("%B"))
+        except Exception:
+            month_card = None
+    import deb as _deb
+    return render_template("dashboard.html", month_card=month_card, bento=_deb.bento(), streak_n=_streak_info()[0], spark=_spark(), prog=prog, promo=promo, topped=topped, late_posts=late_posts, week_plan=week_plan, low_cal=low_cal, first_week_card=first_week_card, welcome=welcome, wa_url=wa_url, goals_channels=CHANNELS, fresh=bool(sug), trial_card=trial_card, pmf_ask=pmf_ask, next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
                            today_items=today_items, today_more=today_more, can_toggle=can_toggle, who=who,
                            steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), streak_froze=_streak_info()[1], kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
@@ -437,7 +475,10 @@ def _progress():
     since = (S.today() - dt.timedelta(days=6)).isoformat()
     wk = q("SELECT action, COUNT(*) c FROM audit_log WHERE workspace_id=? AND user_id=? AND created_at>=? AND action IN ('studio_save','studio_done','promo_plan') GROUP BY action", (W(), g.user["id"], since))
     wk = {r["action"]: r["c"] for r in wk}
-    return dict(level=i + 1, name=LEVELS[i][1], xp=xp, nxt=nxt[1] if nxt else "", to_next=(nxt[0] - xp) if nxt else 0,
+    cnt = {r["action"]: r["c"] for r in rows}
+    BADGES = [("🎨", "First design", cnt.get("studio_save", 0) >= 1), ("🗓️", "Series maker", cnt.get("studio_save", 0) >= 4), ("🚀", "Posted 5", cnt.get("studio_done", 0) >= 5),
+              ("🎯", "Promo planner", cnt.get("promo_plan", 0) >= 1), ("🔗", "Bio is live", cnt.get("bio_save", 0) >= 1), ("🔥", "7-day streak", _streak_info()[0] >= 7)]
+    return dict(badges=BADGES, level=i + 1, name=LEVELS[i][1], xp=xp, nxt=nxt[1] if nxt else "", to_next=(nxt[0] - xp) if nxt else 0,
                 pct=int(100 * (xp - base) / (nxt[0] - base)) if nxt else 100, designed=wk.get("studio_save", 0), posted=wk.get("studio_done", 0), planned=wk.get("promo_plan", 0))
 
 
@@ -754,6 +795,9 @@ def ideas_schedule():
         return redirect(safe_next(url_for("ideas")))
     if not title:
         abort(400)
+    if g.role not in ("owner", "admin", "lead", "manager"):      # everyone else suggests; a lead or manager approves it onto the calendar
+        import team as _team
+        return _team.idea_submit()
     if S.record_count(W()) >= g.plan["records"]:
         flash("You're at your plan's record limit, so I can't add this idea.")
         return redirect(safe_next(url_for("ideas")))
@@ -1097,6 +1141,9 @@ def m_status(key, rid):
     ex(f"UPDATE {key} SET {qi(field)}=? WHERE id=? AND workspace_id=?", (v, rid, W()))
     if field == "status":
         changed_hooks(key, rid, m, {"status": v}, row)
+        if key == "content_items" and v == "Published" and row["status"] != "Published":
+            import voice as _vo
+            flash(_vo.tn("win"))
     return redirect(safe_next(url_for("kanban", key=key)))
 
 
@@ -1449,7 +1496,7 @@ def board_or_404(bid):
 def moodboards():
     boards = q("SELECT b.*, (SELECT COUNT(*) FROM board_items i WHERE i.board_id=b.id) AS n FROM boards b WHERE b.workspace_id=? ORDER BY b.id DESC", (W(),))
     covers = {b["id"]: q("SELECT * FROM board_items WHERE board_id=? AND workspace_id=? AND kind='image' AND content NOT LIKE 'data:image/svg%' LIMIT 1", (b["id"], W()), one=True) for b in boards}
-    return render_template("moodboards.html", boards=boards, covers=covers)
+    return render_template("moodboards.html", boards=boards, covers=covers, lib=BL.B, cats=BL.CATS)
 
 
 @route("/moodboards/new", methods=["POST"])
@@ -1496,45 +1543,31 @@ def board_sample():
     return redirect(url_for("board_view", bid=bid))
 
 
-BOARD_TEMPLATES = {
-    "diwali": ("Diwali 2026 — festive campaign", "Warm, gifting-led festive board. Themes seen in this year's campaigns: music and home prep, gifting and family, humour over guilt.", [
-        ("color", "#B8860B", "Diya gold"), ("color", "#8B1E3F", "Deep magenta"), ("color", "#FF8C1A", "Marigold"), ("color", "#1B1033", "Night-sky navy"),
-        ("note", "Story angle: getting the home ready together (cleaning, decorating, lights) — the 'tyohaar shuru' feeling.", "Story angle"),
-        ("note", "Gifting angle: thoughtful beats expensive. One hero gift, one hamper, one under-₹500 pick.", "Gifting angle"),
-        ("note", "Tone: warm, a little funny, never guilt-trippy. Short captions, one emoji max.", "Tone"),
-        ("note", "Shots: diya close-ups, hands exchanging gifts, rangoli from above, family at the table (golden-hour light).", "Shot list"),
-        ("link", "https://www.pinterest.com/search/pins/?q=diwali%20campaign%20creative", "Inspiration search")]),
-    "launch": ("Product launch", "Everything for a launch in one place: look, message, shots and channels.", [
-        ("color", "#6a3df0", "Brand primary"), ("color", "#f1ecff", "Soft background"), ("color", "#2b2442", "Dark text / contrast"),
-        ("note", "One-line promise: what changes for the customer after buying?", "Core promise"),
-        ("note", "Hero shot: product alone, textured surface, soft natural light, one prop max.", "Hero shot"),
-        ("note", "Teaser (T-7), reveal (T-0), proof (T+3: reviews / UGC), offer (T+7).", "Launch rhythm"),
-        ("note", "Channels: Instagram Reels, WhatsApp broadcast, email, 3 creators.", "Channels")]),
-    "influencer": ("Influencer collaboration", "Brief the creator visually: do's, don'ts, look and feel.", [
-        ("color", "#e8590c", "Accent"), ("color", "#fff4e6", "Light tint"),
-        ("note", "Do: show real use in the first 3 seconds, speak in your own words, tag the brand handle.", "Do"),
-        ("note", "Don't: read the script word for word, use competitor props, over-edit skin.", "Don't"),
-        ("note", "Deliverables: 1 Reel (30-45s), 3 Stories with link sticker, 1 static post. Usage rights: 60 days.", "Deliverables"),
-        ("link", "https://www.instagram.com/", "Reference account")]),
-    "brand": ("Brand identity", "Colours, voice and visual rules at a glance.", [
-        ("color", "#6a3df0", "Primary"), ("color", "#e8590c", "Secondary"), ("color", "#f1ecff", "Background"), ("color", "#2b2442", "Text"),
-        ("note", "Voice: friendly, plain-spoken, confident. We explain, we don't lecture.", "Voice"),
-        ("note", "Photography: natural light, real people, uncluttered backgrounds.", "Photography"),
-        ("note", "Never: stock-smile photos, ALL-CAPS shouting, more than one exclamation mark.", "Never")]),
-}
+import boards_lib as BL
+BL.LIB["launch"] = BL.LIB["product"]
 
 
 @route("/moodboards/template/<tkey>", methods=["POST"])
 def board_from_template(tkey):
-    t = BOARD_TEMPLATES.get(tkey) or abort(404)
+    row = BL.LIB.get(tkey) or abort(404)
     if q("SELECT COUNT(*) c FROM boards WHERE workspace_id=?", (W(),), one=True)["c"] >= g.plan["boards"]:
         flash(f"The {g.plan['name']} plan includes {g.plan['boards']} mood boards. Upgrade for more.")
         return redirect(url_for("moodboards"))
-    bid = ins("boards", dict(workspace_id=W(), name=t[0], description=t[1]))
-    for kind, content, caption in t[2]:
+    name, desc, items = BL.build(row)
+    bid = ins("boards", dict(workspace_id=W(), name=name, description=desc[:300]))
+    for kind, content, caption in items:
         ins("board_items", dict(workspace_id=W(), board_id=bid, kind=kind, content=content, caption=caption, **_next_slot(bid)))
     S.audit("create", f"board#{bid} (template {tkey})")
     return redirect(url_for("board_view", bid=bid))
+
+
+@route("/moodboards/request", methods=["POST"])
+def board_request():
+    msg = S.clean_text(request.form.get("what"), 300)
+    if msg:
+        ins("feedback", dict(workspace_id=W(), user_id=g.user["id"], kind="board_request", page="/moodboards", message="Mood board wanted: " + msg))
+        flash("Noted! We are building more boards, and yours is on the list.")
+    return redirect(url_for("moodboards"))
 
 
 @route("/moodboards/<int:bid>/rename", methods=["POST"])
@@ -1857,23 +1890,13 @@ def fetch_all(wid, force=False):
     return c
 
 
-@route("/updates")
-def updates():
-    c = fetch_all(W(), force=bool(request.args.get("refresh")))
-    cat = request.args.get("cat", "")
-    import news_snapshot as NS
-    snap = [i for i in NS.SNAPSHOT if not cat or i["category"] == cat]
-    cats = sorted({i["category"] for i in c["items"]} | {i["category"] for i in NS.SNAPSHOT})
-    return render_template("updates.html", items=[i for i in c["items"] if not cat or i["category"] == cat][:120], cats=cats, cat=cat, errors=c["errors"], snap=snap, as_of=NS.AS_OF)
-
-
 @route("/updates/save", methods=["POST"])
 def updates_save():
     url = S.clean_url(request.form.get("url", ""))
     if url:
-        ins("reference_links", dict(workspace_id=W(), title=S.clean_text(request.form.get("title"), 200), url=url, category="Article", tags=S.clean_text(request.form.get("source"), 100), notes="Saved from Latest Updates", favorite="No"))
-        flash("Saved to Reference Links.")
-    return redirect(url_for("updates"))
+        ins("reference_links", dict(workspace_id=W(), title=S.clean_text(request.form.get("title"), 200), url=url, category="Article", tags=S.clean_text(request.form.get("source"), 100), notes="Saved from Live news", favorite="No"))
+        flash("Saved to References.")
+    return redirect(url_for("pulse_page"))
 
 
 # ----------------------------------------------------------------- kudos and reactions
@@ -1954,44 +1977,6 @@ def kudos_send():
     S.notify(W(), to, "kudos", f"{emoji} {g.user['name'] or g.user['email']} sent you kudos: {note[:100]}", url_for("kudos"))
     flash("Cheer sent. Made their day 🎉")
     return redirect(url_for("kudos"))
-
-
-# ----------------------------------------------------------------- shareable recap
-@route("/recap")
-def recap():
-    import datetime as _dt
-    w, today = W(), S.today()
-    since = (today - _dt.timedelta(days=30)).isoformat()
-    made = {}
-    for r in q("SELECT detail, created_at FROM audit_log WHERE workspace_id=? AND action='create' ORDER BY id DESC LIMIT 3000", (w,)):
-        if str(r["created_at"])[:10] >= since:
-            k = (r["detail"] or "").split("#")[0]
-            made[k] = made.get(k, 0) + 1
-    def c(sql, *a):
-        return q(sql, (w,) + a, one=True)["c"]
-    stats = [("📝", "Content made", made.get("content_items", 0)),
-             ("✅", "Tasks finished", c("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status='Done'")),
-             ("🧲", "Leads caught", made.get("leads", 0)),
-             ("📣", "Campaigns started", made.get("campaigns", 0))]
-    total = sum(made.values())
-    top = max(stats, key=lambda x: x[2])
-    vibes = {"Content made": "Content machine", "Tasks finished": "Getting-it-done energy", "Leads caught": "Lead magnet", "Campaigns started": "Campaign commander"}
-    vibe = vibes[top[1]] if top[2] else "Just getting started"
-    all_made = {}
-    for r in q("SELECT detail FROM audit_log WHERE workspace_id=? AND action='create' ORDER BY id DESC LIMIT 5000", (w,)):
-        k = (r["detail"] or "").split("#")[0]
-        all_made[k] = all_made.get(k, 0) + 1
-    st = _streak()
-    done = stats[1][2]
-    badges = [("🌱", "First post", "Make your first content item", all_made.get("content_items", 0) >= 1),
-              ("🚀", "Campaign live", "Start a campaign", all_made.get("campaigns", 0) >= 1),
-              ("🧲", "Lead catcher", "Catch 5 leads", all_made.get("leads", 0) >= 5),
-              ("✅", "Closer", "Finish 10 tasks", done >= 10),
-              ("📚", "Content machine", "Make 10 content items", all_made.get("content_items", 0) >= 10),
-              ("🔥", "On fire", "Hit a 7-day streak", st >= 7),
-              ("🎉", "Hype squad", "Send a kudos", bool(q("SELECT 1 x FROM kudos WHERE workspace_id=? AND from_user=? LIMIT 1", (w, g.user["id"])))),
-              ("🎨", "Made it yours", "Pick your vibe colours", bool(g.ws["brand_color"]))]
-    return render_template("recap.html", badges=badges, stats=stats, total=total, vibe=vibe, streak=_streak(), month=today.strftime("%B"), year=today.year)
 
 
 # ----------------------------------------------------------------- first week
@@ -2672,10 +2657,8 @@ def build_report(wid, month):
     leads = q("SELECT * FROM leads WHERE workspace_id=? AND created_at>=? AND created_at<? ORDER BY id DESC LIMIT 500", (wid, start, nxt_s))
     promos = q("SELECT * FROM promotions WHERE workspace_id=? AND start_date<=? AND (end_date>=? OR end_date='') ORDER BY start_date LIMIT 50", (wid, end, start))
     events = q("SELECT * FROM events WHERE workspace_id=? AND date BETWEEN ? AND ? ORDER BY date", (wid, start, end))
-    audits = q("SELECT * FROM retail_audits WHERE workspace_id=? AND audit_date BETWEEN ? AND ?", (wid, start, end))
-    aud = dict(n=len(audits), in_stock=len([a for a in audits if a["availability"] == "In stock"]), posm_ok=len([a for a in audits if a["posm"] == "Present & correct"]))
     return dict(month=month, label=first.strftime("%B %Y"), kpis=kpis, camps=camps, content=content, by_channel=by_channel.most_common(), published=published,
-                leads=leads, lead_stage=Counter(l["stage"] for l in leads).most_common(), promos=promos, events=events, audits=aud,
+                leads=leads, lead_stage=Counter(l["stage"] for l in leads).most_common(), promos=promos, events=events,
                 budget=sum(num(c["budget"]) for c in camps), spent=sum(num(c["spent"]) for c in camps))
 
 

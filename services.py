@@ -596,6 +596,10 @@ def morning_push():
         for m in q("SELECT workspace_id AS wid FROM memberships WHERE user_id=? AND role NOT IN ('client','viewer')", (u["id"],)):
             posts += q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND publish_date=? AND status NOT IN ('Published','On hold')", (m["wid"], t), one=True)["c"]
             tasks += q("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status!='Done' AND due_date!='' AND due_date<?", (m["wid"], t), one=True)["c"]
+        if today().weekday() == 6:
+            send_push(u["id"], "🎁 Your week, wrapped is ready. Tap to see it.", "/wrapped")
+            sent += 1
+            continue
         if posts or tasks:
             bits = ([f"{posts} post{'s' if posts != 1 else ''} to publish today"] if posts else []) + ([f"{tasks} overdue task{'s' if tasks != 1 else ''}"] if tasks else [])
             send_push(u["id"], "☀️ " + " and ".join(bits) + ". Tap to open.", "/app")

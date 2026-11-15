@@ -1,0 +1,133 @@
+"""Deb: the friendly layer. Wrapped (shareable week/month/year cards), Radar (what to post about next, with ready scripts),
+quick answers when AI is off, and the tone switch."""
+import datetime as dt
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
+import config as C
+import services as S
+import voice
+from db import q, ex
+
+bp = Blueprint("deb", __name__)
+W = lambda: g.ws["id"]
+
+
+def _need():
+    if g.role in (None, "client"):
+        abort(403)
+
+
+def festival_next(limit=1):
+    t = S.today().isoformat()
+    rows = q("SELECT name, date FROM key_dates WHERE workspace_id=? AND date>=? ORDER BY date LIMIT ?", (W(), t, limit))
+    out = []
+    for r in rows:
+        try:
+            days = (dt.date.fromisoformat(r["date"]) - S.today()).days
+        except ValueError:
+            continue
+        out.append(dict(name=r["name"], date=r["date"], days=days))
+    return out
+
+
+def bento():
+    """Small tiles for Home: today's count, streak, next post, festival countdown, the mascot's mood."""
+    w, t = W(), S.today().isoformat()
+    due = q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND publish_date=? AND status NOT IN ('Published','On hold')", (w, t), one=True)["c"] + \
+        q("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status!='Done' AND due_date!='' AND due_date<=?", (w, t), one=True)["c"]
+    nxt = q("SELECT title, publish_date FROM content_items WHERE workspace_id=? AND publish_date>=? AND status NOT IN ('Published','On hold') ORDER BY publish_date, id LIMIT 1", (w, t), one=True)
+    fest = festival_next(1)
+    return dict(due=due, nxt=nxt, fest=fest[0] if fest else None)
+
+
+def week_stats(days):
+    w, today = W(), S.today()
+    a = (today - dt.timedelta(days=days)).isoformat()
+    posted = q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Published' AND publish_date>=? AND publish_date<=?", (w, a, today.isoformat()), one=True)["c"]
+    planned = q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND publish_date>=? AND publish_date<=?", (w, a, today.isoformat()), one=True)["c"]
+    tasks = q("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status='Done' AND due_date>=? AND due_date<=?", (w, a, today.isoformat()), one=True)["c"]
+    best = q("SELECT channel, COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Published' AND publish_date>=? GROUP BY channel ORDER BY c DESC LIMIT 1", (w, a), one=True)
+    active = {str(r["created_at"])[:10] for r in q("SELECT created_at FROM audit_log WHERE workspace_id=? AND user_id=? AND created_at>=?", (w, g.user["id"], a))}
+    reach = q("SELECT COALESCE(SUM(CAST(value AS REAL)),0) s FROM kpis WHERE workspace_id=? AND metric='Reach' AND period>=?", (w, a), one=True)["s"]
+    return dict(posted=posted, planned=planned, tasks=tasks, best=(best["channel"] if best and best["channel"] else ""), active=len(active), reach=int(reach or 0))
+
+
+@bp.route("/wrapped")
+def wrapped():
+    _need()
+    span = request.args.get("p", "week")
+    days = {"week": 7, "month": 30, "year": 365}.get(span, 7)
+    st = week_stats(days)
+    from views import _streak_info
+    try:
+        streak = _streak_info()[0]
+    except Exception:
+        streak = 0
+    pr = None
+    try:
+        from views import _progress
+        pr = _progress()
+    except Exception:
+        pass
+    line = ("You ate that. Keep the streak alive." if st["posted"] >= 3 else "A slow week is still a week. One post gets you moving." if st["posted"] else "Fresh start. Your first post is one tap away.")
+    title = {"week": "week", "month": "month", "year": "year"}[span] if span in ("week", "month", "year") else "week"
+    return render_template("wrapped.html", st=st, streak=streak, span=span, title=title, line=line, level=(pr or {}).get("level", 1), lname=(pr or {}).get("name", ""), brand=g.ws["name"])
+
+
+# Ideas for what to post next. These come from your festival calendar and proven formats, not from live trend data.
+FORMATS = [
+    ("POV reel", "reel", "POV: {t}", ["Hook (2s): “POV: {t}”", "Show the moment in one shot", "Text on screen: what it means for the customer", "Last frame: your name + “link in bio”"]),
+    ("3 tips carousel", "carousel", "3 things to know about {t}", ["Slide 1: “3 things about {t}” (hook)", "Slides 2 to 4: one tip each, 8 words max", "Last slide: save this + your offer"]),
+    ("Countdown story", "story", "{t} is coming", ["Day 3: tease the colour or product", "Day 2: show a behind-the-scenes shot", "Day 1: poll “ready?”", "Day 0: link sticker to order"]),
+    ("Before / after", "reel", "Before vs after {t}", ["Left: the stressful way", "Right: the easy way with you", "End card: “Which one are you?”"]),
+]
+
+
+@bp.route("/radar")
+def radar():
+    _need()
+    rows = []
+    for k in q("SELECT name, date FROM key_dates WHERE workspace_id=? AND date>=? ORDER BY date LIMIT 6", (W(), S.today().isoformat())):
+        try:
+            days = (dt.date.fromisoformat(k["date"]) - S.today()).days
+        except ValueError:
+            continue
+        i = (len(rows) + days) % len(FORMATS)
+        nm, kind, hook, steps = FORMATS[i]
+        t = k["name"].split("(")[0].strip()
+        rows.append(dict(name=k["name"], date=k["date"], days=days, fmt=nm, kind=kind, hook=hook.format(t=t), steps=[s.format(t=t) for s in steps], goal=f"{t}: {nm.lower()}"))
+    return render_template("radar.html", rows=rows)
+
+
+@bp.route("/deb/quick")
+def quick():
+    """Answers that need no AI: built from your own calendar, so Ask Deb is useful even without an API key."""
+    _need()
+    k = request.args.get("k", "")
+    t = S.today().isoformat()
+    if k == "today":
+        p = q("SELECT id, title, channel FROM content_items WHERE workspace_id=? AND publish_date=? AND status NOT IN ('Published','On hold') ORDER BY id", (W(), t))
+        if p:
+            return jsonify(text="Today's post: " + "; ".join(f"{r['title']} ({r['channel'] or 'any channel'})" for r in p[:3]) + ". Open it, polish it, and post it.", link=url_for("m_edit", key="content_items", rid=p[0]["id"]), label="Open it")
+        n = q("SELECT title, publish_date FROM content_items WHERE workspace_id=? AND publish_date>? AND status NOT IN ('Published','On hold') ORDER BY publish_date LIMIT 1", (W(), t), one=True)
+        f = festival_next(1)
+        if f:
+            return jsonify(text=f"Nothing planned for today. {f[0]['name']} is in {f[0]['days']} days, so a teaser is a safe bet. Want a ready one?", link=url_for("studio.studio"), label="Make it in Create")
+        return jsonify(text="Nothing planned for today. A quick “behind the scenes” story is always a win.", link=url_for("studio.studio"), label="Make one")
+    if k == "coming":
+        f = festival_next(3)
+        return jsonify(text=("Coming up: " + ", ".join(f"{x['name']} in {x['days']} days" for x in f) + ".") if f else "No key dates ahead. Add some on the calendar.", link=url_for("deb.radar"), label="See the radar")
+    if k == "flop":
+        r = q("SELECT title, channel, format FROM content_items WHERE workspace_id=? AND status='Published' ORDER BY publish_date DESC, id DESC LIMIT 1", (W(),), one=True)
+        if not r:
+            return jsonify(text="No published posts yet. Post one and I can tell you what to try next.", link=url_for("studio.studio"), label="Make a post")
+        return jsonify(text=f"About “{r['title']}”: most flops come down to a weak first line, too many words, or posting when your people are offline. Rewrite the hook so it names a person or a number, keep slides to 8 words, and post at 7 to 9 pm. Then compare reach.", link=url_for("studio.studio"), label="Rework it in Create")
+    return jsonify(text="Ask me what to post today, what's coming up, or why a post flopped.")
+
+
+@bp.route("/account/tone", methods=["POST"])
+def set_tone():
+    t = request.form.get("tone", "")
+    if t in voice.TONES:
+        ex("UPDATE users SET tone=? WHERE id=?", (t, g.user["id"]))
+        flash({"chill": "Chill mode on. 😎", "normal": "Normal mode on.", "corporate": "Corporate mode on."}[t])
+    return redirect(request.referrer or url_for("ws.account"))

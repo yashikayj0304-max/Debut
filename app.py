@@ -7,7 +7,7 @@ from flask import Flask, g, request, session, render_template, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config as C
 from modules import HINTS as M_HINTS
-from hubs import HUBS, MORE_TABS, PRO_TABS, focus_keys as _hubs_focus
+from hubs import HUBS, MORE_TABS, PRO_TABS, GROUPS, FOLDED, focus_keys as _hubs_focus
 import db as D
 import services as S
 import industries as IND
@@ -29,11 +29,11 @@ class SafeInt(IntegerConverter):
 MARKETING = {"features", "templates_gallery", "pricing", "terms", "privacy", "contact", "refunds", "changelog", "about", "channels_page"}
 PUBLIC = {"bio.public", "bio.go", "bio.qr", "cron_morning", "cron_evening", "auth.demo_exit", "about", "channels_page", "healthz", "agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
-VIEWER_WRITE_OK = {"auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
+VIEWER_WRITE_OK = {"deb.set_tone", "tm.send", "tm.send_channel", "tm.channel", "tm.new_channel", "tm.react", "tm.pin", "tm.delete_msg", "tm.share", "tm.cancel", "tm.access_request", "auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
 CLIENT_OK = {"push_key", "push_subscribe", "push_unsubscribe", "dashboard", "portal", "portal_item", "portal_decide", "portal_comment", "notifications", "notifications_recent", "notifications_read", "notification_open", "feedback", "help_centre", "auth.logout", "auth.switch_ws",
              "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify", "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.onboarded"}
-CREATOR_OK = {"dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_status", "calendar_view", "search", "moodboards", "board_view", "media", "ideas",
+CREATOR_OK = {"deb.wrapped", "deb.radar", "deb.quick", "deb.set_tone", "tm.approvals", "tm.idea_submit", "tm.chat", "tm.thread", "tm.send", "tm.send_channel", "tm.channel", "tm.new_channel", "tm.react", "tm.pin", "tm.delete_msg", "tm.share", "tm.cancel", "tm.access_request", "ideas_schedule", "dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_status", "calendar_view", "search", "moodboards", "board_view", "media", "ideas",
               "auth.logout", "auth.switch_ws", "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify",
               "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "presence", "push_key", "push_subscribe", "push_unsubscribe", "kudos", "kudos_send", "react", "presence", "push_key", "push_subscribe", "push_unsubscribe", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
 FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order_assign": "content_ops", "discover": "influencers", "outreach": "influencers",
@@ -96,7 +96,9 @@ def create_app(config=None, init=True, database_url=None):
     from survey import bp as survey_bp
     from studio import bp as studio_bp
     from bio import bp as bio_bp
-    for b in (auth_bp, billing_bp, ws_bp, admin_bp, api_bp, survey_bp, studio_bp, bio_bp):
+    from team import bp as team_bp
+    from deb import bp as deb_bp
+    for b in (auth_bp, billing_bp, ws_bp, admin_bp, api_bp, survey_bp, studio_bp, bio_bp, team_bp, deb_bp):
         app.register_blueprint(b)
     views.register(app)
 
@@ -170,6 +172,10 @@ def create_app(config=None, init=True, database_url=None):
             need_key = next((k for k in C.PLAN_ORDER if k in C.PAID_PLANS and feat in C.PLANS[k]["features"]), "")
             need = C.PLANS[need_key]["name"] if need_key else "a paid"
             return render_template("upgrade.html", feature=feat, need=need, need_key=need_key, pitch=C.FEATURE_PITCH.get(feat)), 403
+        import team as _team
+        _lk = _team.blocked(ep, key)
+        if _lk and request.method in ("GET", "POST") and not ep.startswith("tm."):
+            return render_template("locked.html", pk=_lk, label=dict(_team.lockable()).get(_lk, "This page"), asked=bool(q("SELECT 1 FROM page_access WHERE workspace_id=? AND page_key=? AND user_id=? AND status='pending'", (g.ws["id"], _lk, g.user["id"]), one=True))), 403
 
     def _forbidden():
         if request.path.startswith("/api/"):
@@ -189,6 +195,10 @@ def create_app(config=None, init=True, database_url=None):
     app.jinja_env.globals["TAGS"] = _tg.TAGS
     import palettes as _pl
     app.jinja_env.globals["VIBE_PALS"] = _pl.PALS
+    import voice as _voice
+    app.jinja_env.globals["tn"] = _voice.tn
+    app.jinja_env.globals["TONES"] = _voice.TONES
+    app.jinja_env.globals["tone_now"] = lambda: _voice.tone_of(g.get("user"))
     from hubs import FOCUS as _FOCUS
     app.jinja_env.globals["FOCUS"] = _FOCUS
 
@@ -215,16 +225,27 @@ def create_app(config=None, init=True, database_url=None):
             d["plan_key"] = g.plan_key
             d["industry"] = IND.get(g.ws["industry"])
             d["unread"] = S.unread_count(g.user["id"], g.ws["id"])
+            d["chat_unread"], d["apr_n"] = 0, 0
+            if g.role not in (None, "client"):
+                try:
+                    import team as _t
+                    d["chat_unread"] = _t.unread_total()
+                    if g.role in _t.APPROVERS:
+                        d["apr_n"] = q("SELECT COUNT(*) c FROM idea_requests WHERE workspace_id=? AND status='pending'", (g.ws["id"],), one=True)["c"] + q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Review'", (g.ws["id"],), one=True)["c"]
+                        if g.role in C.TEAM_MANAGERS:
+                            d["apr_n"] += q("SELECT COUNT(*) c FROM page_access WHERE workspace_id=? AND status='pending'", (g.ws["id"],), one=True)["c"]
+                except Exception:
+                    pass
             d["brand"] = S.brand_shades(g.ws)
             d["is_admin"] = S.is_platform_admin(g.user)
             d["admin_needs_2fa"] = bool(g.user["email_verified"]) and g.user["email"] in C.ADMIN_EMAILS and not d["is_admin"]
             d["on_free"] = g.plan_key == "free"
             d["lapsed"] = g.plan_key == "free" and g.ws["plan"] != "free"
             groups = OrderedDict([("Strategy", []), ("Content", []), ("Campaigns", []), ("Promotions & Events", []), ("Content Ops", []), ("Growth", []), ("Intelligence", [])])
-            special = {"Content": [("Calendar", "calendar_view", "📅"), ("Create studio", "studio.studio", "🎬"), ("Promo ideas", "studio.promos", "🎯"), ("Instagram grid", "studio.grid", "🧩"), ("Link in bio", "bio.edit", "🔗"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
+            special = {"Content": [("Calendar", "calendar_view", "📅"), ("Create studio", "studio.studio", "🎬"), ("Promo ideas", "studio.promos", "🎯"), ("Instagram grid", "studio.grid", "🧩"), ("Trend radar", "deb.radar", "📡"), ("Link in bio", "bio.edit", "🔗"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
                        "Campaigns": [("Discover Influencers", "discover", "🔭"), ("Trackable links (UTM)", "utm", "🏷️")],
-                       "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈"), ("Marketing Health", "marketing_health", "🩺"), ("Your Recap", "recap", "✨")],
-                       "Intelligence": [("Live news (Market Pulse)", "pulse_page", "📡"), ("Latest Updates", "updates", "⚡"), ("AI Studio", "ai_studio", "🤖")]}
+                       "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈"), ("Marketing Health", "marketing_health", "🩺")],
+                       "Intelligence": [("Live news (Market Pulse)", "pulse_page", "📡"), ("AI Studio", "ai_studio", "🤖")]}
             feat_of = {"content_ops": "content_ops", "discover": "influencers", "analytics": "analytics", "ai_studio": "ai", "marketing_health": "analytics"}
             creator = g.role == "creator"
             lock = lambda f: " 🔒" if (f and f not in g.plan["features"]) else ""
@@ -262,14 +283,18 @@ def create_app(config=None, init=True, database_url=None):
             d["ESS_TEAM"] = []  # team pages already live under Workspace
             # ---- hubs: the short sidebar. Each hub is tabs over existing pages (see hubs.py) ----
             _label_of = {h: lbl for items in d["NAV"].values() for lbl, h in items}
-            _seen, _hubs, _cur, _best = set(), [], None, -1
+            _seen, _hubs, _cur, _best, _curtab = set(), [], None, -1, None
             for hb in HUBS:
                 tabs = []
                 for lbl, ep, kw, extra, _vis in hb["tabs"]:
                     href = url_for(ep, **kw)
                     vis = url_for("m_list", key=kw["key"]) if ep == "kanban" else href
-                    if (ep, kw.get("key")) in PRO_TABS:      # niche tools live under "More tools"
+                    if (ep, kw.get("key")) in PRO_TABS and not any((ep, kw.get("key")) in mm for _, mm in GROUPS):      # niche tools live under "More tools"
                         continue
+                    if _vis == "camp":     # campaigns, promotions, events and launch plans are one list
+                        vis = url_for("m_list", key="campaigns")
+                        _seen.update(url_for("m_list", key=k2) for k2 in ("promotions", "events", "gtm_plans"))
+                        _vis = None
                     if _vis == "hid":      # reachable from a button on another tab, so it is not shown as a tab of its own
                         _seen.add(vis)
                         continue
@@ -286,7 +311,15 @@ def create_app(config=None, init=True, database_url=None):
                         continue
                     _seen.add(vis)
                     path = href.split("?")[0]
-                    tabs.append(dict(more=(ep, kw.get("key")) in MORE_TABS, label=lbl + (" 🔒" if (_label_of.get(vis, "").endswith("🔒") or (ep == "team_hub" and "group" not in g.plan["features"])) else ""), href=href, paths=[path] + extra, on=False))
+                    tabs.append(dict(ek=(ep, kw.get("key")), more=(ep, kw.get("key")) in MORE_TABS, label=lbl + (" 🔒" if (_label_of.get(vis, "").endswith("🔒") or (ep == "team_hub" and "group" not in g.plan["features"])) else ""), href=href, paths=[path] + extra, on=False))
+                for glabel, members in GROUPS:      # one tab per kind of page; a small switch moves between the pages
+                    have = [t for m in members for t in tabs if t["ek"] == m]
+                    if len(have) > 1:
+                        rep = have[0]
+                        rep["subs"] = [dict(label=t["label"], href=t["href"], paths=t["paths"]) for t in have]
+                        rep["paths"] = [p for t in have for p in t["paths"]]
+                        rep["label"], rep["more"] = glabel, all(t["more"] for t in have)
+                        tabs = [t for t in tabs if t is rep or t not in have]
                 if tabs:
                     _hubs.append(dict(key=hb["key"], icon=hb["icon"], label=hb["label"], lv=hb["lv"], href=tabs[0]["href"], tabs=tabs, on=False))
             _fk = _hubs_focus(g.user["focus"] if g.user and "focus" in g.user.keys() else "")
@@ -296,9 +329,18 @@ def create_app(config=None, init=True, database_url=None):
                 for hb in _hubs:
                     (_keep if hb["key"] in _fk or hb["tabs"][0]["href"] == request.path else _tucked).append(hb)
                 _hubs = _keep
-            _rest = [(lbl, h) for h, lbl in _label_of.items() if h not in _seen] + [(t["label"], t["href"]) for hb in _tucked for t in hb["tabs"]]
-            if _rest:
-                _hubs.append(dict(key="more", icon="🧰", label="More tools", lv=3, href=_rest[0][1], tabs=[dict(label=l, href=h, paths=[h.split("?")[0]], on=False) for l, h in _rest], on=False))
+            _skip = {url_for("m_list", key="content_items")} | {url_for(e, **({"key": k2} if k2 else {})) for e, k2 in FOLDED}      # the raw table of posts: Posts already covers it
+            _groups = [(hb["icon"] + " " + hb["label"], [(s["label"], s["href"]) for t in hb["tabs"] for s in (t.get("subs") or [t])]) for hb in _tucked]
+            _other = [(lbl, h) for h, lbl in _label_of.items() if h not in _seen and h not in _skip]
+            if _other:
+                _groups.append(("🧰 Other tools", _other))
+            _rest = [x for _, items in _groups for x in items]
+            d["MORE_GROUPS"] = _groups
+            _card = lambda t: (t["label"], t["href"], [(s["label"], s["href"]) for s in (t.get("subs") or [])])
+            d["AREAS"] = [(hb["icon"] + " " + hb["label"], [_card(t) for t in hb["tabs"]]) for hb in (_hubs + _tucked) if hb["key"] != "more"] + ([("🧰 Other", [(lbl, h, []) for lbl, h in _other])] if _other else [])
+            if True:      # the directory of every page is always one tap away
+                _tools_url = url_for("tools_page")
+                _hubs.append(dict(key="more", icon="🧰", label="More tools", lv=3, href=_tools_url, tabs=[dict(label="🧰 All tools", href=_tools_url, paths=[_tools_url], on=False)] + [dict(label=l, href=h, paths=[h.split("?")[0]], on=False) for l, h in _rest], on=False))
             _p = request.path
             for hb in _hubs:
                 for t in hb["tabs"]:
@@ -310,9 +352,13 @@ def create_app(config=None, init=True, database_url=None):
                 _curtab["on"] = True
             d["HUBS"] = _hubs
             d["HUB_CUR"] = _cur
-            d["HUB_TABS"] = _cur["tabs"] if _cur and len(_cur["tabs"]) > 1 else []
+            d["HUB_TABS"] = _cur["tabs"] if _cur and len(_cur["tabs"]) > 1 and _cur["key"] != "more" else []
             d["HUB_NOW"] = _curtab["href"] if _cur else ""
-            d["TOOLS"] = [dict(g=hb["label"], k=hb["key"], i=hb["icon"], items=[[t["label"], t["href"]] for t in hb["tabs"]]) for hb in _hubs] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
+            d["SUBTABS"] = []
+            if _curtab and _curtab.get("subs"):
+                _sb = max(((len(pp), s) for s in _curtab["subs"] for pp in s["paths"] if _p == pp or _p.startswith(pp.rstrip("/") + "/")), key=lambda x: x[0], default=(0, None))[1]
+                d["SUBTABS"] = [dict(label=s["label"], href=s["href"], on=s is _sb) for s in _curtab["subs"]]
+            d["TOOLS"] = [dict(g=hb["label"], k=hb["key"], i=hb["icon"], items=[[s["label"], s["href"]] for t in hb["tabs"] for s in (t.get("subs") or [t])]) for hb in _hubs] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])
                 d["ESSENTIALS"] = []

@@ -15,7 +15,7 @@ bp = Blueprint("studio", __name__)
 W = lambda: g.ws["id"]
 KINDS = ("post", "carousel", "reel", "story")
 FORMAT_OF = {"post": "Post", "carousel": "Carousel", "reel": "Reel / Short", "story": "Story"}
-LAYOUTS = ("cover", "step", "tip", "quote", "list", "offer", "cta")
+LAYOUTS = ("cover", "step", "tip", "quote", "list", "stat", "compare", "offer", "cta")
 SYSTEM = ("You are a senior Indian social-media creative director. Return ONLY valid JSON, no prose, no code fences. "
           "Write for the brand's real audience in plain, specific words; never invent prices, discounts, reviews or statistics the person did not give you.")
 
@@ -91,7 +91,7 @@ def studio():
         except ValueError:
             saved = {}
     cfg = dict(brand=g.ws["name"].replace(" (demo)", ""), pri=(brand or {}).get("pri") or g.ws["brand_color"] or "#6a3df0", sec=g.ws["secondary_color"] or "#ff4f9a",
-               logo=g.ws["logo_url"] or "", today=S.today().isoformat(), kd=kd, saved=saved, rid=item["id"] if item else 0, title=item["title"] if item else "",
+               logo=g.ws["logo_url"] or "", today=S.today().isoformat(), kd=kd, rizz=__import__("voice").tn("rizz"), saved=saved, rid=item["id"] if item else 0, title=item["title"] if item else "",
                channel=item["channel"] if item else "", date=item["publish_date"] if item else "", caption=item["copy"] if item else "", demo=_is_demo(),
                goal=_trim(request.args.get("goal"), 140), offer=_trim(request.args.get("offer"), 80), kind=request.args.get("kind") if request.args.get("kind") in KINDS else "carousel",
                post=bool(request.args.get("post")) and bool(item), status=item["status"] if item else "", hashtags=item["hashtags"] if item else "", ideas=[c["title"] for c in suggestions(W(), g.ws["industry"], S.today())[:3]], canwrite=g.role not in ("viewer", "client"), ai=bool(C.ANTHROPIC_API_KEY) and not _is_demo())
@@ -171,6 +171,13 @@ def save():
            (rec["title"], rec["channel"], rec["format"], rec["publish_date"], rec["copy"], rec["cta"], rec["hashtags"], rec["studio"], rec["thumb"], rid, W()))
     else:
         rid = ins("content_items", dict(workspace_id=W(), status="Planned", **rec))
+        try:
+            reps = max(0, min(int(d.get("repeat") or 0), 7))
+        except (TypeError, ValueError):
+            reps = 0
+        d0 = dt.date.fromisoformat(date)
+        for n in range(1, reps + 1):     # repeat weekly: same design, later dates, so a series is one save
+            ins("content_items", dict(workspace_id=W(), status="Planned", **dict(rec, publish_date=(d0 + dt.timedelta(days=7 * n)).isoformat())))
     S.audit("studio_save", f"{kind} {rid}")
     return jsonify(ok=True, id=rid, url=url_for("calendar_view"))
 

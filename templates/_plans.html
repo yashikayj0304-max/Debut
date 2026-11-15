@@ -4,10 +4,10 @@
 {% set _billing = (cta == 'billing') %}{% set _cards = C.plan_cards(cur if _billing else '') %}{% set _currank = (_cards|selectattr('key', 'equalto', cur)|map(attribute='rank')|first) if (_billing and cur in ('free','starter','team','agency')) else -1 %}
 <div class="plans">{% for c in _cards %}
 <div class="plan {{ 'cur' if cur == c.key }} {{ 'pop' if c.popular and not _billing }}"><h3>{{ c.name }}</h3><div class="pwho">{{ c.who }}</div>
-{% if c.price == 0 %}<div class="price">₹0</div><div class="per">free forever</div>
+{% if c.price == 0 %}<div class="price">₹0</div><div class="per">free plan</div>
 {% elif c.hidden %}<div class="price pquote">Let's talk</div><div class="per">pricing tailored to your team</div>
 {% else %}<div class="price"><span class="pamt" data-m="{{ '{:,}'.format(c.price) }}" data-y="{{ '{:,}'.format(c.yearly) }}">₹{{ '{:,}'.format(c.price) }}</span></div><div class="per"><span class="pper">per month</span> {{ C.PRICE_NOTE }}</div>{% endif %}
-<div class="pdetail"><div class="pdh">What is included{% if c.hidden %}, from{% endif %}</div><div class="pnums">{% for big, label, delta in c.nums %}<div><b>{{ big }}</b><span>{{ label }}</span>{% if delta %}<i>{{ delta }}</i>{% endif %}</div>{% endfor %}</div>
+<div class="pdetail"><div class="pdh">What is included</div><div class="pnums">{% for big, label, delta in c.nums %}<div><b>{{ big }}</b><span>{{ label }}</span>{% if delta %}<i>{{ delta }}</i>{% endif %}</div>{% endfor %}</div>
 <div class="pincl">{% if c.base %}Everything in <b>{{ c.base }}</b>, plus:{% else %}What you get:{% endif %}</div>
 <ul>{% if not c.base %}<li>Calendar, mood boards, GTM plans, tasks, campaigns, leads and more</li>{% endif %}{% for a in c.adds %}<li>{{ a }}</li>{% endfor %}</ul>
 {% if c.nudge and not (_billing and cur == c.key) %}<div class="pnudge">✨ {{ c.nudge }}</div>{% endif %}</div>

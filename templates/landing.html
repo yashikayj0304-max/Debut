@@ -3,8 +3,8 @@
 <p class="rot-line">Made for your <span class="rot" aria-label="launch, content, Diwali sale or creator drop"><span aria-hidden="true">launch</span><span aria-hidden="true">content</span><span aria-hidden="true">Diwali sale</span><span aria-hidden="true">creator drop</span></span></p>
 <p class="hero-sub">2 weeks of posts, planned in a minute.</p>
 <a class="btn" href="{{ url_for('auth.signup') }}" style="padding:12px 26px;font-size:16px">Start free</a> <a class="btn ghost" href="{{ url_for('demo') }}" style="padding:12px 26px;font-size:16px">Try the demo</a>
-<ul class="chips"><li>Free forever</li><li>{{ C.TRIAL_DAYS }}-day Team trial</li>{% set _pc = C.plan_cards('')|selectattr('price')|list %}{% if _pc %}<li><a href="#prices">From ₹{{ '{:,}'.format(_pc[0].price) }}/mo</a></li>{% endif %}<li>Built for desi brands, by desi people 🇮🇳</li></ul>
-{% if C.FOUNDING_OPEN %}<p class="proof">⭐ Founding members get {{ C.FOUNDING_PCT }}% off for life</p>{% endif %}{% if C.BETA_USERS %}<p class="proof"><i class="ic ic-star" aria-hidden="true"></i> Loved by {{ C.BETA_USERS }}+ beta marketers</p>{% endif %}</div>
+<ul class="chips"><li>Free to start</li><li>{{ C.TRIAL_DAYS }}-day Team trial</li>{% set _pc = C.plan_cards('')|selectattr('price')|list %}{% if _pc %}<li><a href="#prices">From ₹{{ '{:,}'.format(_pc[0].price) }}/mo</a></li>{% endif %}<li>Built for desi brands, by desi people 🇮🇳</li></ul>
+{% if C.BETA_USERS %}<p class="proof"><i class="ic ic-star" aria-hidden="true"></i> Loved by {{ C.BETA_USERS }}+ beta marketers</p>{% endif %}</div>
 <div class="hero-r"><div class="mock" aria-hidden="true"><div class="mock-bar"><i></i><i></i><i></i><span>Debut · Home</span></div>
 <div class="mock-body"><div class="mock-rail"><b>🏠</b><b>📅</b><b>✅</b><b>📈</b><b>🤖</b></div><div class="mock-main">
 <div class="mock-h">3 things need you today</div>
@@ -28,7 +28,7 @@
 
 <section class="lp-faq"><h2 style="text-align:center">Quick answers</h2>
 <details><summary>What is {{ C.APP_NAME }}?</summary><p>A marketing planning workspace. It brings your content calendar, launch plans, mood boards, AI drafts, tasks, KPIs and client reports into one place.</p></details>
-<details><summary>Do I need a card to start?</summary><p>No. The free plan is free forever, and you also get {{ C.TRIAL_DAYS }} days of the Team plan. No card is asked for.</p></details>
+<details><summary>Do I need a card to start?</summary><p>No. There is a free plan, and you also get {{ C.TRIAL_DAYS }} days of the Team plan. No card is asked for.</p></details>
 <details><summary>I'm new to marketing. Will I get lost?</summary><p>No. You pick your industry, get a ready-made plan, and your "Today" list tells you the next step. A guided tour and plain-English help are built in.</p></details>
 <details><summary>Can my team and clients use it?</summary><p>Yes. Team members get roles, and clients get a private portal to review and approve. You control who sees what.</p></details>
 <details><summary>Is my data safe?</summary><p>Workspaces are private. There is two-factor login, role-based access, an audit log, and you can export all your data at any time.</p></details>

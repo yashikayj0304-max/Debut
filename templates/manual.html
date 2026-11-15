@@ -8,7 +8,7 @@
 <li>Open <b>Create account</b>. Enter your name, work email, a workspace / company name (up to 80 characters; your team sees it at the top of the app) and your industry.</li>
 <li>Leave <b>Load my industry starter kit</b> ticked to get personas, a launch checklist, key dates and news feeds for your industry. You can add or delete all of it later.</li>
 <li>Choose a password. It needs <b>at least 8 characters, one UPPERCASE letter and one special character</b> (for example ! @ # $ %). A strength bar and checklist below the box turn green as you meet each rule, and the 👁 icon shows or hides what you typed. Easy-to-guess passwords (your email name, “password”, “123456”, long repeats) are refused.</li>
-<li>Tick the Terms / Privacy box and press <b>Create account</b>. You land on your Home screen with a {{ C.TRIAL_DAYS }}-day trial of the Team plan. After that you keep the <b>Free forever</b> plan; nothing is deleted. No card needed.</li>
+<li>Tick the Terms / Privacy box and press <b>Create account</b>. You land on your Home screen with a {{ C.TRIAL_DAYS }}-day trial of the Team plan. After that you keep the <b>the free plan</b> plan; nothing is deleted. No card needed.</li>
 <li><b>Verify your email</b> from the link we send (the yellow banner has a Resend button). AI features and some settings need a verified email.</li></ol>
 <p><b>Were you invited?</b> Use the link in your invitation email. The page shows the company and your role, your email is already filled in and locked, and you only set a name and password. <b>Already have a Debut account?</b> Log in with the same email and accept the invite: the company workspace is added next to your own free one, which stays exactly as it is. Switch between them from the workspace name at the top left.</p></div>
 
@@ -81,7 +81,7 @@
 <p>Invite someone with the <b>Client</b> role and type their client name exactly as you use it in the “Client” field of your content. They get a clean portal with their own content to <b>approve, request changes on or comment</b> on, plus their campaigns. They cannot see other clients, prices, your team or any other page. Use <b>Preview</b> next to a client on the Team page to see what they see. You can also send a read-only <b>Client report</b> link.</p></div>
 
 <div class="card" id="plans"><h2>9. Plans and billing</h2>
-<p>Every new workspace gets {{ C.TRIAL_DAYS }} days of the Team plan, then moves to <b>Free forever</b> unless you upgrade. Nothing is deleted when you downgrade; paid-only items just show a 🔒.</p>
+<p>Every new workspace gets {{ C.TRIAL_DAYS }} days of the Team plan, then moves to <b>the free plan</b> unless you upgrade. Nothing is deleted when you downgrade; paid-only items just show a 🔒.</p>
 <table><tr><th>Plan</th><th>Price / month</th><th>Seats</th><th>AI credits / month</th><th>Items</th><th>Mood boards</th></tr>
 {% for k, p in C.PLANS.items() %}<tr><td><b>{{ p['name'] }}</b></td><td>{{ '₹{:,}'.format(p['price']) if p['price'] else 'Free' }}</td><td>{{ p['seats'] }}</td><td>{{ p['ai_credits'] }}</td><td>{{ '{:,}'.format(p['records']) }}</td><td>{{ p['boards'] if p['boards'] < 999 else 'Unlimited' }}</td></tr>{% endfor %}</table>
 <p class="muted">Prices exclude GST. On the Plan page, what changes compared with your current plan is highlighted (credits, seats, features), with ✓ for included and ✗ for not included. In demo mode no real payment is taken.</p></div>

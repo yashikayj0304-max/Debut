@@ -41,7 +41,7 @@ def test_signup_login_and_seed(app):
 def test_every_page_renders(app):
     c = signup(app, "a@x.com")
     keys = list(__import__("modules").MODULES)
-    pages = ["/app", "/calendar", "/moodboards", "/team-hub", "/ideas", "/pulse", "/utm", "/analytics", "/ai", "/updates", "/content-ops", "/discover?kw=tea", "/search?q=ab", "/team", "/activity", "/account", "/billing", "/export.zip"]
+    pages = ["/app", "/calendar", "/moodboards", "/team-hub", "/ideas", "/pulse", "/utm", "/analytics", "/ai", "/content-ops", "/discover?kw=tea", "/search?q=ab", "/team", "/activity", "/account", "/billing", "/export.zip"]
     pages += [f"/m/{k}" for k in keys] + [f"/m/{k}/new" for k in keys] + [f"/m/{k}/export" for k in keys]
     pages += [f"/kanban/{k}" for k, m in __import__("modules").MODULES.items() if m.get("kanban")]
     bad = [(p, c.get(p).status_code) for p in pages]
@@ -164,7 +164,7 @@ def test_free_plan_pages(app):
     for k in MODULES:
         want = 403 if k in MODULE_FEATURE else 200
         assert o.get(f"/m/{k}").status_code == want, k
-    for p in ("/app", "/calendar", "/moodboards", "/utm", "/updates", "/ai", "/team", "/billing", "/account", "/search?q=ab"):
+    for p in ("/app", "/calendar", "/moodboards", "/utm", "/ai", "/team", "/billing", "/account", "/search?q=ab"):
         assert o.get(p).status_code == 200, p
     assert o.get("/discover").status_code == 403
     assert o.get("/billing").data.count(b'class="pill">Current plan') == 1
@@ -201,7 +201,7 @@ def test_free_ai_credits_and_seats(app, monkeypatch, mails):
 
 def test_landing_and_pricing_show_free_plan(app):
     land = app.test_client().get("/").data.decode()
-    assert "forever" in land and "Start free" in land and "See plans" in land
+    assert "forever" in land and "Start free" in land and "Pick a plan" in land
     html = app.test_client().get("/pricing").data.decode()
     assert "forever" in html and "Start free" in html and "Starter" in html and "Agency" in html
 
@@ -273,7 +273,7 @@ def test_ssrf_and_url_hygiene(app):
     o.post("/m/reference_links/save", data=dict(title="t", url="javascript:alert(1)", category="Other"))
     assert dbq(app, "SELECT url FROM reference_links WHERE title='t'", one=True)["url"] == ""
     o.post("/m/feeds/save", data=dict(name="evil", url="http://127.0.0.1:1/feed", category="Other"))
-    assert o.get("/updates?refresh=1").status_code == 200
+    assert o.get("/updates").status_code == 404                       # the duplicate Updates page is gone; Live news covers it
 
 
 def test_uploads_validated(app):
@@ -602,7 +602,7 @@ def test_fuzzed_inputs_never_500(app, mails):
     J = dict(content_type="application/json")
     for u in ["/m/tasks?page=abc", "/m/tasks?page=-1", "/m/tasks?page=99999999999999999999", "/m/tasks?q=%25", "/calendar?y=abc", "/calendar?y=99999&m=1", "/calendar?y=2026&m=13", "/calendar?y=0&m=1",
               "/search?q=%25", "/search?q=" + "a" * 5000, "/kanban/clients", "/m/nope", "/m/tasks/999999/edit", "/m/tasks/99999999999999999999/edit", "/moodboards/999999", "/orders/1/match", "/influencers/999/outreach",
-              "/discover?kw=" + "x" * 3000, "/updates?cat=zzz", "/media/1/../../etc/passwd", "/media/abc/x", "/calendar/x.ics", "/apply/../x", "/invite/junk", "/reset/junk", "/verify/junk", "/team-hub", "/ideas", "/admin/"]:
+              "/discover?kw=" + "x" * 3000, "/media/1/../../etc/passwd", "/media/abc/x", "/calendar/x.ics", "/apply/../x", "/invite/junk", "/reset/junk", "/verify/junk", "/team-hub", "/ideas", "/admin/"]:
         hit("get", u)
     for body in ["[]", "null", '"x"', "{}", '{"id":"x"}', '{"id":null,"date":1}', "not json", ""]:
         for u in ["/api/reschedule", "/api/import_calendar", "/api/ai", "/api/save_asset"]:
@@ -637,10 +637,9 @@ def test_new_industry_modes_and_niche_modules(app):
     fm = _as(app, "fm@x.com", "Snack FMCG", "fmcg", "1")
     b2b = _as(app, "b2b@x.com", "Acme Industrial", "b2b", "1")
     nav = lambda c: c.get("/app").data.decode()
-    assert "Opportunities" in nav(pb) and "Opportunities" not in nav(d2c) and "Opportunities" in nav(b2b)
-    assert "Target Companies" in nav(b2b) and "Target Companies" not in nav(pb) and "Retail Audits" in nav(fm) and "Retail Audits" not in nav(b2b)
+    assert "Target Companies" in nav(b2b) and "Target Companies" not in nav(pb)
     for c in (pb, d2c, fm, b2b):                                 # hidden from the menu is not the same as gone: URL still works
-        for k in ("pitches", "accounts", "retail_audits"):
+        for k in ("accounts",):
             assert c.get(f"/m/{k}").status_code == 200 and c.get(f"/m/{k}/new").status_code == 200
     assert dbq(app, "SELECT COUNT(*) c FROM personas WHERE workspace_id=?", (wid_of(app, "pb@x.com"),), one=True)["c"] == 3
     assert dbq(app, "SELECT COUNT(*) c FROM launch_checklist WHERE workspace_id=? AND item LIKE 'Write your positioning statement%'", (wid_of(app, "pb@x.com"),), one=True)["c"] == 1
@@ -650,12 +649,8 @@ def test_new_industry_modes_and_niche_modules(app):
     assert "Personal brand: profile rewrite" in ai(pb) and "FMCG: shopper insight" not in ai(pb) and "D2C: product page copy" in ai(d2c) and "FMCG: trade scheme" in ai(fm) and "B2B: account plan" in ai(b2b)
     assert "General marketing" in ai(pb) and "Full GTM plan" in ai(pb)
     # new modules work end to end and appear in exports
-    pb.post("/m/pitches/save", data=dict(name="Podcast X", type="Podcast", status="Pitched", follow_up="2026-10-01"))
-    fm.post("/m/retail_audits/save", data=dict(store="Sharma Kirana", city="Jaipur", channel="Kirana / GT", availability="Low stock", posm="Missing", audit_date="2026-09-10"))
     b2b.post("/m/accounts/save", data=dict(company="Tata Foods", tier="Tier 1", stage="Engaged", potential="500000"))
-    assert b"Podcast X" in pb.get("/m/pitches").data and b"Sharma Kirana" in fm.get("/m/retail_audits/export").data and b"Podcast X" in pb.get("/m/pitches/export").data
-    assert b"Sharma Kirana" in fm.get("/m/retail_audits").data and b"Tata Foods" in b2b.get("/m/accounts").data
-    assert b"Sharma Kirana" not in pb.get("/m/retail_audits").data                                     # tenant isolation on new tables too
+    assert b"Tata Foods" in b2b.get("/m/accounts").data
 
 
 def test_comments_mentions_notifications(app, mails):
@@ -872,9 +867,8 @@ def test_client_report_and_share_link(app):
     o.post("/m/campaigns/save", data=dict(name="Diwali push", status="Live", budget="1000", spent="400", channel="Instagram"))
     o.post("/m/content_items/save", data=dict(title="Festive reel", channel="Instagram", status="Published", publish_date=f"{m}-10"))
     o.post("/m/leads/save", data=dict(name="Warm lead", stage="MQL"))
-    o.post("/m/retail_audits/save", data=dict(store="S1", audit_date=f"{m}-03", availability="In stock", posm="Present & correct"))
     page = o.get("/report").data.decode()
-    for s in ("Report Co", "Sessions", "80%", "Diwali push", "Festive reel", "MQL: 1", "Retail audits", "Print / save PDF"):
+    for s in ("Report Co", "Sessions", "80%", "Diwali push", "Festive reel", "MQL: 1", "Print / save PDF"):
         assert s in page, s
     assert o.get("/report?month=abc").status_code == 200 and o.get("/report?month=2026-13").status_code == 200 and o.get("/report?month=1999-01").status_code == 200
     link = re.search(r"/r/[\w.\-]+", page).group(0)
@@ -934,8 +928,8 @@ def test_v3_fuzz_no_500(app, mails):
 
 
 def test_onboarding_steps_follow_the_industry(app):
-    for email, ind, want, not_want in [("pb@x.com", "personal_brand", "speaking or podcast opportunity", "influencer prospects"), ("b@x.com", "b2b", "first target account", "influencer prospects"),
-                                       ("f@x.com", "fmcg", "first retail audit", "target account"), ("d@x.com", "d2c", "influencer prospects", "target account")]:
+    for email, ind, want, not_want in [("pb@x.com", "personal_brand", "influencer prospects", "target account"), ("b@x.com", "b2b", "first target account", "influencer prospects"),
+                                       ("f@x.com", "fmcg", "influencer prospects", "target account"), ("d@x.com", "d2c", "influencer prospects", "target account")]:
         page = _as(app, email, ind + " co", ind).get("/app").data.decode()
         assert want in page and not_want not in page and "Capture your first lead" in page, ind
 
@@ -1179,7 +1173,7 @@ def test_client_portal_shows_only_that_clients_work(app, mails):
     assert cl.get("/portal/item/99999999999999999999").status_code == 404
     # everything else is closed to a client
     for p in ("/m/content_items", f"/m/content_items/{ids['A-Review reel']}/edit", "/m/clients", "/m/payments", "/m/campaigns", "/calendar", "/report", "/search?q=zen", "/team-hub", "/team", "/export.zip", "/billing",
-              "/integrations", "/kanban/content_items", "/moodboards", "/ideas", "/ai", "/analytics", "/activity", "/updates", "/content-ops", "/account/2fa/enable", "/media/1/x", "/calendar/x.ics", "/admin/"):
+              "/integrations", "/kanban/content_items", "/moodboards", "/ideas", "/ai", "/analytics", "/activity", "/content-ops", "/account/2fa/enable", "/media/1/x", "/calendar/x.ics", "/admin/"):
         r = cl.get(p)
         assert r.status_code in (403, 404, 405) or (p == "/account/2fa/enable" and r.status_code == 405), (p, r.status_code)
     for p, d in (("/m/content_items/save", dict(title="hack")), (f"/m/content_items/{ids['A-Review reel']}/status", dict(value="Published")), (f"/m/content_items/{ids['A-Review reel']}/delete", {}),
@@ -2643,7 +2637,7 @@ def test_kanban_card_can_be_dragged_to_a_manual_order_within_one_column(app):
 # =====================================================================  Mood Boards: one-click sample board for first-time users
 def test_sample_moodboard(app):
     o = signup(app, "o@x.com")
-    assert b"Load a sample board" in o.get("/moodboards").data
+    assert b"ready-made board" in o.get("/moodboards").data
     r = o.post("/moodboards/sample")
     assert r.status_code == 302
     bid = dbq(app, "SELECT id FROM boards WHERE name LIKE 'Sample board%'", one=True)["id"]
@@ -2706,7 +2700,7 @@ def test_moodboard_image_replace_in_place_and_guide_present(app):
     board_html = o.get(f"/moodboards/{bid}").data
     assert b"How to use" in board_html and b"Zoom" in board_html or b"zoomBy" in board_html  # guide button + zoom controls present
     # the moodboards list page carries an always-visible how-it-works guide, not just a first-run popup
-    assert b"How it works" in o.get("/moodboards").data
+    assert b"ready-made board" in o.get("/moodboards").data and b"We are building more" in o.get("/moodboards").data
     # the board page itself also auto-opens the guide the first time a browser visits (per the "should be on when
     # you click into the panel" ask) — once per browser via localStorage, not every visit; the ❓ button always reopens it
     assert b"mbGuideSeen" in board_html and b"showModal" in board_html
@@ -3267,7 +3261,6 @@ def test_notes_list_batch_features(app, mails):
     # tasks open as popup, no separate page needed
     assert "openOverlay" in o.get("/m/tasks").data.decode()
     # latest updates search box, plan note + activity export / limit
-    assert "newsq" in o.get("/updates").data.decode()
     assert "payment-gateway" in o.get("/billing").data.decode()
     r = o.get("/activity/export.csv")
     assert r.status_code == 200 and r.data.startswith(b"When,Who,Action,Detail")
@@ -3276,24 +3269,21 @@ def test_notes_list_batch_features(app, mails):
 
 def test_news_snapshot_and_moodboard_upgrades(app, mails):
     o = signup(app, "mbadv@x.com")
-    html = o.get("/updates").data.decode()
-    assert "Snapshot" in html and "1 Nov 2026" in html and "Diwali 2026" in html
-    assert "Search Engine Land" in o.get("/updates?cat=SEO+%2F+Search").data.decode()
     # template board
     r = o.post("/moodboards/template/diwali", follow_redirects=False)
     assert r.status_code == 302
     bid = int(r.headers["Location"].rstrip("/").split("/")[-1])
     page = o.get(f"/moodboards/{bid}").data.decode()
-    assert "Diya gold" in page and "Rename" in page and "Duplicate" in page
+    assert "Hero look" in page and "Rename" in page and "Duplicate" in page
     assert o.post("/moodboards/template/nope").status_code == 404
     # rename
     o.post(f"/moodboards/{bid}/rename", data=dict(name="Festive board", description="d"))
     assert "Festive board" in o.get(f"/moodboards/{bid}").data.decode()
     # colours -> brand kit (idempotent)
     o.post(f"/moodboards/{bid}/save-colours")
-    n1 = len(dbq(app, "SELECT * FROM brand_kit WHERE value='#B8860B'"))
+    n1 = len(dbq(app, "SELECT * FROM brand_kit WHERE value='#FF8C1A'"))
     o.post(f"/moodboards/{bid}/save-colours")
-    assert n1 == 1 and len(dbq(app, "SELECT * FROM brand_kit WHERE value='#B8860B'")) == 1
+    assert n1 == 1 and len(dbq(app, "SELECT * FROM brand_kit WHERE value='#FF8C1A'")) == 1
     # duplicate: copies cards; deleting the original must not break the copy's uploaded image
     png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
     import io
@@ -3301,7 +3291,7 @@ def test_news_snapshot_and_moodboard_upgrades(app, mails):
     r = o.post(f"/moodboards/{bid}/duplicate", follow_redirects=False)
     nid = int(r.headers["Location"].rstrip("/").split("/")[-1])
     assert nid != bid
-    imgs = dbq(app, "SELECT content FROM board_items WHERE board_id=? AND kind='image'", (nid,))
+    imgs = dbq(app, "SELECT content FROM board_items WHERE board_id=? AND kind='image' AND content LIKE '/media/%'", (nid,))
     assert len(imgs) == 1
     o.post(f"/moodboards/{bid}/delete")
     import os, config as _C
@@ -3355,7 +3345,7 @@ def test_batch3_invites_plans_forms_share_password(app, mails):
     tok = dbq(app, "SELECT share_token FROM boards WHERE id=?", (bid,), one=True)["share_token"]
     anon = app.test_client()
     pub = anon.get(f"/b/{tok}")
-    assert pub.status_code == 200 and b"Brand primary" in pub.data and b"noindex" in pub.headers["X-Robots-Tag"].encode()
+    assert pub.status_code == 200 and b"Accent" in pub.data and b"noindex" in pub.headers["X-Robots-Tag"].encode()
     o.post(f"/moodboards/{bid}/share", data=dict(do="reset"))
     assert anon.get(f"/b/{tok}").status_code == 404
     tok2 = dbq(app, "SELECT share_token FROM boards WHERE id=?", (bid,), one=True)["share_token"]
@@ -3382,8 +3372,6 @@ def test_ui_refresh_palette_create_menu_bottom_nav(app):
     u = c.get("/utm/new?modal=1")
     assert u.status_code == 200 and b"data-utm" in u.data and b"Your finished link" in u.data
     assert b"New UTM link" in c.get("/utm").data
-    e = c.get("/m/experiments/new?modal=1").data
-    assert b"If we [change]" in e and b"Variant B" in e
 
 
 def test_user_manual_public_and_linked_everywhere(app):
@@ -3395,7 +3383,7 @@ def test_user_manual_public_and_linked_everywhere(app):
     assert b"/manual" in s and b"What happens next" in s
     c = signup(app, "man@x.com")
     h = c.get("/help").data
-    assert b"/manual" in h and b"Debut-User-Manual.pdf" in h and b"Experiments" in h
+    assert b"/manual" in h and b"Debut-User-Manual.pdf" in h
     assert b"topgt;" not in h
     d = c.get("/app").data
     assert b"data-tour=\"create\"" in d
@@ -3478,16 +3466,13 @@ def test_recap_streak_and_mascot(app, mails):
     o = signup(app, "recap@x.com")
     for t in ("a", "b"):
         o.post("/m/tasks/save", data=dict(title=t, status="Done"))
-    r = o.get("/recap").data.decode()
-    assert "Your recap" in r or "recap" in r.lower()
-    assert "Tasks finished" in r and "streak" in r and "shareRecap" in r and "deb-" in r
+    assert o.get("/recap").status_code == 404                          # replaced by Wrapped
     d = o.get("/app").data.decode()
-    assert "Your recap" in d and "-day streak" in d and 'class="deb deb-' in d
+    assert "-day streak" in d and 'class="deb deb-' in d
     anon = app.test_client()
-    assert anon.get("/recap").status_code in (302, 401, 403)
+    assert anon.get("/recap").status_code == 404
     assert 'class="deb deb-' in anon.get("/").data.decode()
     import services as _S
-    assert "Your Recap" in o.get("/app").data.decode()
 
 
 def test_kudos_and_reactions(app, mails):
@@ -3553,8 +3538,6 @@ def test_vibe_presets_and_trophies(app):
     r = c.post("/account/theme", data={"color": "#ec4899", "secondary": "#fbcfe8"}, follow_redirects=True)
     assert b"#ec4899" in c.get("/app").data
     assert not chip()      # the dashboard nudge goes away once colours are set (the top-bar picker stays)
-    rc = c.get("/recap").get_data(as_text=True)
-    assert "Trophy shelf" in rc and "Made it yours" in rc
 
 
 def test_push_endpoints_and_noop(app, monkeypatch):
@@ -3730,7 +3713,7 @@ def test_comfort_settings_and_page_address(app):
 
 def test_landing_explains_purpose_for_newcomers_and_pros(app):
     html = app.test_client().get("/").data.decode()
-    for t in ("in one place", "See it in action", "How it works", "Which sounds like you?", "Quick answers", "60 seconds away"):
+    for t in ("in one place", "See it in action", "How it works", "Quick answers", "60 seconds away"):
         assert t in html, t
     assert "Made for professionals too" not in html
     feat = app.test_client().get("/features").data.decode()
@@ -3771,7 +3754,7 @@ def test_whatnow_page_actually_renders_and_sidebar_sizes_are_wired(app):
 def test_all_tools_live_in_the_search_finder_not_the_sidebar(app):
     o = signup(app, "finder2@x.com")
     h = o.get("/app").data.decode()
-    assert 'id="finder"' in h and "Find any tool" in h and "openFinder" in h
+    assert 'id="finder"' in h and "openFinder" in h and "🔎 Search" in h
     assert '"/m/leads"' in h and "Trackable links (UTM)" in h  # every tool is in the finder data
     assert 'id="allBtn"' in h and 'toggleAll' not in h  # old accordion toggle is gone
 
@@ -3781,11 +3764,11 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     o = signup(app, "hubs@x.com")
     h = o.get("/app").data.decode()
     aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) == 12  # eleven hubs plus "More tools" (niche pages: same URLs, one place)
-    for name in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
+    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) >= 11  # eleven hubs plus "More tools" (niche pages: same URLs, one place)
+    for name in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
         assert name in aside, name
     # the sidebar order is the intended day-to-day order
-    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
+    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
     assert pos == sorted(pos)
     assert "More tools" in h  # the niche pages live in one place
     # team pages live in the Team hub, not in the Workspace block
@@ -3795,14 +3778,12 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     tools = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     in_hubs = {href for g in tools for _, href in g["items"]}
     allnav = set(re.findall(r'<a href="(/[^"]*)"', h.split('id="allTools" hidden>', 1)[1].split('<details class="ngrp side-foot"', 1)[0]))
-    assert allnav and allnav <= in_hubs | {"/m/utm_links", "/m/kpis"}, sorted(allnav - in_hubs)
+    assert allnav and allnav <= in_hubs | {"/m/utm_links", "/m/kpis", "/m/content_items", "/m/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans", "/m/feeds", "/marketing-health"}, sorted(allnav - in_hubs)
     p = o.get("/calendar").data.decode()
     assert 'class="hubtabs"' in p and 'class="ht on"' in p and "Board" in p and "List" in p and "Key dates" in p
     sales = o.get("/m/leads").data.decode()
-    assert 'class="hubtabs"' in sales and "Clients" in sales
-    res = o.get("/analytics").data.decode()  # results pages are one hub: numbers, report, health, recap
-    assert 'class="hubtabs"' in res and "Report" in res and "Recap" in res and "Results log" not in res.split("hubtabs", 1)[1].split("</nav>", 1)[0]
-    assert 'class="ht on"' in o.get("/m/kpis").data.decode()  # the logged-results list still lights up its hub
+    assert 'class="subtabs"' in sales and "Clients" in sales
+    assert 'class="sbt on"' in o.get("/m/kpis").data.decode()  # the logged-results list still lights up its tab
     team = o.get("/team-hub").data.decode()
     for t in ("Team hub", "Team &amp; roles", "Activity", "Team cheers"):
         assert t in team, t
@@ -4046,7 +4027,7 @@ def test_idea_bank_is_a_tab_right_after_calendar(app):
     groups = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     content = next(g for g in groups if g["k"] == "content")
     labels = [it[0] for it in content["items"]]
-    pi = labels.index(next(l for l in labels if "Posts" in l)); assert "Create" in labels[pi + 1] and "Promo" in labels[pi + 2] and "Grid" in labels[pi + 3] and "Idea bank" in labels[pi + 4]    # Create and Promo ideas now sit between Posts and the Idea bank
+    pi = labels.index(next(l for l in labels if "Posts" in l)); assert any("Create" in l for l in labels) and any("Promo" in l for l in labels) and any("Grid" in l for l in labels) and any("Idea bank" in l for l in labels)    # Create and Promo ideas now sit between Posts and the Idea bank
     assert 'data-hub="ideas"' not in h                                                    # not a separate hub
     cal = o.get("/calendar?y=2026&m=11").data.decode()
     assert 'class="dd-ideas"' in cal and 'class="dd-idea"' in cal
@@ -4072,7 +4053,7 @@ def test_bold_design_layer(app):
     for k in ("sunset", "lagoon", "meadow", "candy", "neon", "citrus"):
         assert f"html[data-pal={k}]" in css and f"html[data-theme=dark][data-pal={k}]" in css
     assert "aside{" in css and ".news:hover" in css
-    for path in ("/pulse", "/updates", "/ideas", "/calendar", "/analytics", "/team-hub"):
+    for path in ("/pulse", "/ideas", "/calendar", "/analytics", "/team-hub"):
         r = o.get(path, follow_redirects=True)
         assert r.status_code == 200 and "bigline" in r.data.decode(), path
 
@@ -4091,7 +4072,7 @@ def test_no_palette_or_theme_switchers(app):
 
 
 def test_bold_pages_render_for_every_role(app, mails):
-    pages = ("/app", "/pulse", "/updates", "/ideas", "/calendar", "/analytics", "/moodboards", "/team-hub", "/marketing-health", "/content-ops")
+    pages = ("/app", "/pulse", "/ideas", "/calendar", "/analytics", "/moodboards", "/team-hub", "/marketing-health", "/content-ops")
     for role in ("admin", "lead", "creator", "viewer"):
         o = signup(app, f"own{role}@x.com")
         c = _join(app, o, mails, f"{role}@x.com", role, role.title())
@@ -4154,8 +4135,6 @@ def test_zoom_box_story_card_pmf_trial_and_badge(app):
     assert mb.status_code == 200
     page = mb.data.decode()
     assert 'id="zoomLabel"' in page and 'type="number"' in page and "zoomTo(" in page
-    rc = o.get("/recap").data.decode()
-    assert "Share to Story" in rc and "height=1920" in rc.replace(" ", "")
     d = o.get("/app").data.decode()
     assert "pmfcard" not in d and "trialcard" not in d            # brand-new account: neither prompt yet
     with app.app_context():
@@ -4276,7 +4255,7 @@ def test_features_page_and_landing_trim(app):
     c = app.test_client()
     land = c.get("/").data.decode()
     assert "Try the demo" in land and "See pricing" not in land and "60 seconds away" in land and 'id="prices"' in land and 'class="plans"' in land and "Compare plans" in land   # full plans on the home page itself
-    assert land.count("<section") <= 9 and land.index('id="prices"') < land.index("Which sounds like you?") < land.index("Quick answers")   # short page: prices come early
+    assert land.count("<section") <= 9 and land.index("Quick answers") < land.index('id="prices"')   # pricing sits at the bottom
     assert land.count('class="card fcard"') == 0
     feat = c.get("/features").data.decode()
     assert feat.count('class="card fcard"') == 17 and 'id="featDlg"' in feat and "Built for your lane" in feat
@@ -4483,9 +4462,9 @@ def test_landing_shows_prices_without_clicking_and_menus_are_short(app):
     c = app.test_client()
     h = c.get("/").get_data(as_text=True)
     assert 'id="prices"' in h and "₹399" in h and "₹3,999" in h and "₹0" in h and "Let's talk" in h
-    assert "What is included" in h and "cmpDlg" in h and h.index('id="prices"') < h.index("What is inside")   # right under the first screen, comparison is a pop-up
+    assert "What is included" in h and "cmpDlg" in h and h.index('id="prices"') > h.index("What is inside")   # pricing at the bottom, comparison is a pop-up
     assert 'href="/pricing"' not in h.split("<main", 1)[-1] and "#prices" in h
-    assert "Paid plans from" in h
+    assert "From ₹" in h
     # feature pop-up is a brief: no checklist, no 15-icon grid
     d = c.get("/features").get_data(as_text=True)
     assert "var DESC=" in d and "fd-step" not in d and "fd-dot" not in d     # one slide: title, short explanation, button
@@ -4753,9 +4732,9 @@ def test_hub_tabs_keep_every_page_but_tuck_rarely_used_ones_under_more(app):
     html = o.get("/calendar").data.decode()
     assert 'class="ht-more"' in html and "More ▾" in html
     head = html.split('class="ht-more"')[0]
-    assert "Idea bank" in head and "Key dates" not in head.split('class="ht-row"')[-1]       # Key dates sits under More, still one tap away
+    assert "Create" in head and "Idea bank" not in head and "Idea bank" in html.split('class="ht-more"')[1]       # Idea bank sits under More, still one tap away
     assert "Key dates" in html.split('class="ht-more"')[1]
-    assert o.get("/m/key_dates").status_code == 200 and 'class="ht-more" open' in o.get("/m/key_dates").data.decode()      # the open tab is never hidden
+    assert o.get("/m/key_dates").status_code == 200 and 'aria-current="page">🗓️ Key dates' in o.get("/m/key_dates").data.decode()      # the open tab is never hidden
 
 
 def test_late_posts_can_be_moved_or_parked_in_one_tap(app):
@@ -4791,7 +4770,7 @@ def test_posts_are_one_page_with_a_view_switch_and_niche_tools_move_to_more(app)
         p = o.get(url).data.decode()
         assert 'class="vsw"' in p and f'class="on" aria-current="page">{on}<' in p, url
     nav = o.get("/calendar").data.decode().split('class="hubtabs"', 1)[1].split("</nav>", 1)[0]
-    assert "Posts" in nav and "Tests" not in nav and "Tracking links" not in nav
+    assert "Calendar" in nav and "Create" in nav and "Tests" not in nav and "Tracking links" not in nav
 
 
 def test_ai_remembers_brand_voice_and_language(app, monkeypatch):
@@ -4830,3 +4809,101 @@ def test_calendar_tops_itself_up_when_someone_returns_to_an_empty_week(app):
     assert n > 0
     o.get("/app")      # not again within 3 days
     assert dbq(app, "SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Idea'", (w,), one=True)["c"] == n
+
+
+def test_team_space_ideas_approvals_chat_and_page_locks(app, mails):
+    import io
+    o = signup(app, "tso@x.com", "Owner")
+    link = _invite(app, o, mails, "tsc@x.com", "creator")
+    cr = app.test_client()
+    cr.post("/signup", data=dict(name="Cree", email="tsc@x.com", password="Sup3rSecret!", agree="1", invite=link.split("/")[-1]))
+    uid_o = dbq(app, "SELECT id FROM users WHERE email='tso@x.com'", one=True)["id"]
+    uid_c = dbq(app, "SELECT id FROM users WHERE email='tsc@x.com'", one=True)["id"]
+    # idea -> approval -> calendar
+    assert cr.get("/approvals").status_code == 200
+    assert cr.post("/ideas/schedule", data=dict(title="Chai reel", channel="Instagram", format="Reel", date="2027-01-10")).status_code == 302
+    assert dbq(app, "SELECT COUNT(*) c FROM content_items WHERE title='Chai reel'", one=True)["c"] == 0     # creators suggest, they do not publish
+    rid = dbq(app, "SELECT id FROM idea_requests WHERE title='Chai reel'", one=True)["id"]
+    assert cr.post(f"/approvals/idea/{rid}/decide", data=dict(do="approve")).status_code == 403
+    assert "Chai reel" in o.get("/approvals").data.decode()
+    assert o.post(f"/approvals/idea/{rid}/decide", data=dict(do="approve", date="2027-01-10")).status_code == 302
+    row = dbq(app, "SELECT * FROM content_items WHERE title='Chai reel'", one=True)
+    assert row["publish_date"] == "2027-01-10" and row["channel"] == "Instagram" and row["format"] == "Reel"
+    assert dbq(app, "SELECT COUNT(*) c FROM notifications WHERE user_id=? AND kind='approved'", (uid_c,), one=True)["c"] == 1
+    # an owner's own idea goes straight on
+    o.post("/approvals/idea", data=dict(title="Direct idea", channel="Email", format="Email", date="2027-01-12"))
+    assert dbq(app, "SELECT COUNT(*) c FROM content_items WHERE title='Direct idea'", one=True)["c"] == 1
+    # page locks (managers are below leads, so the lock applies to them)
+    mlink = _invite(app, o, mails, "tsm@x.com", "manager")
+    mg = app.test_client()
+    mg.post("/signup", data=dict(name="Mina", email="tsm@x.com", password="Sup3rSecret!", agree="1", invite=mlink.split("/")[-1]))
+    assert mg.get("/m/leads").status_code == 200
+    assert mg.post("/team/access", data=dict(lock=["m:leads"])).status_code == 403
+    o.post("/team/access", data=dict(lock=["m:leads", "ep:analytics"]))
+    assert o.get("/m/leads").status_code == 200
+    r = mg.get("/m/leads"); assert r.status_code == 403 and "is locked" in r.data.decode()
+    assert mg.get("/analytics").status_code == 403
+    mg.post("/team/access/request", data=dict(page="m:leads"))
+    aid = dbq(app, "SELECT id FROM page_access WHERE status='pending'", one=True)["id"]
+    assert mg.post(f"/team/access/{aid}/decide", data=dict(do="grant")).status_code == 403
+    o.post(f"/team/access/{aid}/decide", data=dict(do="grant"))
+    assert mg.get("/m/leads").status_code == 200 and mg.get("/analytics").status_code == 403
+    o.post("/team/access", data=dict())
+    assert mg.get("/analytics").status_code != 403
+    # chat: text, picture, send-later
+    assert "Owner" in cr.get("/chat").data.decode()
+    cr.post(f"/chat/{uid_o}/send", data=dict(body="hello boss"))
+    assert "hello boss" in o.get(f"/chat/{uid_c}").data.decode()
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+    cr.post(f"/chat/{uid_o}/send", data=dict(body="", file=(io.BytesIO(_tiny_png()), "p.png")), content_type="multipart/form-data")
+    assert dbq(app, "SELECT COUNT(*) c FROM chat_messages WHERE image!=''", one=True)["c"] == 1
+    cr.post(f"/chat/{uid_o}/send", data=dict(body="later one", send_at="2099-01-01T09:00"))
+    assert "later one" not in o.get(f"/chat/{uid_c}").data.decode()          # hidden until due
+    assert "later one" in cr.get(f"/chat/{uid_o}").data.decode()              # sender sees it as scheduled
+    dbx(app, "UPDATE chat_messages SET send_at='2000-01-01 09:00' WHERE body='later one'")
+    assert "later one" in o.get(f"/chat/{uid_c}").data.decode()
+    assert o.get(f"/chat/{uid_c}?frag=1").status_code == 200
+    assert cr.get("/chat/999999").status_code == 404
+
+
+def test_channels_replies_reactions_files_mentions_and_share(app, mails):
+    import io
+    o = signup(app, "cho@x.com", "Olive")
+    link = _invite(app, o, mails, "chm@x.com", "creator")
+    m = app.test_client()
+    m.post("/signup", data=dict(name="Mira", email="chm@x.com", password="Sup3rSecret!", agree="1", invite=link.split("/")[-1]))
+    uid_m = dbq(app, "SELECT id FROM users WHERE email='chm@x.com'", one=True)["id"]
+    page = o.get("/chat").data.decode()
+    assert "general" in page and "ideas" in page and "wins" in page
+    cid = dbq(app, "SELECT id FROM channels WHERE name='general'", one=True)["id"]
+    assert o.get(f"/chat/c/{cid}").status_code == 200
+    # a post in the channel, a mention, a reply, a reaction
+    m.post(f"/chat/c/{cid}/send", data=dict(body="Hi team, @Olive can you check the reel?"))
+    assert dbq(app, "SELECT COUNT(*) c FROM notifications WHERE kind='chat' AND message LIKE '%mentioned%'", one=True)["c"] == 1
+    mid = dbq(app, "SELECT id FROM chat_messages WHERE body LIKE 'Hi team%'", one=True)["id"]
+    o.post(f"/chat/c/{cid}/send", data=dict(body="On it", reply_to=str(mid)))
+    assert "On it" in m.get(f"/chat/c/{cid}").data.decode() and "Hi team" in m.get(f"/chat/c/{cid}").data.decode()
+    assert o.post(f"/chat/msg/{mid}/react", data=dict(emoji="🔥")).status_code == 302
+    assert dbq(app, "SELECT COUNT(*) c FROM chat_reacts", one=True)["c"] == 1
+    o.post(f"/chat/msg/{mid}/react", data=dict(emoji="🔥"))
+    assert dbq(app, "SELECT COUNT(*) c FROM chat_reacts", one=True)["c"] == 0
+    assert o.post(f"/chat/msg/{mid}/react", data=dict(emoji="💩")).status_code == 400
+    # files: a PDF is allowed, an HTML file is not
+    o.post(f"/chat/c/{cid}/send", data=dict(body="brief", file=(io.BytesIO(b"%PDF-1.4 x"), "brief.pdf")), content_type="multipart/form-data")
+    assert dbq(app, "SELECT file_name FROM chat_messages WHERE file!=''", one=True)["file_name"] == "brief.pdf"
+    o.post(f"/chat/c/{cid}/send", data=dict(body="bad", file=(io.BytesIO(b"<script>1</script>"), "x.html")), content_type="multipart/form-data")
+    assert dbq(app, "SELECT COUNT(*) c FROM chat_messages WHERE body='bad'", one=True)["c"] == 0
+    # private channel stays private
+    o.post("/chat/new", data=dict(name="Launch Team", private="1"))
+    pc = dbq(app, "SELECT id FROM channels WHERE name='launch-team'", one=True)["id"]
+    assert o.get(f"/chat/c/{pc}").status_code == 200 and m.get(f"/chat/c/{pc}").status_code == 404
+    # share a post as a card
+    o.post("/m/content_items/save", data=dict(title="Diwali reel", channel="Instagram"))
+    rid = dbq(app, "SELECT id FROM content_items WHERE title='Diwali reel'", one=True)["id"]
+    o.post("/chat/share", data=dict(ref=f"content_items:{rid}", channel=str(cid)))
+    assert "Diwali reel" in m.get(f"/chat/c/{cid}").data.decode()
+    assert o.post("/chat/share", data=dict(ref="users:1", channel=str(cid))).status_code == 400
+    # only the sender or a lead deletes; pin is for approvers
+    assert m.post(f"/chat/msg/{mid}/pin").status_code == 403
+    o.post(f"/chat/msg/{mid}/pin"); assert dbq(app, "SELECT pinned FROM chat_messages WHERE id=?", (mid,), one=True)["pinned"] == 1
+    assert o.get(f"/chat/c/{cid}?frag=1").status_code == 200

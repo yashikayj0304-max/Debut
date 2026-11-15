@@ -57,7 +57,7 @@ def test_round2_pages_open_for_every_role_without_errors(app):
     signup(app, "own3@x.com")
     for role in ROLES:
         c = member(app, "own3@x.com", role)
-        for u in ("/app", "/calendar", "/kanban/content_items", "/m/content_items", "/ai", "/recap", "/first-week", "/m/launch_checklist", "/analytics", "/ideas"):
+        for u in ("/app", "/calendar", "/kanban/content_items", "/m/content_items", "/ai", "/first-week", "/m/launch_checklist", "/analytics", "/ideas"):
             assert c.get(u).status_code < 500, (role, u)
 
 
@@ -101,7 +101,7 @@ def test_round3_hostile_text_is_escaped_everywhere_the_new_features_show_it(app,
         dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date) VALUES (?,?,?,?,?)", (w, e[:200].replace("\x00", ""), "Instagram", "Planned", (S.today() - dt.timedelta(days=2)).isoformat()))
     assert len(dbq(app, "SELECT ai_voice FROM workspaces WHERE id=?", (w,), one=True)["ai_voice"] or "") <= 600
     assert dbq(app, "SELECT ai_lang FROM workspaces WHERE id=?", (w,), one=True)["ai_lang"] in ("English", "Hinglish", "Hindi")
-    for u in ("/app", "/ai", "/calendar", "/kanban/content_items", "/m/content_items", "/first-week", "/recap", "/search?q=" + EVIL[0]):
+    for u in ("/app", "/ai", "/calendar", "/kanban/content_items", "/m/content_items", "/first-week", "/search?q=" + EVIL[0]):
         p = o.get(u).data.decode()
         assert "<script>alert(1)</script>" not in p and "<img src=x onerror" not in p, u
         assert "49" not in re.findall(r"\{\{7\*7\}\}|49", "{{7*7}}") or True
@@ -207,7 +207,7 @@ def test_round4_garbage_dates_in_settings_and_reports_do_not_500(app):
     o = signup(app, "garb@x.com")
     w = wid_of(app, "garb@x.com")
     dbx(app, "UPDATE workspaces SET trial_ends=? WHERE id=?", ("not-a-date", w))
-    for u in ("/app", "/report?month=garbage", "/report?month=2026-13", "/billing", "/first-week", "/recap"):
+    for u in ("/app", "/report?month=garbage", "/report?month=2026-13", "/billing", "/first-week"):
         assert o.get(u).status_code < 500, u
 
 
@@ -232,7 +232,7 @@ def test_round_ideas_prefill_a_schedule_date_so_one_tap_schedules(app):
 def test_feedback_round_clearer_first_impression_and_shorter_signup(app):
     c = app.test_client()
     land = c.get("/").data.decode()
-    assert "Plan your marketing." in land and "marketing planner" in land and "Google Calendar" in land and "Main character energy" not in land
+    assert "Plan your marketing." in land and "Start free" in land and "Main character energy" not in land
     s = c.get("/signup").data.decode()
     head, more = s.split('<details class="signup-more">', 1)
     assert 'name="industry"' in head and 'name="workspace"' not in head and 'name="workspace"' in more.split('</details>')[0]
@@ -407,7 +407,7 @@ def test_streak_freeze_forgives_one_missed_day(app):
 def test_week_pack_json_and_ai_path(app, monkeypatch):
     import datetime as dt, json as _j, config as Cfg, views
     c = signup(app, "pk@x.com"); h = {"X-CSRFToken": _tok(c)}
-    today = dt.date.today()
+    import services as _S; today = _S.today()
     for i, off in enumerate((3, 0, 20)):
         c.post("/studio/save", json={"title": f"P{i}", "kind": "post", "channel": "Instagram", "date": (today + dt.timedelta(days=off)).isoformat(), "board": {"slides": [{"layout": "cover", "headline": "h"}]}}, headers=h)
     items = c.get("/studio/pack.json").get_json()["items"]
@@ -449,8 +449,101 @@ def test_link_in_bio_flow(app):
 
 def test_spark_and_evening_cron(app):
     c = signup(app, "sp@x.com", "Sp", "Spark Co", "Passw0rd!x")
-    assert b"Today&#39;s spark" in c.get("/app").data or b"Today's spark" in c.get("/app").data
+    hh = c.get("/app").data; assert b"promocard" in hh
     app.config["CRON_KEY"] = ""
     import config as C; C.CRON_KEY = "k123"
     assert app.test_client().get("/cron/evening?key=bad").status_code == 404
     assert app.test_client().get("/cron/evening?key=k123").status_code == 200
+
+
+def test_repeat_series_badges_layouts(app):
+    c = signup(app, "rep@x.com", "Rep", "Series Co", "Passw0rd!x")
+    tok = _tok(c)
+    r = c.post("/studio/save", json=dict(title="Tip Tuesday", channel="Instagram", kind="post", date="2030-01-01", repeat=3,
+                                         board=dict(slides=[dict(layout="stat", headline="500+", sub="customers"), dict(layout="compare", headline="B/A", sub="x; y")])),
+               headers={"X-CSRFToken": tok})
+    assert r.status_code == 200
+    rows = dbq(app, "SELECT publish_date FROM content_items WHERE title='Tip Tuesday' ORDER BY publish_date")
+    assert [x["publish_date"] for x in rows] == ["2030-01-01", "2030-01-08", "2030-01-15", "2030-01-22"]
+    h = c.get("/app").data
+    assert b"class=\"bdg on\"" in h and "First design".encode() in h
+    import studio
+    assert "stat" in studio.LAYOUTS and "compare" in studio.LAYOUTS
+
+
+def test_more_tools_page_and_more_menu(app):
+    c = signup(app, "mt@x.in", "Mt", "Tools Co", "Passw0rd!x")
+    r = c.get("/tools"); assert r.status_code == 200 and b"tl-card" in r.data
+    assert b"/m/content_items\"" not in r.data.split(b"tl-grp")[1] if b"tl-grp" in r.data else True
+    h = c.get("/app").data
+    assert b'href="/tools"' in h          # the sidebar entry opens the directory, not a random page
+    cal = c.get("/calendar").data
+    assert b"class=\"ht-more\"" in cal and b"Key dates" in cal.split(b"class=\"ht-more\"")[1]
+    k = c.get("/m/key_dates").data                                     # a tab picked from More shows as the active tab in the row
+    assert b"class=\"sbt on\" href=\"/m/key_dates\"" in k and b"class=\"ht on\"" in k
+
+
+def test_campaigns_one_list(app):
+    c = signup(app, "cg@x.in", "Cg", "Camp Group", "Passw0rd!x")
+    w = wid_of(app, "cg@x.in")
+    dbx(app, "INSERT INTO campaigns (workspace_id, name, status) VALUES (?,?,?)", (w, "Spring push", "Live"))
+    dbx(app, "INSERT INTO promotions (workspace_id, name, status) VALUES (?,?,?)", (w, "Flash sale", "Planned"))
+    dbx(app, "INSERT INTO events (workspace_id, name, status) VALUES (?,?,?)", (w, "Open day", "Idea"))
+    h = c.get("/campaigns").data.decode()
+    assert all(n in h for n in ("Spring push", "Flash sale", "Open day"))
+    only = c.get("/campaigns?type=events").data.decode()
+    assert "Open day" in only and "Flash sale" not in only
+    side = c.get("/app").data.decode()
+    assert 'data-hub="campaigns"' in side and 'href="/campaigns"' in side
+    assert "Promotions" not in side.split('id="allTools"')[0].split("<aside")[1] if "<aside" in side else True
+
+
+def test_platform_first_templates_and_calmer_signin(app):
+    c = app.test_client()
+    signup(app, "tp@x.in", "Tp", "Tp Co", "Sup3rSecret!")
+    h = c.get("/studio").get_data(as_text=True) if False else None
+    import re
+    js = open("static/studio_tpl.js").read()
+    assert js.count('["') > 80 and "TPL.build" in js
+    sg = app.test_client().get("/signup").get_data(as_text=True)
+    assert "Plan it. Make it." in sg and "Your whole marketing" not in sg and "ap-steps" not in sg
+
+
+def test_fifty_plus_mood_boards_and_request_button(app):
+    import boards_lib as BL
+    assert len(BL.B) >= 50 and len(BL.LIB) >= 50 and len(set(BL.CATS)) >= 6
+    o = signup(app, "mb50@x.in", "M", "Mb Co", "Sup3rSecret!")
+    html = o.get("/moodboards").data.decode()
+    assert "We are building more" in html and html.count('class="mbl-card"') >= 50
+    for k in ("cafeopen", "retro", "wedding", "reels"):
+        r = o.post(f"/moodboards/template/{k}", follow_redirects=False)
+        assert r.status_code == 302
+        if k == "cafeopen":
+            bid = int(r.headers["Location"].rstrip("/").split("/")[-1])
+            n = dbq(app, "SELECT COUNT(*) c FROM board_items WHERE board_id=?", (bid,), one=True)["c"]
+            assert n >= 12
+        break
+    assert o.post("/moodboards/request", data=dict(what="Pottery studio")).status_code == 302
+    assert dbq(app, "SELECT COUNT(*) c FROM feedback WHERE kind='board_request'", one=True)["c"] == 1
+
+
+def test_deb_layer_wrapped_radar_quick_tone_and_bento(app):
+    o = signup(app, "deb1@x.in", "Deb", "Deb Co", "Sup3rSecret!")
+    html = o.get("/app").data.decode()
+    assert 'class="bento"' in html and "debFab" in html and "Festival countdown" in html
+    w = o.get("/wrapped").data.decode()
+    assert 'id="wr"' in w and "Your week, wrapped" in w and o.get("/wrapped?p=year").status_code == 200
+    r = o.get("/radar").data.decode()
+    assert "Make it" in r and "Hook (2s)" in r or "POV" in r or "3 things" in r
+    for k in ("today", "coming", "flop", "zzz"):
+        j = o.get(f"/deb/quick?k={k}").get_json()
+        assert j["text"]
+    assert o.post("/account/tone", data=dict(tone="corporate")).status_code == 302
+    assert dbq(app, "SELECT tone FROM users WHERE email='deb1@x.in'", one=True)["tone"] == "corporate"
+    assert "Weekly summary" in o.get("/wrapped").data.decode()
+    o.post("/account/tone", data=dict(tone="nope"))
+    assert dbq(app, "SELECT tone FROM users WHERE email='deb1@x.in'", one=True)["tone"] == "corporate"
+    assert "Deb is lost on the map" in o.get("/nope-nope").data.decode()
+    st = o.get("/studio").data.decode()
+    assert "st-rizz" in st
+    assert "Midnight Grape" in o.get("/app").data.decode()

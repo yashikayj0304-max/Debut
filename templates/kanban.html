@@ -1,7 +1,8 @@
 {% extends "base.html" %}{% from "_bold.html" import line %}{% block body %}{{ line(key) }}
 {% set pop = key in ('tasks','kpis') %}
+{% if key == "content_items" %}{% set vw = "board" %}{% include "_views.html" %}{% endif %}
 <div class="head"><h1>{{ m.icon }} {{ m.title }} — Board</h1><div class="acts">{% if can_drag %}<a class="btn" href="{{ url_for('m_new', key=key) }}"{% if pop %} onclick="return openOverlay(this.href,'')"{% endif %}>+ New</a>{% endif %}
-<a class="btn ghost" href="{{ url_for('m_list', key=key) }}">List view</a></div></div>
+{% if key != "content_items" %}<a class="btn ghost" href="{{ url_for('m_list', key=key) }}">List view</a>{% endif %}</div></div>
 <form class="boardbar" method="get" id="boardbar">
  <label class="sortpick"><span>↕ Sort</span><select name="sort" aria-label="Sort cards" onchange="this.form.submit()">{% for c, l in choices %}<option value="{{ c }}"{% if c == sort %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
  {% if groups|length > 1 %}<label class="sortpick"><span>▦ Group by</span><select name="by" aria-label="Group columns by" onchange="this.form.submit()">{% for n, l, o in groups %}<option value="{{ n }}"{% if n == field %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>{% endif %}

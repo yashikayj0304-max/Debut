@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}About — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<article class="about" style="max-width:720px;margin:0 auto;line-height:1.65">
+<h1>Marketing, without the mess.</h1>
+<p class="lead">Debut is a marketing planner built in India for founders, creators, students and small teams who are tired of running their brand from spreadsheets, WhatsApp groups and scattered notes. Your content calendar, ideas, launch plans, campaigns, leads and results sit in one calm place, so you always know what to do next.</p>
+<h2>Why we built it</h2>
+<p>Marketing work is creative, but the planning around it is chaos. Plans live in six tabs, approvals live in chat, festival dates get missed, and nobody can say what worked last month. Big teams buy expensive tools; everyone else makes do. Debut is for the solo founder in Indore and the small agency in Mumbai who want to plan like a big brand, without the price or the learning curve.</p>
+<h2>What Debut does</h2>
+<ul>
+<li><b>Plan:</b> a content calendar with Indian festivals and sale dates built in, mood boards and launch plans.</li>
+<li><b>Create:</b> AI drafts that follow your brand voice, in English, Hinglish or Hindi, and templates to start from.</li>
+<li><b>Grow:</b> results, trackable links and a monthly recap you can share.</li>
+<li><b>Work together:</b> roles, approvals, a client portal and a Today list that fills itself.</li>
+</ul>
+<h2>What we believe</h2>
+<ul><li>One clear next step beats a long to-do list.</li><li>Indian marketing is its own thing: festivals, WhatsApp, regional audiences, rupee budgets.</li><li>Tools should feel good to open.</li><li>Your data is yours. Download or delete it any time.</li></ul>
+<h2>Why “Debut”</h2>
+<p>Every brand has a debut: the first launch, the first campaign, the first post that lands. We help you make yours, and every one after it, a good one.</p>
+<h2>Who built this</h2>
+<p>Debut is built by Yashika, a management student who has worked on FMCG marketing and shopper research projects and saw how much time goes into chasing plans instead of making good work. It is still young and improving every week, so tell us what is missing.</p>
+<p style="margin-top:22px"><a class="btn" href="{{ url_for('demo') }}">Try the demo</a> <a class="btn ghost" href="{{ url_for('auth.signup') }}">Start free</a> <a class="btn ghost" href="{{ url_for('contact') }}">Talk to a real person</a></p>
+</article>{% endblock %}

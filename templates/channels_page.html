@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Channels — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<h1 style="text-align:center">Plan for every channel you use</h1>
+<p class="muted" style="text-align:center;max-width:620px;margin:0 auto 18px">Debut plans, schedules and reminds you for all of these. You post from each platform yourself; auto-publishing is not built yet. Results come in by CSV import or by typing them in.</p>
+{% for name, blurb, items in groups %}<section class="lp-group"><h3>{{ name }}</h3><p class="muted">{{ blurb }}</p><div class="feat">{% for i in items %}<div class="card"><b>{{ i }}</b></div>{% endfor %}</div></section>{% endfor %}
+<p style="text-align:center;margin-top:18px"><a class="btn" href="{{ url_for('auth.signup') }}">Start free</a> <a class="btn ghost" href="{{ url_for('demo') }}">Try the demo</a></p>
+{% endblock %}

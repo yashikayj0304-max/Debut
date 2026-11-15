@@ -1,6 +1,8 @@
 {% extends "base.html" %}{% from "_empty.html" import empty %}{% from "_bold.html" import line %}{% block body %}{{ line(key) }}{% set popup = true %}{% set pop = ' onclick="return openOverlay(this.href,\'\')"'|safe if popup else '' %}
+{% if key == "content_items" %}{% set vw = "list" %}{% include "_views.html" %}{% endif %}
 <div class="head"><h1>{{ m.icon }} {{ m.title }}</h1><div class="acts">
 {% if role != 'viewer' %}<a class="btn" href="{{ url_for('m_new', key=key) }}"{{ pop }}>+ New</a>{% endif %}
+{% if key == 'launch_checklist' and role != 'viewer' %}<form method="post" action="{{ url_for('checklist_full') }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}"><button class="btn ghost">Add the full checklist</button></form>{% endif %}
 {% if m.kanban and key != 'content_items' %}<a class="btn ghost" href="{{ url_for('kanban', key=key) }}">Board view</a>{% endif %}
 <details class="datamenu"><summary class="btn ghost">Import / export</summary><div class="datamenu-in">
 {% if role != 'viewer' %}<a href="#importcsv" onclick="var d=document.getElementById('importcsv');d.open=true;this.closest('details').open=false;d.scrollIntoView({block:'center'});return false">Import from a CSV file</a>{% endif %}
@@ -80,4 +82,4 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&drag){end(f
  else if(dn&&el.nextElementSibling)el.parentNode.insertBefore(el,el.nextElementSibling.nextElementSibling);else return;
  g.focus();save();});
 })();
-</script>{% endif %}{% endblock %}
+</script>{% endif %}<script>(function(){if(location.hash==="#importcsv"){var d=document.getElementById("importcsv");if(d){d.open=true;d.scrollIntoView({block:"center"})}}})()</script>{% endblock %}

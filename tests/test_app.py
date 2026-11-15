@@ -24,7 +24,7 @@ def test_signup_login_and_seed(app):
     r = c.get("/app")
     assert r.status_code == 200 and b"Command Centre" in r.data
     w = wid_of(app, "a@x.com")
-    assert dbq(app, "SELECT COUNT(*) c FROM launch_checklist WHERE workspace_id=?", (w,), one=True)["c"] > 20
+    assert dbq(app, "SELECT COUNT(*) c FROM launch_checklist WHERE workspace_id=?", (w,), one=True)["c"] < 20
     assert dbq(app, "SELECT plan FROM workspaces WHERE id=?", (w,), one=True)["plan"] == "trial"
     c.post("/logout")
     assert c.get("/app").status_code == 302
@@ -446,7 +446,7 @@ def test_industry_signup_kit_and_switch(app, monkeypatch):
     assert dbq(app, "SELECT COUNT(*) c FROM personas WHERE name='Weekend leisure couple'", one=True)["c"] == 1
     body = c.get("/ideas").data.decode()
     assert "Hospitality" in body and "Golden-hour tour" in body and "Direct booking drive" in body and "RevPAR" in body
-    assert "Hospitality" in c.get("/app").data.decode() and "playbook" in c.get("/app").data.decode()
+    assert "Hospitality" in c.get("/app").data.decode() and "starter guide" in c.get("/app").data.decode()
     # no kit -> no personas; general -> nothing extra
     n = app.test_client()
     n.post("/signup", data=dict(name="D", email="d@x.com", workspace="Brand", industry="d2c", password="Sup3rSecret!", agree="1"))
@@ -1102,7 +1102,7 @@ def test_help_centre_mentions_this_session_s_new_features(app, mails):
     # the tour must be replayable and must not still reference the removed popup
     assert "onclick=\"startTour()\"" in page
     base = o.get("/app").data.decode()
-    assert "More tools" not in base
+    assert "Content &amp; Calendar" in base or "Content" in base      # new accounts start on the short menu, so "More tools" is now a sidebar entry (not a popup)
 
 
 def test_ownership_transfer(app, mails):
@@ -2720,12 +2720,12 @@ def test_sidebar_shows_every_module_directly_no_more_tools_popup(app):
     o = signup(app, "o@x.com")
     html = o.get("/app").data.decode()
     aside = html.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert "More tools" not in aside and "moreToolsModal" not in html  # the popup is gone entirely
+    assert "moreToolsModal" not in html  # the popup is gone entirely
     # a module that used to be pushed into the popup (5th+ item in its group) is now directly in the sidebar
     assert "Rate Card" in aside
     assert "Launch Checklist" in aside
     # ...same as the groups' first few items, which were always shown directly
-    assert "Launch Plans (GTM)" in aside and "Calendar" in aside and "Promotions" in aside and "Events" in aside
+    assert "Launch Plans" in aside and "Calendar" in aside and "Promotions" in aside and "Events" in aside
 
 
 # =====================================================================  Idea Bank quick-add: fetch-based overlay fragment (replaces the broken same-origin iframe)
@@ -2848,7 +2848,9 @@ def test_excel_mock_template_download(app):
     assert ws.cell(row=2, column=1).value.startswith("Example")   # a filled-in mock example row
 
 
-def test_excel_mock_template_handles_slash_in_module_title(app):
+def test_excel_mock_template_handles_slash_in_module_title(app, monkeypatch):
+    import views as _V
+    monkeypatch.setitem(_V.MODULES["personas"], "title", "Ideal Customers (Personas / ICP)")
     # "Personas / ICP" has a slash in its title, which Excel forbids in a sheet name (\ / * [ ] : ?) — this
     # used to crash the download with a ValueError from openpyxl; confirm it's sanitized instead.
     o = signup(app, "o2@x.com")
@@ -3445,9 +3447,9 @@ def test_dark_mode_pinned_and_empty_state_present(app, mails):
 
 def test_landing_feature_overviews_clickable(app):
     html = app.test_client().get("/").data.decode()
-    assert html.count('class="bt ') == 6 and html.count('data-f="') >= 5
+    assert html.count('class="bt ') == 7 and html.count('data-f="') >= 5
     assert 'id="featDlg"' in html and "Mood boards" in html
-    assert app.test_client().get("/features").data.decode().count('class="card fcard"') == 15
+    assert app.test_client().get("/features").data.decode().count('class="card fcard"') == 17
     assert html.index('id="featDlg"') > html.index("</section>")  # dialog sits in the body, not inside the title block
 
 
@@ -3492,11 +3494,11 @@ def test_kudos_and_reactions(app, mails):
     o = signup(app, "kudosowner@x.com")
     m = _join(app, o, mails, "kudosmate@x.com", "manager", name="Mate Kay")
     w = o.get("/kudos").data.decode()
-    assert "Kudos wall" in w and "Mate Kay" in w
+    assert "Team cheers" in w and "Mate Kay" in w
     # send kudos, recipient is notified, wall shows it
     uid = re.search(r'<option value="(\d+)">Mate Kay', w).group(1)
     r = o.post("/kudos/send", data=dict(to=uid, emoji="🔥", note="Nailed the launch reel"), follow_redirects=True).data.decode()
-    assert "Kudos sent" in r and "Nailed the launch reel" in r
+    assert "Cheer sent" in r and "Nailed the launch reel" in r
     n = m.get("/notifications").data.decode()
     assert "sent you kudos" in n
     assert "Say what they nailed" in o.post("/kudos/send", data=dict(to=uid, note=""), follow_redirects=True).data.decode()
@@ -3528,7 +3530,7 @@ def test_v10_checklist_agenda_covers(app):
     assert b'class="agenda"' in c.get("/calendar").data
     c.post("/moodboards/new", data={"name": "Vibes"})
     assert b"bcover" in c.get("/moodboards").data
-    assert "Kudos wall" in c.get("/manual").get_data(as_text=True)
+    assert "Team cheers" in c.get("/manual").get_data(as_text=True)
 
 
 def test_presence_and_mention_chips(app, mails):
@@ -3694,7 +3696,7 @@ def test_plan_cards_show_only_what_each_step_adds(app):
     assert cards["agency"]["hidden"] is True and cards["team"]["hidden"] is False
     assert "KPI tracking & analytics" not in cards["team"]["adds"]            # already in Starter, so Team does not repeat it
     assert "Content Ops: creator network, orders, invoices" in cards["team"]["adds"] and cards["team"]["popular"] is True
-    assert any("5 → 25" in a for a in cards["agency"]["adds"])
+    assert any("was 5" in a for a in cards["agency"]["adds"])
     # billing mode compares against the customer's CURRENT plan, so Agency from Free lists everything it adds
     from_free = {c["key"]: c for c in C.plan_cards("free")}
     assert "CSV import" in from_free["agency"]["adds"] and from_free["agency"]["base"] == "Free"
@@ -3734,7 +3736,7 @@ def test_landing_explains_purpose_for_newcomers_and_pros(app):
     feat = app.test_client().get("/features").data.decode()
     for t in ("Launch plans (GTM)", "trackable links (UTM)", "Made for professionals too"):
         assert t in feat, t
-    assert feat.count("lp-group") >= 4 and feat.count('class="card fcard"') == 15
+    assert feat.count("lp-group") >= 4 and feat.count('class="card fcard"') == 17
 
 
 def test_idk_shortcut_on_dashboard_and_create_menu(app):
@@ -3779,13 +3781,13 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     o = signup(app, "hubs@x.com")
     h = o.get("/app").data.decode()
     aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) == 11
+    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) == 12  # eleven hubs plus "More tools" (niche pages: same URLs, one place)
     for name in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
         assert name in aside, name
     # the sidebar order is the intended day-to-day order
     pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns &amp; Events", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
     assert pos == sorted(pos)
-    assert "gtile" not in aside and "More tools" not in h  # no stray tiles, no page left outside a hub
+    assert "More tools" in h  # the niche pages live in one place
     # team pages live in the Team hub, not in the Workspace block
     ws = aside.split('data-g="Workspace"', 1)[1]
     for gone in ("Kudos", "Team hub", "Team &amp; roles", "Activity", "Client report"):
@@ -3799,10 +3801,10 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     sales = o.get("/m/leads").data.decode()
     assert 'class="hubtabs"' in sales and "Clients" in sales
     res = o.get("/analytics").data.decode()  # results pages are one hub: numbers, report, health, recap
-    assert 'class="hubtabs"' in res and "Report" in res and "Marketing health" in res and "Recap" in res and "Results log" not in res.split("hubtabs", 1)[1].split("</nav>", 1)[0]
+    assert 'class="hubtabs"' in res and "Report" in res and "Recap" in res and "Results log" not in res.split("hubtabs", 1)[1].split("</nav>", 1)[0]
     assert 'class="ht on"' in o.get("/m/kpis").data.decode()  # the logged-results list still lights up its hub
     team = o.get("/team-hub").data.decode()
-    for t in ("Team hub", "Team &amp; roles", "Activity", "Kudos wall"):
+    for t in ("Team hub", "Team &amp; roles", "Activity", "Team cheers"):
         assert t in team, t
     assert 'class="hubtabs"' not in o.get("/m/tasks").data.decode()
     for u in ("/kanban/content_items", "/m/content_items", "/m/key_dates", "/m/assets", "/moodboards", "/ideas", "/ai", "/pulse", "/analytics", "/m/personas", "/m/campaigns", "/utm", "/content-ops", "/discover", "/report", "/kudos", "/team", "/activity", "/team-hub"):
@@ -4044,7 +4046,7 @@ def test_idea_bank_is_a_tab_right_after_calendar(app):
     groups = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     content = next(g for g in groups if g["k"] == "content")
     labels = [it[0] for it in content["items"]]
-    assert labels.index(next(l for l in labels if "Idea bank" in l)) == labels.index(next(l for l in labels if "Calendar" in l)) + 1
+    pi = labels.index(next(l for l in labels if "Posts" in l)); assert "Create" in labels[pi + 1] and "Promo" in labels[pi + 2] and "Grid" in labels[pi + 3] and "Idea bank" in labels[pi + 4]    # Create and Promo ideas now sit between Posts and the Idea bank
     assert 'data-hub="ideas"' not in h                                                    # not a separate hub
     cal = o.get("/calendar?y=2026&m=11").data.decode()
     assert 'class="dd-ideas"' in cal and 'class="dd-idea"' in cal
@@ -4085,7 +4087,7 @@ def test_no_palette_or_theme_switchers(app):
     o = signup(app, "pal@x.com")
     page = o.get("/app").data.decode()
     assert "Colour palette" not in page and "Dark / light mode" not in page and 'class="tb-ic tb-theme"' in page  # toggle lives in the top bar only
-    assert "prefers-color-scheme" in page  # the look simply follows the device
+    assert "data-theme" in page  # dark by default, one tap to light
 
 
 def test_bold_pages_render_for_every_role(app, mails):
@@ -4277,7 +4279,7 @@ def test_features_page_and_landing_trim(app):
     assert land.count("<section") <= 9 and land.index('id="prices"') < land.index("Which sounds like you?") < land.index("Quick answers")   # short page: prices come early
     assert land.count('class="card fcard"') == 0
     feat = c.get("/features").data.decode()
-    assert feat.count('class="card fcard"') == 15 and 'id="featDlg"' in feat and "Built for your lane" in feat
+    assert feat.count('class="card fcard"') == 17 and 'id="featDlg"' in feat and "Built for your lane" in feat
 
 
 def test_proof_blocks_only_show_with_real_content_and_share_image(app):
@@ -4306,12 +4308,12 @@ def test_analytics_tiles_keep_each_metric_with_its_own_numbers(app):
     c.post("/m/kpis/save", data=dict(metric="Orders", channel="Web", period="2026-11-01", value="120", target="300"))
     html_ = c.get("/analytics").data.decode()
     tiles = re.findall(r'kpi-tile[^"]*"><span class="muted">([^<]+)</span>\s*<b class="big">([^<]+)</b>', html_)
-    assert dict(tiles) == {"ROAS": "2.4", "Orders": "120"}
+    assert dict(tiles) == {"Ad return (ROAS)": "2.4", "Orders": "120"}
     assert "80% of the 300" not in html_ and "40% of the 300 target" in html_ and "80% of the 3 target" in html_
     assert 'id="k0"' not in html_            # one data point: tile only, no empty-looking line chart
     c.post("/m/kpis/save", data=dict(metric="ROAS", channel="Paid", period="2026-11-08", value="3.3", target="3"))
     html_ = c.get("/analytics").data.decode()
-    assert 'id="k0"' in html_ and "ROAS over time" in html_ and "since the last entry" in html_
+    assert 'id="k0"' in html_ and "Ad return (ROAS) over time" in html_ and "since the last entry" in html_
 
 
 def test_analytics_empty_state(app):
@@ -4462,7 +4464,7 @@ def test_analytics_import_fills_numbers_and_is_repeatable(app):
     o = app.test_client()
     o.post("/signup", data=dict(name="D", email="sync@x.com", workspace="Brand", industry="d2c", password="Sup3rSecret!", agree="1"))
     page = o.get("/analytics").data.decode()
-    assert "Bring in real numbers" in page and "analytics/import" in page and "All logged results" in page
+    assert "Import your analytics" in page and "analytics/import" in page and "All logged results" in page
     def go(txt, name="meta-ads.csv", **kw):
         return o.post("/analytics/import", data=dict(file=(io.BytesIO(txt.encode()), name), **kw), content_type="multipart/form-data", follow_redirects=True).data.decode()
     h = go(META)
@@ -4630,3 +4632,201 @@ def test_calendar_busy_day_shows_plus_more_wraps_titles_and_dedupes_key_dates(ap
     html = o.get("/calendar").data.decode()
     assert 'class="ct"' in html and "+2 more" in html and html.count("xtra") >= 2
     assert html.count("★ Test Day") == 2 and "Test Day (India)" not in html      # once in the grid, once in the phone agenda
+
+
+def test_new_accounts_start_on_the_short_menu_and_can_open_the_rest(app):
+    c = app.test_client()
+    assert c.post("/signup", data=dict(name="Short", email="short@x.com", workspace="Short Co", password="Sup3rSecret!", agree="1")).status_code == 302
+    html = c.get("/app").data.decode()
+    assert "Content &amp; Calendar" in html and "More tools" in html
+    assert "Influencers &amp; PR" not in html.split("More tools")[0].split("hub")[-1] or html.count('class="hub') <= 5
+    assert dbq(app, "SELECT focus FROM users WHERE email=?", ("short@x.com",), one=True)["focus"] == "content"
+    c.post("/account/focus", data=dict(all="1"))                  # one tap brings the full menu back
+    assert "Influencers &amp; PR" in c.get("/app").data.decode()
+
+
+def test_day_one_home_points_at_the_planned_two_weeks_not_at_inviting_people(app):
+    c = app.test_client()
+    c.post("/signup", data=dict(name="Day", email="dayone@x.com", workspace="Day One Co", password="Sup3rSecret!", agree="1", industry="fmcg", starter_posts="1"))
+    html = c.get("/app").data.decode()
+    assert "Your first <b>2 weeks</b> are planned" in html
+    assert "Look over your first 2 weeks of posts" in html and html.index("Look over your first 2 weeks") < html.index("Invite a teammate") if "Invite a teammate" in html else True
+    assert "202" not in html.split("Next up:")[1][:80] if "Next up:" in html else True      # a day word, not an ISO date
+    plain = app.test_client()
+    plain.post("/signup", data=dict(name="Pl", email="plain@x.com", workspace="Plain Co", password="Sup3rSecret!", agree="1"))
+    assert "are planned" not in plain.get("/app").data.decode()
+
+
+def test_welcome_questions_replan_the_two_weeks_and_set_a_goal(app):
+    import services as S
+    c = app.test_client()
+    c.post("/signup", data=dict(name="Wel", email="wel@x.com", workspace="Wel Co", password="Sup3rSecret!", agree="1", industry="fmcg", starter_posts="1"))
+    w = wid_of(app, "wel@x.com")
+    assert "3 quick questions" in c.get("/app").data.decode()
+    r = c.post("/welcome", data=dict(channels=["LinkedIn", "Email"], per_week="2", goal="50 new customers"))
+    assert r.status_code == 302
+    rows = dbq(app, "SELECT channel, status FROM content_items WHERE workspace_id=?", (w,))
+    assert 3 <= len(rows) <= 4 and {x["channel"] for x in rows} <= {"LinkedIn", "Email"}
+    assert dbq(app, "SELECT 1 FROM tasks WHERE workspace_id=? AND title LIKE '%50 new customers%'", (w,), one=True)
+    assert "3 quick questions" not in c.get("/app").data.decode()
+
+
+def test_accept_the_week_locks_suggested_posts_and_skip_removes_them(app):
+    import datetime as dt
+    import services as S
+    c = app.test_client()
+    c.post("/signup", data=dict(name="Wk", email="wk@x.com", workspace="Wk Co", password="Sup3rSecret!", agree="1", industry="fmcg", starter_posts="1"))
+    w = wid_of(app, "wk@x.com")
+    ids = [r["id"] for r in dbq(app, "SELECT id FROM content_items WHERE workspace_id=? AND publish_date<=? ORDER BY id", (w, (S.today() + dt.timedelta(days=7)).isoformat()))]
+    assert "This week's plan" not in c.get("/app").data.decode().replace("&#39;", "'")      # while the 3 questions are pending, one card at a time
+    c.post("/welcome", data=dict(per_week="3"))
+    ids = [r["id"] for r in dbq(app, "SELECT id FROM content_items WHERE workspace_id=? AND publish_date<=? ORDER BY id", (w, (S.today() + dt.timedelta(days=7)).isoformat()))]
+    assert len(ids) >= 2 and "This week's plan" in c.get("/app").data.decode().replace("&#39;", "'")
+    c.post("/plan-week/accept", data=dict(skip=str(ids[0])))
+    assert not dbq(app, "SELECT 1 FROM content_items WHERE id=?", (ids[0],), one=True)
+    assert all(r["status"] == "Planned" for r in dbq(app, "SELECT status FROM content_items WHERE id IN (%s)" % ",".join(str(i) for i in ids[1:])))
+
+
+def test_mark_posted_whatsapp_link_on_home(app):
+    import services as S
+    o = signup(app, "post@x.com")
+    w = wid_of(app, "post@x.com")
+    dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date) VALUES (?,?,?,?,?)", (w, "Ship the reel", "Instagram", "Scheduled", S.today().isoformat()))
+    html = o.get("/app").data.decode()
+    assert 'data-key="content_items"' in html and 'data-val="Published"' in html and "wa.me/?text=" in html and "Ship%20the%20reel" in html
+    rid = dbq(app, "SELECT id FROM content_items WHERE workspace_id=? AND title='Ship the reel'", (w,), one=True)["id"]
+    assert o.post(f"/m/content_items/{rid}/status", data=dict(value="Published")).status_code in (200, 302)
+    assert dbq(app, "SELECT status FROM content_items WHERE id=?", (rid,), one=True)["status"] == "Published"
+
+
+def test_running_low_card_and_plan_more_refill_the_calendar(app):
+    import datetime as dt
+    import services as S
+    c = app.test_client()
+    c.post("/signup", data=dict(name="Low", email="low@x.com", workspace="Low Co", password="Sup3rSecret!", agree="1", industry="fmcg", starter_posts="1"))
+    w = wid_of(app, "low@x.com")
+    c.post("/welcome", data=dict(channels=["Instagram"], per_week="2"))
+    dbx(app, "UPDATE content_items SET publish_date=?, status='Published' WHERE workspace_id=?", ((S.today() - dt.timedelta(days=3)).isoformat(), w))      # two weeks went by
+    assert "Your calendar is running low" in c.get("/app").data.decode()
+    before = len(dbq(app, "SELECT id FROM content_items WHERE workspace_id=?", (w,)))
+    assert c.post("/plan-more").status_code == 302
+    rows = dbq(app, "SELECT title, channel, publish_date FROM content_items WHERE workspace_id=? AND publish_date>=?", (w, S.today().isoformat()))
+    assert len(rows) >= 3 and len(dbq(app, "SELECT id FROM content_items WHERE workspace_id=?", (w,))) > before
+    assert len({r["title"].lower() for r in rows}) == len(rows)
+    assert "Your calendar is running low" not in c.get("/app").data.decode()
+
+
+def test_old_untouched_suggestions_clear_themselves_but_edited_posts_stay(app):
+    import datetime as dt
+    import services as S
+    o = signup(app, "stale@x.com")
+    w = wid_of(app, "stale@x.com")
+    old = (S.today() - dt.timedelta(days=5)).isoformat()
+    dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date, notes) VALUES (?,?,?,?,?,?)", (w, "Stale idea", "Instagram", "Idea", old, "Suggested by Debut (x). Edit it."))
+    dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date, notes) VALUES (?,?,?,?,?,?)", (w, "Mine, still an idea", "Instagram", "Idea", old, "my own note"))
+    dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date, notes) VALUES (?,?,?,?,?,?)", (w, "Planned old", "Instagram", "Planned", old, "Suggested by Debut (x). Edit it."))
+    o.get("/app")
+    titles = {r["title"] for r in dbq(app, "SELECT title FROM content_items WHERE workspace_id=?", (w,))}
+    assert "Stale idea" not in titles and "Mine, still an idea" in titles and "Planned old" in titles
+
+
+def test_first_week_page_saves_three_numbers_and_the_card_goes_away(app):
+    import services as S
+    c = app.test_client()
+    c.post("/signup", data=dict(name="Fw", email="fw@x.com", workspace="Fw Co", password="Sup3rSecret!", agree="1", industry="fmcg", starter_posts="1", focus=["content", "results"]))
+    w = wid_of(app, "fw@x.com")
+    c.post("/welcome", data=dict(per_week="3"))
+    assert "See your first results" in c.get("/app").data.decode()
+    page = c.get("/first-week").data.decode()
+    assert "Your first week" in page and "Followers" in page and "Orders this week" in page and "wa.me" in page
+    assert c.get("/m/kpis").status_code == 200
+    r = c.post("/first-week/numbers", data=dict(followers="1,200", reach="3400", orders="abc"))
+    assert r.status_code == 302 and "/analytics" in r.headers["Location"]
+    rows = dbq(app, "SELECT metric, value FROM kpis WHERE workspace_id=?", (w,))
+    assert {(x["metric"], int(x["value"])) for x in rows} == {("Followers", 1200), ("Reach", 3400)}
+    assert "See your first results" not in c.get("/app").data.decode()
+    assert c.post("/first-week/numbers", data=dict(followers="-5")).status_code == 302 and len(dbq(app, "SELECT id FROM kpis WHERE workspace_id=?", (w,))) == 2
+
+
+def test_hub_tabs_keep_every_page_but_tuck_rarely_used_ones_under_more(app):
+    o = signup(app, "more@x.com")
+    html = o.get("/calendar").data.decode()
+    assert 'class="ht-more"' in html and "More ▾" in html
+    head = html.split('class="ht-more"')[0]
+    assert "Idea bank" in head and "Key dates" not in head.split('class="ht-row"')[-1]       # Key dates sits under More, still one tap away
+    assert "Key dates" in html.split('class="ht-more"')[1]
+    assert o.get("/m/key_dates").status_code == 200 and 'class="ht-more" open' in o.get("/m/key_dates").data.decode()      # the open tab is never hidden
+
+
+def test_late_posts_can_be_moved_or_parked_in_one_tap(app):
+    import services as S
+    o = signup(app, "late@x.com")
+    w = wid_of(app, "late@x.com")
+    for i in range(5):
+        dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date) VALUES (?,?,?,?,?)", (w, f"Late {i}", "Instagram", "Planned", (S.today() - dt.timedelta(days=3 + i)).isoformat()))
+    assert "5 posts are past the date" in o.get("/app").data.decode()
+    o.post("/overdue/move", follow_redirects=True)
+    rows = dbq(app, "SELECT publish_date FROM content_items WHERE workspace_id=? AND title LIKE 'Late %'", (w,))
+    assert all(r["publish_date"] >= S.today().isoformat() for r in rows) and len({r["publish_date"] for r in rows}) == 3
+    for i in range(2):
+        dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date) VALUES (?,?,?,?,?)", (w, f"Old {i}", "Blog", "Planned", (S.today() - dt.timedelta(days=9)).isoformat()))
+    o.post("/overdue/skip", follow_redirects=True)
+    assert dbq(app, "SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND title LIKE 'Old %' AND status='On hold'", (w,), one=True)["c"] == 2
+    assert "past the date" not in o.get("/app").data.decode()
+
+
+def test_new_workspace_has_a_short_checklist_and_can_add_the_full_one(app):
+    o = app.test_client()
+    o.post("/signup", data=dict(name="K", email="chk@x.com", workspace="Chk", password="Sup3rSecret!", agree="1", industry="d2c", kit="1"))
+    w = wid_of(app, "chk@x.com")
+    short = dbq(app, "SELECT COUNT(*) c FROM launch_checklist WHERE workspace_id=?", (w,), one=True)["c"]
+    assert 6 <= short <= 16
+    o.post("/checklist/full", follow_redirects=True)
+    assert dbq(app, "SELECT COUNT(*) c FROM launch_checklist WHERE workspace_id=?", (w,), one=True)["c"] > short
+
+
+def test_posts_are_one_page_with_a_view_switch_and_niche_tools_move_to_more(app):
+    o = signup(app, "views@x.com")
+    for url, on in (("/calendar", "Calendar"), ("/m/content_items", "List"), ("/kanban/content_items", "Board")):
+        p = o.get(url).data.decode()
+        assert 'class="vsw"' in p and f'class="on" aria-current="page">{on}<' in p, url
+    nav = o.get("/calendar").data.decode().split('class="hubtabs"', 1)[1].split("</nav>", 1)[0]
+    assert "Posts" in nav and "Tests" not in nav and "Tracking links" not in nav
+
+
+def test_ai_remembers_brand_voice_and_language(app, monkeypatch):
+    monkeypatch.setattr(C, "ANTHROPIC_API_KEY", "k")
+    monkeypatch.setattr(C, "SMTP_HOST", "")
+    import views as V
+    seen = {}
+    monkeypatch.setattr(V, "claude_call", lambda system, prompt, *a, **k: (seen.update(p=prompt) or "ok", []))
+    o = signup(app, "voice@x.com")
+    assert o.post("/api/ai", json=dict(task="positioning", product="x", voice="warm and cheeky", lang="Hinglish")).status_code == 200
+    assert "warm and cheeky" in seen["p"] and "Hinglish" in seen["p"]
+    assert "warm and cheeky" in o.get("/ai").data.decode()
+    o.post("/api/ai", json=dict(task="positioning", product="y"))
+    assert "warm and cheeky" in seen["p"]      # saved, so the next request does not need it again
+
+
+def test_page_titles_are_plain_words_and_app_opens_dark(app):
+    o = signup(app, "title@x.com")
+    p = o.get("/calendar").data.decode()
+    assert "<h1>Content calendar</h1>" in p and "📅 Content" not in p
+    assert 'if(!t)t="dark"' in p
+    assert "vmTheme" in p and "bold.css" in p
+
+
+def test_calendar_tops_itself_up_when_someone_returns_to_an_empty_week(app):
+    import services as S
+    o = signup(app, "topup@x.com")
+    w = wid_of(app, "topup@x.com")
+    dbx(app, "DELETE FROM content_items WHERE workspace_id=?", (w,))
+    dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date) VALUES (?,?,?,?,?)", (w, "Old one", "Instagram", "Published", (S.today() - dt.timedelta(days=20)).isoformat()))
+    assert "running low, so I added" not in o.get("/app").data.decode()      # brand new account: the welcome flow handles it
+    dbx(app, "UPDATE workspaces SET created_at=? WHERE id=?", ((S.today() - dt.timedelta(days=10)).isoformat() + " 10:00:00", w))
+    page = o.get("/app").data.decode()
+    assert "running low, so I added" in page
+    n = dbq(app, "SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Idea'", (w,), one=True)["c"]
+    assert n > 0
+    o.get("/app")      # not again within 3 days
+    assert dbq(app, "SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Idea'", (w,), one=True)["c"] == n

@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Instagram grid — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<link rel="stylesheet" href="{{ url_for('static', filename='studio.css') }}?v={{ ASSET_V }}">
+<div class="head"><h1>Instagram grid</h1></div>
+<p class="muted">How your profile will look, newest first. Posts without a design show as a dashed tile, so you can see the gaps and the colour balance before you post.</p>
+{% if rows %}<div class="igrid">{% for r in rows %}<a class="itile{{ ' pub' if r['status'] == 'Published' }}" href="{{ url_for('studio.studio', item=r['id']) if r['thumb'] else url_for('m_edit', key='content_items', rid=r['id']) }}" title="{{ r['title'] }}">{% if r['thumb'] %}<img src="{{ r['thumb'] }}" alt="{{ r['title'] }}" loading="lazy">{% else %}<span class="ino">{{ r['title'] }}</span>{% endif %}<small>{{ r['publish_date'][5:] }} · {{ 'Posted' if r['status'] == 'Published' else 'Planned' }}</small></a>{% endfor %}</div>
+{% else %}<div class="empty-state"><div class="ill">🧩</div><b>Your grid is empty</b><p class="muted">Design a post in the Create studio and save it. It appears here.</p><a class="btn" href="{{ url_for('studio.studio') }}">Design a post</a></div>{% endif %}
+{% endblock %}

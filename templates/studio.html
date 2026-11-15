@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}Create studio — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<link rel="stylesheet" href="{{ url_for('static', filename='studio.css') }}?v={{ ASSET_V }}">
+<div class="head"><h1>Create studio</h1></div>
+<p class="muted">Turn an idea into a finished post, carousel or reel in your brand colours. It all happens in your browser, so exports are free.</p>
+<section id="st-post" class="card st-postbar" hidden aria-label="Post it now"><b>📣 Ready to post it?</b>
+<div class="st-row"><button type="button" class="btn" id="pm-img">⬇ Download the images</button><button type="button" class="btn ghost" id="pm-share">📲 Share to an app</button><button type="button" class="btn ghost" id="pm-cap">Copy caption</button><button type="button" class="btn ghost" id="pm-tags">Copy hashtags</button><a class="btn ghost" id="pm-open" target="_blank" rel="noopener">Open channel ↗</a><button type="button" class="btn" id="pm-done">✅ I posted it</button></div>
+<div id="pm-nums" hidden><p class="muted">Optional: add the first numbers so your Results fill themselves.</p><div class="st-row"><input id="pm-reach" type="number" min="0" placeholder="Reach" inputmode="numeric"><input id="pm-likes" type="number" min="0" placeholder="Likes" inputmode="numeric"><input id="pm-saves" type="number" min="0" placeholder="Saves" inputmode="numeric"><button type="button" class="btn" id="pm-save">Save and finish</button></div></div><p id="pm-msg" role="status" aria-live="polite"></p></section>
+<div class="st">
+<section class="card st-left" aria-label="Make it">
+  <div class="st-kinds" role="group" aria-label="What are you making?">
+    <button type="button" class="btn ghost sm" data-kind="post">🖼️ Post</button><button type="button" class="btn ghost sm" data-kind="carousel">🎠 Carousel</button><button type="button" class="btn ghost sm" data-kind="reel">🎬 Reel</button><button type="button" class="btn ghost sm" data-kind="story">📱 Story</button>
+  </div>
+  <div class="st-fmts" role="group" aria-label="Ready-made formats"><span class="muted">Start from a format:</span> <button type="button" class="linkbtn" data-fmt="tips">3 tips</button> <button type="button" class="linkbtn" data-fmt="ba">Before / after</button> <button type="button" class="linkbtn" data-fmt="pov">POV</button> <button type="button" class="linkbtn" data-fmt="count">Countdown</button> <button type="button" class="linkbtn" data-fmt="offer">Offer</button> <button type="button" class="linkbtn" data-fmt="testi">Testimonial</button> <button type="button" class="linkbtn" data-fmt="bts">Behind the scenes</button></div>
+  <label>What is it for?<input id="st-goal" maxlength="200" placeholder="e.g. Diwali gift box for office gifting"></label>
+  <div class="st-ex">Try: <button type="button" class="linkbtn" data-ex="Winter menu is here">Winter menu</button> <button type="button" class="linkbtn" data-ex="3 mistakes small brands make on Instagram">3 mistakes</button> <button type="button" class="linkbtn" data-ex="Why our customers keep coming back">Why customers return</button></div>
+  <label>Offer or detail <span class="muted">(optional, used exactly as typed)</span><input id="st-offer" maxlength="120" placeholder="e.g. 20% off till Sunday"></label>
+  <button type="button" class="btn" id="st-make">✨ Write it for me</button>
+  <p class="muted" id="st-msg" role="status" aria-live="polite">{% if cfg.ai %}Written by AI in your brand voice (2 credits).{% else %}Uses a built-in template; you edit the words.{% endif %}</p>
+  <div id="st-edit" class="st-editor"></div>
+</section>
+<section class="st-mid" aria-label="Preview">
+  <div class="st-stage"><canvas id="st-canvas" aria-label="Preview of your design"></canvas><canvas id="st-reel" hidden aria-label="Reel preview"></canvas><div id="st-empty" class="empty-state"><div class="ill">🎨</div><b>Your design shows up here</b><p class="muted">Type what it is for and press “Write it for me”.</p></div></div>
+  <div id="st-strip" class="st-strip" aria-label="Slides"></div>
+  <div class="st-row"><button type="button" class="btn" id="st-save">📅 Save to calendar</button><button type="button" class="btn ghost" id="st-png">⬇ This image</button><button type="button" class="btn ghost" id="st-zip">⬇ All slides (zip)</button><button type="button" class="btn ghost" id="st-all">⬇ Every size (zip)</button><button type="button" class="btn ghost" id="st-pack">📦 This week's pack</button><button type="button" class="btn ghost" id="st-play" hidden>▶ Play</button><button type="button" class="btn ghost" id="st-rec" hidden>⏺ Record video</button></div>
+</section>
+<section class="card st-right" aria-label="Details and checks">
+  <label>Title<input id="st-title" maxlength="140" placeholder="Shown on your calendar"></label>
+  <div class="st-2"><label>Channel<select id="st-chan">{% for c in chans %}<option>{{ c }}</option>{% endfor %}</select></label><label>Post on<input type="date" id="st-date"></label></div><p class="muted" id="st-best" style="font-size:13px;margin:0"></p>
+  <div class="st-2"><label>Size<select id="st-size"><option value="4:5">4:5 feed (1080×1350)</option><option value="1:1">1:1 square (1080×1080)</option><option value="9:16">9:16 reel/story (1080×1920)</option><option value="16:9">16:9 landscape (1200×675)</option></select></label>
+  <label>Look<select id="st-theme"><option value="bold">Bold dark</option><option value="brand">Brand colour</option><option value="light">Light</option><option value="sunset">Sunset</option><option value="mint">Mint</option><option value="mono">Mono + lime</option></select></label></div>
+  <label class="st-chk"><input type="checkbox" id="st-guides"> Show safe zone (Instagram buttons cover the edges)</label>
+  <label>Caption <span class="muted">first 125 characters show before “more”</span><textarea id="st-cap" rows="6" maxlength="2200"></textarea></label>
+  <div id="st-hooks" class="st-fmts" aria-label="Hook ideas"></div><label>Hashtags<input id="st-tags" placeholder="#diwali #giftbox"></label><div class="st-row"><select id="st-sets" aria-label="My hashtag sets"><option value="">My hashtag sets</option></select><button type="button" class="btn ghost sm" id="st-saveset">Save these as a set</button></div>
+  <h3>One idea, every channel</h3><div id="st-vers" class="st-vers"></div>
+  <h3>Before you post</h3><ul id="st-checks" class="st-checks" aria-live="polite"></ul>
+  <p class="muted" style="font-size:13px">Reels record as MP4 in Chrome and Edge, and as WebM elsewhere. Add trending audio inside Instagram; that is what helps reach.</p>
+</section></div>
+<script>window.STUDIO={{ cfg|tojson }};</script><script src="{{ url_for('static', filename='studio.js') }}?v={{ ASSET_V }}" defer></script>
+{% endblock %}

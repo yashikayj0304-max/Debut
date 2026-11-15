@@ -42,7 +42,7 @@ def dbx(app, sql, args=()):
 
 def signup(app, email, name="Tester", ws="Acme Foods", pw="Sup3rSecret!"):
     c = app.test_client()
-    r = c.post("/signup", data=dict(name=name, email=email, workspace=ws, password=pw, agree="1"))
+    r = c.post("/signup", data=dict(name=name, email=email, workspace=ws, password=pw, agree="1", focus=["content", "launch", "results", "sales", "reach", "ai", "team"]))   # tests open the full menu; test_new_accounts_start_on_the_short_menu covers the default
     assert r.status_code == 302, r.data[:500]
     return c
 

@@ -2,20 +2,20 @@
 {{ line('analytics') }}
 <div class="head"><h1>📊 Numbers</h1><div><a class="btn ghost sm" href="{{ url_for('m_list', key='kpis') }}">All logged results</a> <a class="btn ghost sm" href="{{ url_for('report') }}">Monthly report</a> <a class="btn" href="{{ url_for('m_new', key='kpis', next='/analytics') }}" onclick="return openOverlay(this.href,'')">+ Log KPI</a></div></div>
 <p class="muted">Your results, campaigns and leads in one place. Log a number every week, or import a platform report, and the trend lines appear.</p>
-<details class="card syncbox"{% if not cards %} open{% endif %}><summary><b>⬆ Bring in real numbers</b> <span class="muted">from Instagram, Meta, Google Ads or Google Analytics</span></summary>
+<details class="card syncbox"{% if not cards %} open{% endif %}><summary><b>⬆ Import your analytics</b> <span class="muted">from Instagram, Meta, Google Ads or Google Analytics</span></summary>
 <p class="muted" style="margin:8px 0">Download the report from the platform (Export → CSV), then drop it here. Dates, metrics and the channel are worked out for you, and importing the same report again only refreshes it.</p>
 <form method="post" action="{{ url_for('analytics_import') }}" enctype="multipart/form-data" class="syncform"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="file" name="file" accept=".csv,.tsv,.txt" required aria-label="Report file">
 <select name="channel" aria-label="Channel"><option value="">Detect the channel</option>{% for c in ['Instagram','Meta Ads','Google Ads','Website','LinkedIn','YouTube','Email','Other'] %}<option>{{ c }}</option>{% endfor %}</select><button class="btn sm">Import numbers</button></form>
 <small class="muted">Where to find it: Meta Ads Manager → Reports → Export · Instagram → Insights → Export data · Google Ads → Download → CSV · GA4 → Share → Download file → CSV.</small></details>
 {% if cards %}
 {% if working %}<div class="card workbox"><b>💡 What's working</b><ul>{% for w in working %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
-<div class="kpi-tiles">{% for c in cards %}<div class="card kpi-tile {{ c.tone }}"><span class="muted">{{ c.name }}</span>
+<div class="kpi-tiles">{% for c in cards %}<div class="card kpi-tile {{ c.tone }}"><span class="muted">{{ c.name|plain }}</span>
 <b class="big">{{ '{:,.2f}'.format(c.last).rstrip('0').rstrip('.') }}{% if c.tone == 'win' %} 🎉{% endif %}</b>{% if c.spark %}<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="{{ c.spark }}"/></svg>{% endif %}
 {% if c.target %}<div class="kpi-bar" role="img" aria-label="{{ c.pct }}% of target"><i style="width:{{ [c.pct, 100]|min }}%"></i></div><small>{{ c.pct }}% of the {{ '{:,.2f}'.format(c.target).rstrip('0').rstrip('.') }} target</small>{% else %}<small class="muted">No target set. Add one to see progress.</small>{% endif %}
 {% if c.delta is not none %}<small class="delta {{ 'up' if c.delta > 0 else 'down' if c.delta < 0 else '' }}">{{ '▲' if c.delta > 0 else '▼' if c.delta < 0 else '•' }} {{ '{:,.2f}'.format(c.delta|abs).rstrip('0').rstrip('.') }} since the last entry</small>{% else %}<small class="muted">First entry, {{ c.when }}. Log it again to see the trend.</small>{% endif %}</div>{% endfor %}</div>
 {% else %}{{ empty('chart', 'No results logged yet', 'Log a number from the Results Log and this page fills in by itself.') }}{% endif %}
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr))">
-{% for c in cards if c.pts|length > 1 %}<div class="card"><b>{{ c.name }} over time</b><canvas id="k{{ loop.index0 }}" height="140"></canvas></div>{% endfor %}
+{% for c in cards if c.pts|length > 1 %}<div class="card"><b>{{ c.name|plain }} over time</b><canvas id="k{{ loop.index0 }}" height="140"></canvas></div>{% endfor %}
 {% if camps %}<div class="card"><b>Budget vs spent</b><canvas id="bud" height="140"></canvas></div>{% endif %}
 {% if funnel %}<div class="card"><b>Lead funnel</b><canvas id="fun" height="140"></canvas></div>{% endif %}</div>
 {% endblock %}

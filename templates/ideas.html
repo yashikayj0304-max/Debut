@@ -33,4 +33,7 @@
   }
  }catch(e){}
 })();
+
+(function(){var d=new Date();d.setDate(d.getDate()+1);var v=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+document.querySelectorAll(".idea-sched input[type=date]").forEach(function(i){if(!i.value)i.value=v;});})();
 </script>{% endblock %}

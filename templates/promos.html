@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Promo ideas — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<link rel="stylesheet" href="{{ url_for('static', filename='studio.css') }}?v={{ ASSET_V }}">
+<div class="head"><h1>Promo ideas</h1></div>
+<p class="muted">Ideas for the next 75 days, based on your festivals and key dates, your industry ({{ ind['label'] }}) and what's showing up in your live news. Press “Plan this” and Debut sets up the campaign, the dated posts and the tasks, counted back from the date.</p>
+<div class="pcards">{% for c in items %}<article class="card pcard" id="p-{{ c.id }}">
+<span class="why">{{ '🔥 ' if c.trend else '📅 ' }}{{ c.why }}</span><h3>{{ c.title }}</h3>
+<p>{{ c.offer }}.</p>
+<div class="tags">{% for ch in c.channels %}<span>{{ ch.channel }}</span>{% endfor %}</div>
+<ul>{% for ch in c.channels %}<li><b>{{ ch.channel }}:</b> {{ ch.do }}</li>{% endfor %}</ul>
+<p class="muted" style="font-size:13px">Start about {{ c.lead }} days before · Effort: {{ c.effort }} · Aim: {{ c.expect }}</p>
+<details class="mcalc"><summary>Will this make money? Margin check</summary>
+<div>Price ₹<input type="number" class="mc-p" min="0" value="" inputmode="numeric"> Cost ₹<input type="number" class="mc-c" min="0" value="" inputmode="numeric"> Discount <input type="number" class="mc-d" min="0" max="90" value="" inputmode="numeric">%</div>
+<div class="out" aria-live="polite">Enter your price and cost.</div></details>
+<div class="st-row">{% if canwrite %}<form method="post" action="{{ url_for('studio.promo_plan') }}"><input type="hidden" name="id" value="{{ c.id }}"><button class="btn">🗓️ Plan this</button></form>{% endif %}
+<a class="btn ghost" href="{{ url_for('studio.studio', goal=c.title, offer=c.offer[:70], kind='carousel') }}">🎬 Design it</a></div>
+</article>{% else %}<div class="empty-state"><div class="ill">🎯</div><b>No dates coming up</b><p class="muted">Add festivals and launches under Key dates and ideas will appear here.</p></div>{% endfor %}</div>
+<script>document.querySelectorAll('.mcalc').forEach(function(b){function f(){var p=+b.querySelector('.mc-p').value,c=+b.querySelector('.mc-c').value,d=+b.querySelector('.mc-d').value||0,o=b.querySelector('.out');if(!p||!c){o.textContent='Enter your price and cost.';return}var np=p*(1-d/100),m=np-c,m0=p-c;if(m<=0){o.textContent='At '+d+'% off you lose ₹'+Math.round(-m)+' on every sale. Lower the discount or add a bundle.';return}o.textContent='You keep ₹'+Math.round(m)+' per sale (was ₹'+Math.round(m0)+'). You need '+Math.ceil(m0*1/(m))+'x the usual sales to earn the same profit as a normal day.'}b.querySelectorAll('input').forEach(function(i){i.oninput=f})});</script>
+{% endblock %}

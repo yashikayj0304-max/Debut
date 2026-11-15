@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block title %}Link in bio — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div style="max-width:760px;margin:0 auto">
+<h1>🔗 Link in bio</h1>
+<p class="muted">One free page for your Instagram bio. It uses your brand colours, counts clicks and has a QR code for print. No separate link-in-bio app needed.</p>
+<div class="card" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+<img src="{{ url_for('bio.qr', slug=slug) }}" alt="QR code for your page" width="110" height="110" style="background:#fff;border-radius:10px;padding:4px">
+<div style="flex:1;min-width:200px"><b>Your page</b><br><a href="{{ url_for('bio.public', slug=slug) }}" target="_blank" id="bio-url">{{ pub }}</a><br>
+<button type="button" class="btn ghost sm" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('bio-url').textContent);this.textContent='Copied ✓'">Copy link</button>
+<a class="btn ghost sm" href="{{ url_for('bio.qr', slug=slug) }}" download="bio-qr.svg">Download QR</a></div></div>
+<form method="post" class="card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label>Headline<input name="headline" maxlength="80" value="{{ d.headline }}" placeholder="e.g. Fresh bakes, baked daily"></label>
+<label>One line about you<input name="sub" maxlength="160" value="{{ d.sub }}"></label>
+<label>Special offer button (optional)<input name="offer" maxlength="100" value="{{ d.offer }}" placeholder="e.g. 10% off your first order"></label>
+<label>Offer link<input name="offer_url" value="{{ d.offer_url }}" placeholder="https://"></label>
+<h3 style="margin:14px 0 6px">Links <small class="muted">(up to {{ slots }})</small></h3>
+{% for i in range(slots) %}{% set l = d.links[i] if i < d.links|length else {} %}
+<div style="display:grid;grid-template-columns:1fr 1.6fr 64px;gap:8px;margin-bottom:6px;align-items:center">
+<input name="label{{ i }}" maxlength="40" value="{{ l.get('label','') }}" placeholder="Label" aria-label="Link {{ i+1 }} label">
+<input name="url{{ i }}" value="{{ l.get('url','') }}" placeholder="https://" aria-label="Link {{ i+1 }} address">
+<span class="muted" title="Clicks">{% if l %}{{ clicks.get(i ~ ':' ~ l.get('label',''), 0) }} 👆{% endif %}</span></div>{% endfor %}
+<label style="font-weight:400"><input type="checkbox" name="form" value="1" style="width:auto" {{ 'checked' if d.form }}> Show a “Send us a message” button (enquiries land in Leads)</label>
+<button class="btn">Save</button> <a class="btn ghost" href="{{ url_for('bio.public', slug=slug) }}" target="_blank">Preview</a>
+</form></div>{% endblock %}

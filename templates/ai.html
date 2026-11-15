@@ -10,11 +10,13 @@
 <optgroup label="General marketing">{% for k, l, c in tl[n_mine + n_live:] %}<option value="{{ k }}">{{ l }} ({{ c }} cr)</option>{% endfor %}</optgroup></select></label>
 <label>Product / brand<input id="product" placeholder="e.g. Asha's Kitchen: cold-pressed juices, launching in Pune"></label>
 <label>Target audience<input id="audience" placeholder="e.g. urban professionals 25-40 who care about health"></label>
+<label>Brand voice <span class="muted">(saved for next time)</span><textarea id="voice" rows="2" placeholder="e.g. warm, a little cheeky, short sentences, never salesy">{{ voice }}</textarea></label>
+<label>Language<select id="lang">{% for l in langs %}<option{% if l == lang %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
 <label>Tone<input id="tone" placeholder="e.g. playful, premium, warm"></label>
 <label>Extra instructions<textarea id="extra" rows="3" placeholder="For calendars: start date + number of days + channels. For problem assessment: describe the situation — what's not working, what you've tried, any numbers you have. For anything: constraints, budget, must-include points."></textarea></label>
 {% if web %}<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="research" style="width:auto"> Use live web research for this task (+{{ extra }} credits): searches the web now and lists its sources</label>{% endif %}
 <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="use_plan" checked style="width:auto"> Use my latest GTM Plan, Brand Kit and Personas as context</label>
-<button class="btn" id="go" onclick="run()">Generate</button> <span id="st" class="muted"></span></div>
+<p class="muted" style="font-size:13px;margin:6px 0">🔒 Only what you type here (and your plan and brand notes, if ticked) is sent to the AI to write the draft. Nothing is posted anywhere. Always read drafts before you use them.</p><button class="btn" id="go" onclick="run()">Generate</button> <span class="muted" id="crl">{{ limit - used }} of {{ limit }} credits left</span> <span id="st" class="muted"></span></div>
 <div><div class="out" id="out">Output appears here.</div><div id="srcs" class="muted" style="margin-top:8px"></div><p><button class="btn ghost" onclick="navigator.clipboard.writeText(out.innerText)">Copy</button>
 <button class="btn ghost" onclick="save()">Save to Content Library</button> <button class="btn" id="imp" style="display:none" onclick="imp()">Import into Calendar</button></p></div></div>
 {% endblock %}
@@ -22,7 +24,7 @@
 const $=id=>document.getElementById(id);let raw='',srcList=[];const FORCE={{ force|tojson }};function sync(){const r=$('research');if(!r)return;const f=FORCE.indexOf($('task').value)>=0;if(f){r.checked=true}r.disabled=f}
 $('task').addEventListener('change',sync);sync();
 async function run(){$('go').disabled=true;$('st').textContent='Working… (can take up to a minute)';$('imp').style.display='none';
-const r=await api('/api/ai',{task:$('task').value,product:$('product').value,audience:$('audience').value,tone:$('tone').value,extra:$('extra').value,use_plan:$('use_plan').checked,research:!!($('research')&&$('research').checked)});
+const r=await api('/api/ai',{task:$('task').value,product:$('product').value,audience:$('audience').value,tone:$('tone').value,voice:$('voice').value,lang:$('lang').value,extra:$('extra').value,use_plan:$('use_plan').checked,research:!!($('research')&&$('research').checked)});
 const d=r.data;$('go').disabled=false;$('st').textContent='';
 if(d.error){$('out').textContent='Error: '+d.error;return}raw=d.text;$('out').textContent=raw;srcList=d.sources||[];$('srcs').innerHTML=srcList.length?'<b>Sources</b><br>'+srcList.map(function(x){var a=document.createElement('a');a.href=x.url;a.textContent=x.title;a.target='_blank';a.rel='noopener noreferrer';return a.outerHTML}).join('<br>'):'';$('cred').textContent=d.used+' / '+d.limit;if($('task').value==='calendar')$('imp').style.display='inline-block';}
 async function save(){if(!raw)return;await api('/api/save_asset',{title:$('task').selectedOptions[0].text+' — '+($('product').value||'untitled'),type:$('task').value,body:raw+(srcList.length?'\n\nSources:\n'+srcList.map(x=>x.title+' - '+x.url).join('\n'):'')});alert('Saved to Content Library');}

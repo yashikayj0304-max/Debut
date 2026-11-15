@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Your first week — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<h1>📊 Your first week</h1>
+<p class="muted">What you have already done with {{ brand_name }}, and a place to put your first three real numbers.</p>
+<div class="fw-stats">{% for ic, label, n in stats %}<div class="card fw-stat"><span>{{ ic }}</span><b>{{ n }}</b><small>{{ label }}</small></div>{% endfor %}</div>
+{% if nxt %}<p class="muted">Next key date: <b>{{ nxt.name }}</b>, {{ nxt.date|nice_day }}.</p>{% endif %}
+<div class="card" style="margin-top:14px"><b>1. Type your starting numbers</b> <span class="muted">Guess if you are not sure. You can change them any time.</span>
+<form method="post" action="{{ url_for('first_week_numbers') }}" class="fw-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for key, label, metric in fields %}<label>{{ label }}<input name="{{ key }}" inputmode="numeric" placeholder="e.g. 1,200" autocomplete="off"></label>{% endfor %}
+<button class="btn" type="submit">Save my starting line</button></form>
+<p class="muted" style="margin-bottom:0">Have a platform report instead? <a href="{{ url_for('analytics') }}">Import it on the Numbers page</a>.</p></div>
+<div class="card"><b>2. Show someone</b><p class="fw-share">{{ share }}</p>
+<a class="btn ghost" href="{{ wa }}" target="_blank" rel="noopener">📲 Share on WhatsApp</a></div>
+{% endblock %}

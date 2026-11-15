@@ -127,7 +127,7 @@ ALL_FEATURES = {"content_ops", "promo_events", "influencers", "analytics", "ai",
 PLANS = OrderedDict([
     # Free forever: the core planning tools with small limits. New workspaces first get a trial of everything.
     ("free", dict(name="Free", price=0, seats=1, clients=0, watch=3, ai_credits=5, records=250, boards=3, features={"ai"},
-                  blurb="Plan and organise your marketing, free forever")),
+                  blurb="Plan and organise your marketing, free to start")),
     ("trial", dict(name="Free trial", price=0, seats=5, clients=5, watch=25, ai_credits=40, records=2000, boards=999, features=ALL_FEATURES,
                    blurb=f"{TRIAL_DAYS} days of the Team plan")),
     ("creator", dict(name="Spark", price=399, seats=1, clients=0, watch=5, ai_credits=20, records=800, boards=10, features={"ai", "import"},
@@ -179,18 +179,14 @@ def plan_cards(cur=""):
         if p["clients"] and (b is None or not b["clients"]):
             adds.append(f"Client portal ({p['clients']} client logins)")
         elif b and p["clients"] > b["clients"]:
-            adds.append(f"More client logins: {p['clients']} (was {b['clients']})")
+            adds.append(f"More client logins: {p['clients']}")
         if b is None:
             adds.append(f"Live news & trends for {p['watch']} topics")
         elif p["watch"] > b["watch"]:
-            adds.append(f"More live-news topics: {p['watch']} (was {b['watch']})")
+            adds.append(f"More live-news topics: {p['watch']}")
         nums = []
-        for key, label in (("seats", "team seats"), ("ai_credits", "AI credits / mo"), ("records", "items"), ("boards", "mood boards")):
-            v = p[key]
-            if b is None:
-                nums.append((_fmt(v, key), label, False))
-            elif v > b[key]:
-                nums.append((_fmt(v, key), label, f"was {_fmt(b[key], key)}"))
+        for key, label in (("seats", "team seat" if p["seats"] == 1 else "team seats"), ("ai_credits", "AI credits / mo"), ("records", "items"), ("boards", "mood boards")):
+            nums.append((_fmt(p[key], key), label, False))      # every card shows the same four numbers, so the cards line up
         cards.append(dict(key=k, name=p["name"], blurb=p["blurb"], price=p["price"], base=PLANS[base_k]["name"] if base_k else "",
                           adds=adds, nums=nums, who=PLAN_PITCH[k][0], nudge=PLAN_PITCH[k][1], popular=(k == "team"), rank=i,
                           hidden=(k in HIDDEN_PRICE), yearly=int(p["price"] * YEARLY_MONTHS_PAID)))

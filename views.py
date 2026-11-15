@@ -447,7 +447,7 @@ def dashboard():
                 posted=_c("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Published' AND publish_date LIKE ?", m0 + "%"),
                 planned=_c("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status!='Published' AND publish_date LIKE ?", m0 + "%"),
                 tasks=_c("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status='Done'"),
-                leads=_c("SELECT COUNT(*) c FROM leads WHERE workspace_id=? AND created_at LIKE ?", m0 + "%"),
+                leads=_c("SELECT COUNT(*) c FROM leads WHERE workspace_id=? AND created_at>=? AND created_at<?", m0 + "-01 00:00:00", (S.today().replace(day=28) + dt.timedelta(days=5)).replace(day=1).strftime("%Y-%m-%d") + " 00:00:00"),
                 month=S.today().strftime("%B"))
         except Exception:
             month_card = None

@@ -89,6 +89,7 @@ def _db_url():
 
 DATABASE_URL = _db_url()
 UPLOAD_DIR = env("UPLOAD_DIR", os.path.join(BASE, "uploads"))
+CRON_KEY = env("CRON_KEY")        # set this, then point a free scheduler (cron-job.org) at /cron/morning?key=... once a day
 SECRET_KEY = env("SECRET_KEY") or ("" if PROD else "dev-only-not-secret")
 
 # --- email (SMTP: Amazon SES, Resend, Postmark, Gmail app password, etc.)
@@ -178,18 +179,18 @@ def plan_cards(cur=""):
         if p["clients"] and (b is None or not b["clients"]):
             adds.append(f"Client portal ({p['clients']} client logins)")
         elif b and p["clients"] > b["clients"]:
-            adds.append(f"Client logins: {b['clients']} → {p['clients']}")
+            adds.append(f"More client logins: {p['clients']} (was {b['clients']})")
         if b is None:
-            adds.append(f"Market Pulse: live news & trends for {p['watch']} topics")
+            adds.append(f"Live news & trends for {p['watch']} topics")
         elif p["watch"] > b["watch"]:
-            adds.append(f"Market Pulse topics: {b['watch']} → {p['watch']}")
+            adds.append(f"More live-news topics: {p['watch']} (was {b['watch']})")
         nums = []
         for key, label in (("seats", "team seats"), ("ai_credits", "AI credits / mo"), ("records", "items"), ("boards", "mood boards")):
             v = p[key]
             if b is None:
                 nums.append((_fmt(v, key), label, False))
             elif v > b[key]:
-                nums.append((_fmt(v, key), label, f"{_fmt(b[key], key)} → {_fmt(v, key)}"))
+                nums.append((_fmt(v, key), label, f"was {_fmt(b[key], key)}"))
         cards.append(dict(key=k, name=p["name"], blurb=p["blurb"], price=p["price"], base=PLANS[base_k]["name"] if base_k else "",
                           adds=adds, nums=nums, who=PLAN_PITCH[k][0], nudge=PLAN_PITCH[k][1], popular=(k == "team"), rank=i,
                           hidden=(k in HIDDEN_PRICE), yearly=int(p["price"] * YEARLY_MONTHS_PAID)))

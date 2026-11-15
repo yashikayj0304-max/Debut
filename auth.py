@@ -142,7 +142,7 @@ def signup():
         wid = accept_invite(token, user) if inv else S.create_workspace(uid, wsname, industry, kit=bool(f.get("kit")))
         if not inv:
             from hubs import clean_focus
-            ex("UPDATE users SET focus=? WHERE id=?", (clean_focus(request.form.getlist("focus")), uid))
+            ex("UPDATE users SET focus=? WHERE id=?", (clean_focus(request.form.getlist("focus")) or "content", uid))      # a new person starts with the short menu; "More tools" and "Edit menu" bring back the rest
             if f.get("starter_posts"):
                 S.seed_suggested_posts(wid, industry)
         start_session(uid, wid)
@@ -242,9 +242,19 @@ def login_2fa():
     return render_template("login_2fa.html")
 
 
-@bp.route("/logout", methods=["POST"])
+@bp.route("/logout", methods=["GET", "POST"])
 def logout():
+    # GET only ends a demo session (the "Leave demo" link); real accounts still need a POST so a stray link can't log you out
+    if request.method == "GET" and not (g.user and (g.user["email"] or "").endswith("@demo.debut.invalid")):
+        return redirect(url_for("landing"))
     session.clear()
+    return redirect(url_for("landing"))
+
+
+@bp.route("/demo/exit")
+def demo_exit():
+    if g.user and (g.user["email"] or "").endswith("@demo.debut.invalid"):
+        session.clear()
     return redirect(url_for("landing"))
 
 

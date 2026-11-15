@@ -1,11 +1,13 @@
 """Debut: go-to-market and marketing workspace (multi-tenant SaaS). Run locally: python app.py   Production: gunicorn wsgi:app"""
+import re
 import logging
+import datetime as dt
 import os
 from flask import Flask, g, request, session, render_template, redirect, url_for, flash, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config as C
 from modules import HINTS as M_HINTS
-from hubs import HUBS, focus_keys as _hubs_focus
+from hubs import HUBS, MORE_TABS, PRO_TABS, focus_keys as _hubs_focus
 import db as D
 import services as S
 import industries as IND
@@ -24,7 +26,8 @@ class SafeInt(IntegerConverter):
         kw.setdefault("max", 2**31 - 1)
         super().__init__(map, **kw)
 
-PUBLIC = {"agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
+MARKETING = {"features", "templates_gallery", "pricing", "terms", "privacy", "contact", "refunds", "changelog", "about", "channels_page"}
+PUBLIC = {"bio.public", "bio.go", "bio.qr", "cron_morning", "cron_evening", "auth.demo_exit", "about", "channels_page", "healthz", "agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
 VIEWER_WRITE_OK = {"auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
@@ -44,7 +47,7 @@ def _asset_v():
     """Version stamp for the css links, so a redeploy is picked up straight away instead of the browser reusing its cached copy."""
     try:
         base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-        return int(max(os.path.getmtime(os.path.join(base, f)) for f in ("style.css", "polish.css", "identity.css", "pop.css")))
+        return int(max(os.path.getmtime(os.path.join(base, f)) for f in ("style.css", "polish.css", "identity.css", "pop.css", "bold.css")))
     except OSError:
         return 0
 
@@ -52,6 +55,9 @@ def _asset_v():
 # Pages a visitor sees before signing in. Only these (and any page shown while logged out) get the line-icon set;
 # inside the app the original emoji stay, because that is what the team recognises.
 OUTSIDE_PAGES = {"landing", "features", "templates_gallery", "changelog", "pricing"}
+
+
+_TITLE_EMOJI = re.compile(r'(<h1[^>]*>|<title>)\s*(?:[\u2190-\u2BFF\U0001F000-\U0001FAFF\uFE0F\u200d]+\s*)+')
 
 
 def create_app(config=None, init=True, database_url=None):
@@ -88,7 +94,9 @@ def create_app(config=None, init=True, database_url=None):
     from admin import bp as admin_bp
     from api import bp as api_bp
     from survey import bp as survey_bp
-    for b in (auth_bp, billing_bp, ws_bp, admin_bp, api_bp, survey_bp):
+    from studio import bp as studio_bp
+    from bio import bp as bio_bp
+    for b in (auth_bp, billing_bp, ws_bp, admin_bp, api_bp, survey_bp, studio_bp, bio_bp):
         app.register_blueprint(b)
     views.register(app)
 
@@ -136,6 +144,10 @@ def create_app(config=None, init=True, database_url=None):
         if g.support and write and ep not in ("admin.exit_support", "admin.support", "auth.logout", "auth.switch_ws"):
             return _forbidden()
         if write and ep != "auth.logout" and (g.user["email"] or "").endswith("@demo.debut.invalid"):
+            if ep == "studio.draft":
+                return None                   # the draft maker is free (templates only for demo visitors) and saves nothing
+            if ep == "presence":
+                return ("", 204)          # silent "who is viewing" ping: not a user action, so no nudge and no demo_blocked noise
             try:
                 S.audit("demo_blocked", ep or "", wid=g.ws["id"], uid=g.user["id"])      # counted, so we can see which locked buttons people reach for
             except Exception:
@@ -180,6 +192,21 @@ def create_app(config=None, init=True, database_url=None):
     from hubs import FOCUS as _FOCUS
     app.jinja_env.globals["FOCUS"] = _FOCUS
 
+    def _nice_day(iso):
+        """'2026-11-15' -> 'tomorrow' / 'Mon 16 Nov': people read days, not ISO dates."""
+        try:
+            d = dt.date.fromisoformat(str(iso)[:10])
+        except ValueError:
+            return iso
+        n = (d - S.today()).days
+        return {0: "today", 1: "tomorrow", -1: "yesterday"}.get(n, d.strftime("%a %d %b").replace(" 0", " "))
+    app.jinja_env.filters["nice_day"] = _nice_day
+    _PLAIN = {"roas": "Ad return (ROAS)", "cac": "Cost per customer (CAC)", "aov": "Average order value (AOV)", "ltv": "Lifetime value (LTV)", "ctr": "Click rate (CTR)",
+              "cpm": "Cost per 1,000 views (CPM)", "cpl": "Cost per lead (CPL)", "cpc": "Cost per click (CPC)", "mrr": "Monthly recurring revenue (MRR)", "arr": "Yearly recurring revenue (ARR)",
+              "return / rto rate": "Returns rate (RTO)", "rto rate": "Returns rate (RTO)", "rto": "Returns (RTO)", "nps": "Customer happiness score (NPS)", "churn": "Customers lost (churn)",
+              "churn %": "Customers lost % (churn)", "ugc": "Customer-made content (UGC)", "seo": "Search ranking (SEO)"}
+    app.jinja_env.filters["plain"] = lambda s: _PLAIN.get(str(s or "").strip().lower(), s)
+
     @app.context_processor
     def ctx():
         d = dict(ASSET_V=_asset_v(), HINTS=M_HINTS, C=C, S_app_url=S.app_url, user=g.get("user"), ws=g.get("ws"), role=g.get("role"), plan=g.get("plan"), memberships=g.get("memberships", []), media=S.media_url, NAV=OrderedDict(), bare=False, today=S.today().isoformat(), trial_left=None, plan_key="free", on_free=False, lapsed=False, unread=0, is_admin=False, admin_needs_2fa=False, brand=None, support=g.get("support", False), TEAM_MANAGERS=C.TEAM_MANAGERS, industry=None, ESSENTIALS=[], ESS_LV={}, ESS_TEAM=[], TOOLS=[], HUBS=[], HUB_CUR=None, HUB_TABS=[], NAV_TAG={})
@@ -194,7 +221,7 @@ def create_app(config=None, init=True, database_url=None):
             d["on_free"] = g.plan_key == "free"
             d["lapsed"] = g.plan_key == "free" and g.ws["plan"] != "free"
             groups = OrderedDict([("Strategy", []), ("Content", []), ("Campaigns", []), ("Promotions & Events", []), ("Content Ops", []), ("Growth", []), ("Intelligence", [])])
-            special = {"Content": [("Calendar", "calendar_view", "📅"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
+            special = {"Content": [("Calendar", "calendar_view", "📅"), ("Create studio", "studio.studio", "🎬"), ("Promo ideas", "studio.promos", "🎯"), ("Instagram grid", "studio.grid", "🧩"), ("Link in bio", "bio.edit", "🔗"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
                        "Campaigns": [("Discover Influencers", "discover", "🔭"), ("Trackable links (UTM)", "utm", "🏷️")],
                        "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈"), ("Marketing Health", "marketing_health", "🩺"), ("Your Recap", "recap", "✨")],
                        "Intelligence": [("Live news (Market Pulse)", "pulse_page", "📡"), ("Latest Updates", "updates", "⚡"), ("AI Studio", "ai_studio", "🤖")]}
@@ -203,7 +230,7 @@ def create_app(config=None, init=True, database_url=None):
             lock = lambda f: " 🔒" if (f and f not in g.plan["features"]) else ""
             for grp, items in special.items():
                 for label, ep, icon in items:
-                    if creator and ep not in ("calendar_view", "moodboards", "ideas"):
+                    if creator and ep not in ("calendar_view", "moodboards", "ideas", "studio.studio"):
                         continue
                     groups[grp].append((f"{icon} {label}{lock(feat_of.get(ep))}", url_for(ep)))
             for k, m in MODULES.items():
@@ -241,6 +268,8 @@ def create_app(config=None, init=True, database_url=None):
                 for lbl, ep, kw, extra, _vis in hb["tabs"]:
                     href = url_for(ep, **kw)
                     vis = url_for("m_list", key=kw["key"]) if ep == "kanban" else href
+                    if (ep, kw.get("key")) in PRO_TABS:      # niche tools live under "More tools"
+                        continue
                     if _vis == "hid":      # reachable from a button on another tab, so it is not shown as a tab of its own
                         _seen.add(vis)
                         continue
@@ -257,7 +286,7 @@ def create_app(config=None, init=True, database_url=None):
                         continue
                     _seen.add(vis)
                     path = href.split("?")[0]
-                    tabs.append(dict(label=lbl + (" 🔒" if (_label_of.get(vis, "").endswith("🔒") or (ep == "team_hub" and "group" not in g.plan["features"])) else ""), href=href, paths=[path] + extra, on=False))
+                    tabs.append(dict(more=(ep, kw.get("key")) in MORE_TABS, label=lbl + (" 🔒" if (_label_of.get(vis, "").endswith("🔒") or (ep == "team_hub" and "group" not in g.plan["features"])) else ""), href=href, paths=[path] + extra, on=False))
                 if tabs:
                     _hubs.append(dict(key=hb["key"], icon=hb["icon"], label=hb["label"], lv=hb["lv"], href=tabs[0]["href"], tabs=tabs, on=False))
             _fk = _hubs_focus(g.user["focus"] if g.user and "focus" in g.user.keys() else "")
@@ -289,6 +318,8 @@ def create_app(config=None, init=True, database_url=None):
                 d["ESSENTIALS"] = []
                 d["TOOLS"] = []
                 d["HUBS"], d["HUB_CUR"], d["HUB_TABS"], d["HUB_NOW"] = [], None, [], ""
+        if request.endpoint in MARKETING:
+            d["bare"] = True
         return d
 
     @app.after_request
@@ -304,6 +335,13 @@ def create_app(config=None, init=True, database_url=None):
             try:
                 import icons as _ic
                 r.set_data(_ic.swap(r.get_data(as_text=True)))
+            except Exception:
+                pass
+        if g.get("user") and r.mimetype == "text/html" and r.status_code < 400 and not r.direct_passthrough:
+            try:      # page titles are plain words; emoji stay on buttons, tabs and cards
+                body = r.get_data(as_text=True)
+                if 'class="app' in body[:4000]:
+                    r.set_data(_TITLE_EMOJI.sub(r"\1", body))
             except Exception:
                 pass
         if g.get("user") and r.mimetype == "text/html":

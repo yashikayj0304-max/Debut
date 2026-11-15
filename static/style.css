@@ -2,7 +2,7 @@
 .logo{width:22px;height:22px;border-radius:6px;vertical-align:-5px;margin-right:2px}
 :root{
   --bg:#faf8ff;--bg2:#f3eeff;--card:#ffffff;--ink:#2b2442;--mut:#7b7394;--line:#e8e1f7;
-  --pri:#7c5cd6;--pri-d:#6746c3;--pri2:#f1ecff;--pri3:#e2d8fb;--accent:#b8a4ee;--sec:#a48be6;--sec-d:#8064c9;
+  --pri:#6a3df0;--pri-d:#5429d6;--pri2:#f1ecff;--pri3:#e2d8fb;--accent:#b8a4ee;--sec:#ff4f9a;--sec-d:#d9287a;
   --ok:#3d9a78;--warn:#c48a2c;--bad:#d0506a;
   --shadow:0 1px 2px rgba(80,55,150,.05),0 6px 20px rgba(124,92,214,.07);--shadow-lg:0 10px 34px rgba(124,92,214,.16);--r:14px}
 *{box-sizing:border-box}

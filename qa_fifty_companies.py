@@ -114,10 +114,17 @@ def run_company(i, name, ind):
     with app.app_context():
         wid = q("SELECT w.id FROM workspaces w JOIN users u ON u.id=w.owner_id WHERE u.email=?", (email,), one=True)["id"]
         ex("UPDATE workspaces SET plan=?, plan_status='active' WHERE id=?", (plan, wid))
+    # ---- new flows
+    hit(c, co, "post", "/welcome", data=dict(channels=["Instagram", "Email"], per_week="3", goal="Win the month"))
+    hit(c, co, "post", "/plan-week/accept", data={})
+    hit(c, co, "post", "/plan-more", data={})
+    hit(c, co, "post", "/first-week/numbers", data=dict(followers="1,200", reach="3400", orders="25"))
+    hit(c, co, "post", "/first-week/numbers", data=dict(followers="abc", reach="-1", orders="1e99"))
+    hit(c, co, "post", "/welcome", data=dict(channels=["Nope"], per_week="99", goal="x" * 500))
     # ---- every plain GET page
     pages = ["/app", "/app?who=mine", "/calendar", "/calendar?view=week", "/calendar?view=list", "/ideas", "/ideas/picker", "/whatnow", "/analytics", "/marketing-health", "/report", "/recap", "/moodboards", "/team", "/team-hub", "/activity", "/activity/export.csv",
              "/account", "/billing", "/integrations", "/notifications", "/notifications/recent", "/search?q=a", "/search?q=" + name.split()[0], "/utm", "/utm/new", "/discover", "/content-ops", "/pulse", "/ai", "/kudos", "/updates", "/templates", "/glossary", "/help", "/manual",
-             "/changelog", "/features", "/pricing", "/terms", "/privacy", "/contact", "/offline", "/export.zip", "/team/invite-template.csv", "/workspace/new", "/refunds", "/feedback", "/manifest.webmanifest", "/sw.js", "/robots.txt", "/sitemap.xml", "/health", "/survey"]
+             "/changelog", "/features", "/pricing", "/terms", "/privacy", "/contact", "/offline", "/export.zip", "/team/invite-template.csv", "/workspace/new", "/refunds", "/feedback", "/manifest.webmanifest", "/sw.js", "/robots.txt", "/sitemap.xml", "/health", "/survey", "/first-week"]
     for p in pages:
         hit(c, co, "get", p)
     for key, m in MODULES.items():

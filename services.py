@@ -1,5 +1,5 @@
 """Shared helpers: plans & limits, audit log, email, storage, URL safety, workspace seeding."""
-import functools, os, re, uuid, socket, ipaddress, hashlib, secrets, smtplib, logging, datetime as dt
+import collections, functools, os, re, uuid, socket, ipaddress, hashlib, secrets, smtplib, logging, datetime as dt
 from email.message import EmailMessage
 from urllib.parse import urlparse, urljoin
 import requests
@@ -70,7 +70,10 @@ def record_count(wid):
 def trial_days_left(ws):
     if plan_key(ws) != "trial" or not ws["trial_ends"]:
         return None
-    return (dt.date.fromisoformat(ws["trial_ends"]) - today()).days
+    try:
+        return (dt.date.fromisoformat(ws["trial_ends"]) - today()).days
+    except ValueError:
+        return None
 
 
 # ------------------------------------------------------------------ audit / email
@@ -280,13 +283,13 @@ def client_members(wid, client_name):
             if (m["client_name"] or "").strip().lower() == n]
 
 
-def apply_industry(wid, industry, personas=False):
+def apply_industry(wid, industry, personas=False, full=True):
     """Add an industry's checklist items, key dates and news feeds (skipping ones already present). Optionally personas. Returns counts."""
     ind = IND.get(industry)
     n = dict(checklist=0, dates=0, feeds=0, personas=0)
     have = {r["item"] for r in q("SELECT item FROM launch_checklist WHERE workspace_id=?", (wid,))}
     for ph, items in ind["checklist"].items():
-        for it in items:
+        for it in (items if full else items[:2]):      # new accounts get the two key steps per phase; the full list is one click away
             if it not in have:
                 ins("launch_checklist", dict(workspace_id=wid, item=it, phase=ph, status="To do"))
                 n["checklist"] += 1
@@ -326,9 +329,10 @@ def seed_watch(wid, industry):
 
 
 def seed_workspace(wid, industry="general", kit=False):
-    for ph, items in CHECKLIST.items():
-        for it in items:
-            ins("launch_checklist", dict(workspace_id=wid, item=it, phase=ph, status="To do"))
+    if not (kit and (IND.get(industry) or {}).get("checklist")):      # an industry kit brings its own checklist; do not stack two
+        for ph, items in CHECKLIST.items():
+            for it in items[:2]:
+                ins("launch_checklist", dict(workspace_id=wid, item=it, phase=ph, status="To do"))
     for n, u, c in FEEDS:
         ins("feeds", dict(workspace_id=wid, name=n, url=u, category=c))
     y = today().year
@@ -347,7 +351,7 @@ def seed_workspace(wid, industry="general", kit=False):
         ins("rate_card", dict(workspace_id=wid, service=sv, unit=un))
     seed_watch(wid, industry)
     if industry != "general":
-        apply_industry(wid, industry, personas=kit)
+        apply_industry(wid, industry, personas=kit, full=False)
 
 
 def create_workspace(user_id, name, industry="general", kit=False):
@@ -364,29 +368,71 @@ def needs_verify(user):
     return bool(C.SMTP_HOST) and not user["email_verified"]
 
 
-def seed_suggested_posts(wid, industry, n=6):
-    """Fill the next two weeks with ideas from the industry bank so a new calendar is never empty. They are plain 'Idea' items the person can edit, move or delete."""
+EVERGREEN = [   # (kind, title, channel, format): ideas that work for any business, so the calendar never runs out
+    ("Trust", "Behind the scenes: how {brand} gets made", "Instagram", "Reel / Short"), ("Trust", "Meet the team behind {brand}", "Instagram", "Carousel"), ("Trust", "Customer story: why they chose {brand}", "LinkedIn", "Post"),
+    ("Trust", "Three questions people always ask us", "Instagram", "Carousel"), ("Trust", "Myth vs fact about what we do", "Instagram", "Carousel"), ("Trust", "Our story in 60 seconds", "YouTube", "Video"),
+    ("Engage", "Poll: which do you prefer?", "Instagram", "Story"), ("Engage", "Ask me anything: open the question box", "Instagram", "Story"), ("Engage", "This or that: quick fun poll", "WhatsApp", "Post"),
+    ("Engage", "Caption this photo contest", "Facebook", "Post"), ("Engage", "Share your photo with us and win a shout-out", "Instagram", "Story"),
+    ("Educate", "One tip our customers love", "Instagram", "Reel / Short"), ("Educate", "Do this, not that: 3 quick tips", "Instagram", "Carousel"), ("Educate", "A beginner's guide to choosing well", "LinkedIn", "Article"),
+    ("Educate", "Ten-second how-to", "YouTube", "Video"), ("Educate", "Common mistakes and how to avoid them", "Email", "Newsletter"),
+    ("Sell", "Offer reminder: this week only", "WhatsApp", "Post"), ("Sell", "Before and after with {brand}", "Instagram", "Carousel"), ("Sell", "Customer reviews roundup", "Facebook", "Post"),
+    ("Sell", "Best seller spotlight", "Instagram", "Reel / Short"), ("Sell", "Bundle idea: buy together and save", "Email", "Newsletter"), ("Sell", "Last call: offer ends tonight", "Instagram", "Story"),
+    ("Community", "Thank you note to our customers", "Instagram", "Story"), ("Community", "Monthly recap: what happened at {brand}", "Email", "Newsletter"),
+]
+
+
+def seed_suggested_posts(wid, industry, n=6, channels=None, avoid=(), begin=None, evergreen=False):
+    """Fill the next two weeks with ideas from the industry bank so a new calendar is never empty. They are plain 'Idea' items the person can edit, move or delete.
+    `channels` (from the welcome questions) re-homes each idea onto a channel the person actually uses."""
     ideas = (IND.get(industry) or {}).get("ideas") or []
     if not ideas:
         return 0
-    start = today()
-    offsets = [1, 3, 5, 8, 10, 12, 14][:n]
+    start = begin or today()
+    n = max(1, min(14, int(n)))
+    offsets = [1] if n == 1 else sorted({round(1 + i * 13 / (n - 1)) for i in range(n)})
+    brand = (q("SELECT name FROM workspaces WHERE id=?", (wid,), one=True) or {"name": "us"})["name"].replace(" (demo)", "")
     usable = [x for x in ideas if "[" not in x[1]] or ideas      # skip fill-in-the-blank templates
-    seen, made = set(), 0
+    if evergreen:
+        usable = usable + [(k, t.replace("{brand}", brand), c, f) for k, t, c, f in EVERGREEN]
+    seen, made = {a.lower() for a in avoid}, 0
     step = max(1, len(usable) // max(1, n))
     for i, off in enumerate(offsets):
         pick = usable[(i * step) % len(usable)]
         j = 0
-        while pick[1] in seen and j < len(usable):
+        while pick[1].lower() in seen and j < len(usable):
             j += 1
             pick = usable[(i * step + j) % len(usable)]
-        if pick[1] in seen:
+        if pick[1].lower() in seen:
             continue
-        seen.add(pick[1])
-        ins("content_items", dict(workspace_id=wid, title=pick[1][:120], channel=pick[2], format=pick[3], status="Idea", publish_date=(start + dt.timedelta(days=off)).isoformat(),
+        seen.add(pick[1].lower())
+        ch, fmt = pick[2], pick[3]
+        if channels and ch not in channels:
+            ch, fmt = channels[i % len(channels)], {"Email": "Newsletter", "LinkedIn": "Post", "YouTube": "Video", "WhatsApp": "Post", "Facebook": "Post"}.get(channels[i % len(channels)], fmt)
+        ins("content_items", dict(workspace_id=wid, title=pick[1][:120], channel=ch, format=fmt, status="Idea", publish_date=(start + dt.timedelta(days=off)).isoformat(),
                                   notes=f"Suggested by Debut ({pick[0]}). Edit it, move it, or delete it."))
         made += 1
     return made
+
+
+def plan_more_posts(wid, industry):
+    """The calendar is running low: add the next two weeks. Key dates coming up get their own post first, then fresh ideas on the channels this workspace already uses,
+    at about the pace it has actually been posting."""
+    t = today()
+    recent = q("SELECT channel, title FROM content_items WHERE workspace_id=? AND publish_date>=?", (wid, (t - dt.timedelta(days=28)).isoformat()))
+    titles = [r["title"] for r in q("SELECT title FROM content_items WHERE workspace_id=? AND publish_date>=?", (wid, (t - dt.timedelta(days=45)).isoformat()))]      # an idea can come back after six weeks
+    chans = [c for c, _ in collections.Counter(r["channel"] for r in recent if r["channel"]).most_common(3)] or None
+    pace = max(4, min(10, round(len(recent) / 2)))
+    made = 0
+    for kd in q("SELECT name, date FROM key_dates WHERE workspace_id=? AND date BETWEEN ? AND ? ORDER BY date LIMIT 3", (wid, t.isoformat(), (t + dt.timedelta(days=21)).isoformat())):
+        base = re.sub(r"\s*\(.*?\)", "", kd["name"]).strip()
+        ttl = f"Post for {base}"
+        if any(ttl.lower() == x.lower() for x in titles):
+            continue
+        d = dt.date.fromisoformat(kd["date"]) - dt.timedelta(days=1)
+        ins("content_items", dict(workspace_id=wid, title=ttl, channel=(chans or ["Instagram"])[0], format="Post", status="Idea", publish_date=max(d, t + dt.timedelta(days=1)).isoformat(),
+                                  notes=f"Suggested by Debut ({kd['name']} is on {kd['date']}). Edit it, move it, or delete it."))
+        made += 1
+    return made + seed_suggested_posts(wid, industry, pace, chans, avoid=titles, begin=t, evergreen=True)
 
 
 def delete_workspace_data(wid):
@@ -537,6 +583,41 @@ def send_digests():
     for u in q("SELECT * FROM users WHERE digest=1 AND email_verified=1"):
         body = digest_text(u)
         if body and send_email(u["email"], f"Your {C.APP_NAME} digest", body):
+            sent += 1
+    return sent
+
+
+def morning_push():
+    """A short push to every person who turned push on and has posts to publish today or tasks that are overdue. Silent when there is nothing to say."""
+    t = today().isoformat()
+    sent = 0
+    for u in q("SELECT DISTINCT u.id, u.name FROM users u JOIN push_subs p ON p.user_id=u.id"):
+        posts = tasks = 0
+        for m in q("SELECT workspace_id AS wid FROM memberships WHERE user_id=? AND role NOT IN ('client','viewer')", (u["id"],)):
+            posts += q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND publish_date=? AND status NOT IN ('Published','On hold')", (m["wid"], t), one=True)["c"]
+            tasks += q("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status!='Done' AND due_date!='' AND due_date<?", (m["wid"], t), one=True)["c"]
+        if posts or tasks:
+            bits = ([f"{posts} post{'s' if posts != 1 else ''} to publish today"] if posts else []) + ([f"{tasks} overdue task{'s' if tasks != 1 else ''}"] if tasks else [])
+            send_push(u["id"], "☀️ " + " and ".join(bits) + ". Tap to open.", "/app")
+            sent += 1
+    return sent
+
+
+def evening_push():
+    """Streak saver: push to people with push on, a streak of 3+ days and nothing done yet today. Silent otherwise."""
+    import datetime as _dt
+    t = today()
+    sent = 0
+    for u in q("SELECT DISTINCT u.id FROM users u JOIN push_subs p ON p.user_id=u.id"):
+        days = {str(r["created_at"])[:10] for r in q("SELECT created_at FROM audit_log WHERE user_id=? ORDER BY id DESC LIMIT 800", (u["id"],))}
+        if t.isoformat() in days:
+            continue
+        n, d = 0, t - _dt.timedelta(days=1)
+        while d.isoformat() in days:
+            n += 1
+            d -= _dt.timedelta(days=1)
+        if n >= 3:
+            send_push(u["id"], f"🔥 Your {n}-day streak ends tonight. One quick post keeps it alive.", "/studio")
             sent += 1
     return sent
 

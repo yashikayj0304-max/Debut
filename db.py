@@ -69,7 +69,7 @@ def _pk():
 MANUAL_ORDER = ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "pitches", "accounts",
                 "personas", "competitors", "key_dates", "reference_links", "brand_kit", "gtm_plans", "keywords", "kpis", "assets", "clients", "retail_audits")
 EXTRA_COLUMNS = {
-    "workspaces": [("founding", "INTEGER DEFAULT 0"), ("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
+    "workspaces": [("ai_voice", "TEXT DEFAULT ''"), ("ai_lang", "TEXT DEFAULT 'English'"), ("founding", "INTEGER DEFAULT 0"), ("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
     "memberships": [("client_name", "TEXT DEFAULT ''")],
     "invites": [("client_name", "TEXT DEFAULT ''")],
     "comments": [("client_visible", "INTEGER DEFAULT 0")],
@@ -80,6 +80,8 @@ EXTRA_COLUMNS = {
     # order inside one column (not just dragged between columns) - see kanban() / m_reorder() in views.py
     **{k: [("sort_order", "INTEGER DEFAULT 0")] for k in MANUAL_ORDER},
 }
+EXTRA_COLUMNS["workspaces"] = EXTRA_COLUMNS["workspaces"] + [("bio", "TEXT DEFAULT ''")]      # link-in-bio page settings (JSON)
+EXTRA_COLUMNS["content_items"] = EXTRA_COLUMNS["content_items"] + [("studio", "TEXT DEFAULT ''"), ("thumb", "TEXT DEFAULT ''")]      # saved Create-studio design (slides, theme, size)
 
 
 def init_schema(modules):

@@ -177,6 +177,9 @@ def _seed_chai(wid, viewer):
 def _seed_neon(wid, viewer):
     t = S.today()
     d = lambda n: (t + dt.timedelta(days=n)).isoformat()
+    ins("gtm_plans", dict(workspace_id=wid, name="Retainer package launch", product="Monthly content retainer (3 tiers)", stage="Launch", launch_date=d(-10), budget=50000, owner="Neon team",
+                          goal="6 new retainer clients in 8 weeks", target_market="D2C founders, 10 to 50 people", positioning="A content team you do not have to manage",
+                          pricing="₹45k / ₹80k / ₹1.4L a month", channels="LinkedIn, email, referrals"))
     for title, ch, fmt, st, off, client in [
             ("Launch teaser for Kesari Sweets", "Instagram", "Reel / Short", "In review", 0, "Kesari Sweets"), ("Diwali recap post for Kesari Sweets", "Instagram", "Carousel", "Published", -6, "Kesari Sweets"),
             ("Black Friday ads for Urban Loom", "Facebook", "Post", "Planned", 12, "Urban Loom"), ("Monthly newsletter for Urban Loom", "Email", "Newsletter", "Scheduled", 3, "Urban Loom"),
@@ -206,6 +209,9 @@ def _seed_neon(wid, viewer):
 def _seed_riya(wid, viewer):
     t = S.today()
     d = lambda n: (t + dt.timedelta(days=n)).isoformat()
+    ins("gtm_plans", dict(workspace_id=wid, name="Creator workshop launch", product="Live 4-week workshop", stage="Launch", launch_date=d(-8), budget=20000, owner="Riya",
+                          goal="60 seats sold", target_market="Early-career creators, 20 to 30", positioning="Learn to earn from content, with live feedback",
+                          pricing="₹4,999 per seat", channels="Instagram, newsletter, WhatsApp community"))
     for title, ch, fmt, st, off in [
             ("Get ready with me: winter wedding guest", "Instagram", "Reel / Short", "Scheduled", 0), ("Thrift haul: 5 sweaters under ₹500", "YouTube", "Video", "Planned", 3),
             ("Brand collab: Nykaa-style skincare reel", "Instagram", "Reel / Short", "In review", 1), ("Weekly newsletter: what I wore", "Email", "Newsletter", "Planned", 4),

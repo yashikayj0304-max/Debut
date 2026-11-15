@@ -174,3 +174,11 @@ workspace.py   team, activity, account, export, delete   admin.py  platform cons
 views.py       all product screens, scoped by workspace
 tests/         pytest suite (isolation, roles, billing, security, workflows)
 ```
+
+
+## Free daily reminders (no paid cron needed)
+1. In Render, set the environment variable `CRON_KEY` to a long random string.
+2. At cron-job.org (free), create a job that opens `https://YOUR-SITE/cron/morning?key=YOUR_CRON_KEY` once a day at 8:30 am IST.
+3. Optional second job: `https://YOUR-SITE/cron/evening?key=YOUR_CRON_KEY` at 8:00 pm IST sends a streak-saver push to people with a 3+ day streak who have not done anything yet today.
+3. That one call sends the email digests (when mail is configured) and a morning push ("2 posts to publish today") to everyone who turned push on. Push also needs the VAPID keys from `gen_vapid.py`.
+4. Also point UptimeRobot at `/healthz` every 10 minutes so the free site stays awake.

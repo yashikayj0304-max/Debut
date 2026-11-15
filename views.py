@@ -117,6 +117,7 @@ TEMPLATES_GALLERY = [
     ("📬", "Newsletter launch", "Name, first 4 issues and a sign-up push.", "Email"),
 ]
 CHANGELOG = [
+    ("November 2026", ["Shortcuts: N new post, T today, G then C calendar", "New About and Channels pages", "Marketing pages stay in the public layout when you are signed in", "Phone agenda shows full channel names", "Late posts: move or park them in one tap", "Auto top-up when your calendar runs low", "AI follows your brand voice, in English, Hinglish or Hindi", "Plainer names: Launch plans, Tracking links, Team cheers"]),
     ("This week", ["Plans: compare dialog, yearly toggle and a Spark plan", "Agency enquiries go through a short form", "Add your calendar to Google Calendar in one tap", "Pick your vibe: palettes now follow your account"]),
     ("Earlier", ["Idea Bank, Team hub and Content ops dashboards", "Bold headline bands and big-number tiles", "Undo and duplicate on every list"]),
 ]
@@ -125,6 +126,52 @@ CHANGELOG = [
 @route("/templates")
 def templates_gallery():
     return render_template("templates_gallery.html", items=TEMPLATES_GALLERY)
+
+
+@route("/cron/morning")
+def cron_morning():
+    """Daily job for a free external scheduler: /cron/morning?key=<CRON_KEY>. Sends the email digests and the morning push."""
+    import hmac
+    key = request.args.get("key", "")
+    if not C.CRON_KEY or not hmac.compare_digest(key, C.CRON_KEY):
+        abort(404)
+    return jsonify(digests=S.send_digests(), pushes=S.morning_push())
+
+
+@route("/cron/evening")
+def cron_evening():
+    """Second daily job: /cron/evening?key=<CRON_KEY> (about 8pm IST). Streak-saver push."""
+    import hmac
+    key = request.args.get("key", "")
+    if not C.CRON_KEY or not hmac.compare_digest(key, C.CRON_KEY):
+        abort(404)
+    return jsonify(pushes=S.evening_push())
+
+
+@route("/healthz")
+def healthz():
+    return "ok", 200, {"Cache-Control": "no-store"}
+
+
+@route("/about")
+def about():
+    return render_template("about.html")
+
+
+@route("/channels")
+def channels_page():
+    return render_template("channels_page.html", groups=CHANNEL_GROUPS)
+
+
+CHANNEL_GROUPS = [
+    ("Social", "Plan posts, carousels, reels and stories", ["Instagram", "Facebook", "LinkedIn", "X / Threads", "YouTube & Shorts", "Pinterest", "ShareChat / Moj"]),
+    ("Messaging", "Broadcasts, status and newsletters", ["WhatsApp Business", "Telegram", "Email newsletter", "SMS"]),
+    ("Food and local", "Offers, menus, festival hours and reviews", ["Zomato", "Swiggy", "Google Business Profile", "Dineout", "Magicpin", "JustDial"]),
+    ("Marketplaces", "Sale dates, listings and coupons", ["Amazon", "Flipkart", "Myntra", "Nykaa", "Meesho", "Your own website / Shopify"]),
+    ("Industry platforms", "Where your buyers actually look", ["MakeMyTrip", "Booking.com", "99acres / MagicBricks", "Practo", "IndiaMART", "Product Hunt"]),
+    ("Ads and search", "Budgets and results next to your content", ["Google Ads", "Meta Ads", "LinkedIn Ads", "SEO / blog"]),
+    ("Offline", "Shelf, print and events", ["Sampling & events", "Shelf displays (POSM)", "Print & outdoor", "Distributor schemes"]),
+]
 
 
 @route("/changelog")
@@ -208,12 +255,20 @@ def robots():
 
 @route("/sitemap.xml")
 def sitemap():
-    urls = ["/", "/pricing", "/terms", "/privacy", "/refunds", "/contact"]
+    urls = ["/", "/features", "/templates", "/channels", "/about", "/changelog", "/pricing", "/terms", "/privacy", "/refunds", "/contact"]
     body = "".join(f"<url><loc>{S.app_url()}{u}</loc><changefreq>monthly</changefreq></url>" for u in urls)
     return Response('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + body + "</urlset>", mimetype="application/xml")
 
 
 # ----------------------------------------------------------------- dashboard
+def _ws_age(today):
+    """Days since this workspace was made; a missing or odd date counts as old rather than crashing Home."""
+    try:
+        return (today - dt.date.fromisoformat(str(g.ws["created_at"])[:10])).days
+    except ValueError:
+        return 999
+
+
 @route("/app")
 def dashboard():
     if g.role == "client":
@@ -263,13 +318,42 @@ def dashboard():
             rhythm.append(dict(icon="📈", text="Log this week's numbers (or import a platform report)", href=url_for("analytics")))
     today_items = (
         [dict(icon="⏰", text=f"Overdue: {r['title']}", href=url_for("m_edit", key="tasks", rid=r["id"]), tid=r["id"], name=r["title"]) for r in overdue] +
-        [dict(icon="📝", text=f"{'Publish today' if r['publish_date'] == t else 'Overdue to publish'}: {r['title']}", href=url_for("m_edit", key="content_items", rid=r["id"])) for r in content_catchup] +
+        [dict(icon="📝", text=f"{'Publish today' if r['publish_date'] == t else 'Overdue to publish'}: {r['title']}", href=(url_for("studio.studio", item=r["id"], post=1) if (r["studio"] or "") else url_for("m_edit", key="content_items", rid=r["id"])), tid=r["id"], name=r["title"], key="content_items", val="Published", label="Mark posted") for r in content_catchup] +
         [dict(icon="🗂️", text=f"Due today: {r['title']}", href=url_for("m_edit", key="tasks", rid=r["id"]), tid=r["id"], name=r["title"]) for r in due_today_tasks] +
         [dict(icon="🤳", text=f"Follow up: {r['name']}", href=url_for("outreach", iid=r["id"])) for r in followups] +
         review_items + rhythm
     )
     today_more = max(0, len(today_items) - 8)
     today_items = today_items[:8]
+    if g.role in ("owner", "admin", "manager", "lead"):      # untouched suggestions that have gone by are noise, not backlog
+        ex("DELETE FROM content_items WHERE workspace_id=? AND status='Idea' AND notes LIKE 'Suggested by Debut%' AND publish_date<>'' AND publish_date<?", (w, (today - dt.timedelta(days=2)).isoformat()))
+    week_plan = []
+    welcome = False
+    wa_url = ""
+    if g.role in ("owner", "admin", "manager", "lead"):
+        week_plan = q("SELECT id, title, channel, publish_date FROM content_items WHERE workspace_id=? AND status='Idea' AND publish_date BETWEEN ? AND ? ORDER BY publish_date LIMIT 8", (w, t, (today + dt.timedelta(days=7)).isoformat()))
+        welcome = bool(q("SELECT 1 FROM content_items WHERE workspace_id=? AND status='Idea' AND notes LIKE 'Suggested by Debut%' LIMIT 1", (w,), one=True)) and not q("SELECT 1 FROM audit_log WHERE workspace_id=? AND action='welcome_done' LIMIT 1", (w,), one=True)
+    first_week_card = (g.role in ("owner", "admin", "manager", "lead") and not welcome
+                       and not q("SELECT 1 FROM kpis WHERE workspace_id=? LIMIT 1", (w,), one=True)
+                       and bool(q("SELECT 1 FROM content_items WHERE workspace_id=? LIMIT 1", (w,), one=True))
+                       and _ws_age(today) <= 21)
+    low_cal = (g.role in ("owner", "admin", "manager", "lead") and not welcome and not week_plan and len(upcoming) < 3
+               and bool(q("SELECT 1 FROM content_items WHERE workspace_id=? LIMIT 1", (w,), one=True)))
+    topped = 0
+    age_days = _ws_age(today)
+    if low_cal and not (g.user["email"] or "").endswith("@demo.debut.invalid") and age_days >= 3:
+        since_ts = (dt.datetime.utcnow() - dt.timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")
+        # claim the top-up in one atomic statement, so two tabs opening at once cannot both add posts
+        claimed = ex("INSERT INTO audit_log (workspace_id, user_id, action, detail) SELECT CAST(? AS INTEGER), CAST(? AS INTEGER), 'auto_topup', 'claim' WHERE NOT EXISTS (SELECT 1 FROM audit_log WHERE workspace_id=? AND action='auto_topup' AND created_at>=?)",
+                     (w, g.user["id"], w, since_ts))
+        if claimed:      # the calendar ran low and nobody came back to refill it: do it quietly, as Ideas they can review
+            topped = S.plan_more_posts(w, g.ws["industry"] or "general")
+            if topped:
+                low_cal = False
+    lines = [f"Today on {g.ws['name']}:"] + [f"• {it['text']}" for it in today_items[:5]] + [f"• Coming up: {u['title']} ({u['publish_date']})" for u in list(upcoming)[:3]]
+    if len(lines) > 1:
+        from urllib.parse import quote
+        wa_url = "https://wa.me/?text=" + quote("\n".join(lines))
     tiles = []
     for k in ("content_items", "campaigns", "promotions", "events", "content_orders", "creators", "tasks", "leads", "reference_links", "influencers"):
         if locked(k) or (g.role == "creator" and k not in CREATOR_MODULES):
@@ -297,8 +381,14 @@ def dashboard():
              third,
              ("Capture your first lead", cnt("leads") > 0, url_for("ws.integrations") if g.role in ("owner", "admin", "lead", "manager") else url_for("m_new", key="leads")),
              ("Invite a teammate", cnt("memberships") > 1, url_for("ws.team")),
-             ("Verify your email", bool(g.user["email_verified"]), url_for("ws.account"))]
-    wins = cnt("content_items") + cnt("campaigns") + cnt("leads")
+             ] + ([("Verify your email", bool(g.user["email_verified"]), url_for("ws.account"))] if C.SMTP_HOST else [])      # no mail server, no way to verify: do not show a step nobody can finish
+    sug = q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Idea' AND notes LIKE 'Suggested by Debut%'", (w,), one=True)["c"]
+    if sug and g.role in ("owner", "admin", "manager"):      # day one: the first job is to look at the two weeks already planned
+        steps = [("Look over your first 2 weeks of posts", False, url_for("calendar_view"))] + steps
+    if g.role in ("owner", "admin", "manager", "lead", "creator"):      # the studio is the wow moment, so it is the first thing a new person is pointed at
+        made = q("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND studio<>''", (w,), one=True)["c"]
+        steps = [("Design your first post in 60 seconds", made > 0, url_for("studio.studio"))] + steps
+    wins = cnt("content_items") - sug + cnt("campaigns") + cnt("leads")
     pending = [x for x in steps if not x[1]]
     if wins and cnt("memberships") <= 1 and g.role in ("owner", "admin"):
         pending.sort(key=lambda x: 0 if x[0] == "Invite a teammate" else 1)
@@ -314,27 +404,79 @@ def dashboard():
             age = 0
         if age >= 7 and not q("SELECT id FROM feedback WHERE user_id=? AND kind='pmf'", (g.user["id"],), one=True):
             pmf_ask = True
-    return render_template("dashboard.html", trial_card=trial_card, pmf_ask=pmf_ask, next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
+    late_posts = len([r for r in content_catchup if r["publish_date"] < t]) if g.role in ("owner", "admin", "manager", "lead") else 0
+    promo = None
+    if g.role not in ("viewer", "client", "creator"):
+        try:
+            import studio as ST
+            sg = ST.suggestions(W(), g.ws["industry"], S.today())
+            promo = next((c for c in sg if not c["trend"] and c["kind"] not in ("Evergreen",) and c["days"] <= 45), None) or next((c for c in sg if c["trend"]), None)
+        except Exception:
+            promo = None
+    prog = _progress() if g.role not in ("viewer", "client") else None
+    return render_template("dashboard.html", spark=_spark(), prog=prog, promo=promo, topped=topped, late_posts=late_posts, week_plan=week_plan, low_cal=low_cal, first_week_card=first_week_card, welcome=welcome, wa_url=wa_url, goals_channels=CHANNELS, fresh=bool(sug), trial_card=trial_card, pmf_ask=pmf_ask, next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
                            today_items=today_items, today_more=today_more, can_toggle=can_toggle, who=who,
-                           steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
+                           steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), streak_froze=_streak_info()[1], kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
                            ind=IND.get(g.ws["industry"]), pulse=S.latest_pulse(w),
                            usage=dict(records=S.record_count(w), boards=cnt("boards"), credits=S.credits_used(w)) if g.plan_key == "free" else None)
 
 
 
-def _streak():
-    """Consecutive days (ending today or yesterday) on which this user did something in this workspace."""
+LEVELS = [(0, "Newcomer"), (30, "Planner"), (80, "Creator"), (160, "Publisher"), (280, "Strategist"), (450, "Brand builder"), (700, "Studio pro"), (1000, "Marketing machine"), (1500, "Legend")]
+XP_WEIGHT = {"studio_save": 10, "studio_done": 15, "promo_plan": 20, "demo_blocked": 0}
+
+
+def _progress():
+    """Level and this-week wins for the person looking, worked out from what they have done (no extra tables)."""
+    rows = q("SELECT action, COUNT(*) c FROM audit_log WHERE workspace_id=? AND user_id=? GROUP BY action", (W(), g.user["id"]))
+    xp = sum(min(r["c"], 200) * XP_WEIGHT.get(r["action"], 1) for r in rows)
+    i = max(n for n, (need, _) in enumerate(LEVELS) if xp >= need)
+    nxt = LEVELS[i + 1] if i + 1 < len(LEVELS) else None
+    base = LEVELS[i][0]
+    since = (S.today() - dt.timedelta(days=6)).isoformat()
+    wk = q("SELECT action, COUNT(*) c FROM audit_log WHERE workspace_id=? AND user_id=? AND created_at>=? AND action IN ('studio_save','studio_done','promo_plan') GROUP BY action", (W(), g.user["id"], since))
+    wk = {r["action"]: r["c"] for r in wk}
+    return dict(level=i + 1, name=LEVELS[i][1], xp=xp, nxt=nxt[1] if nxt else "", to_next=(nxt[0] - xp) if nxt else 0,
+                pct=int(100 * (xp - base) / (nxt[0] - base)) if nxt else 100, designed=wk.get("studio_save", 0), posted=wk.get("studio_done", 0), planned=wk.get("promo_plan", 0))
+
+
+def _streak_info():
+    """(days, froze). Consecutive days on which this user did something here. One missed day is forgiven (a free 'streak freeze'),
+    and another is forgiven only after 7 more active days, so one bad day does not wipe out a long streak."""
     import datetime as _dt
-    rows = q("SELECT created_at FROM audit_log WHERE workspace_id=? AND user_id=? ORDER BY id DESC LIMIT 800", (W(), g.user["id"]))
+    rows = q("SELECT created_at FROM audit_log WHERE workspace_id=? AND user_id=? ORDER BY id DESC LIMIT 1500", (W(), g.user["id"]))
     days = {str(r["created_at"])[:10] for r in rows}
-    d, n = S.today(), 0
+    d, n, froze, since = S.today(), 0, False, 99
     if d.isoformat() not in days:
         d -= _dt.timedelta(days=1)
-    while d.isoformat() in days:
-        n += 1
+    while True:
+        if d.isoformat() in days:
+            n += 1
+            since += 1
+        elif n > 0 and since >= 7 and (d - _dt.timedelta(days=1)).isoformat() in days:
+            froze, since = True, 0
+        else:
+            break
         d -= _dt.timedelta(days=1)
-    return n
+    return n, froze
+
+
+SPARKS = ["Show the thing you made today, mess and all.", "Answer the question customers ask you most, in 30 seconds.", "Post a before and after.",
+          "Share one mistake you made and what it taught you.", "Introduce the person behind the brand.", "Ask your followers to pick A or B.",
+          "Tell the story of your first customer.", "Show how it is made, start to finish.", "Share a small win from this week.",
+          "Bust a myth people believe about your industry.", "Post your top 3 tips, one per slide.", "Thank a customer and show their words.",
+          "Give a peek at what is launching next.", "Show your workspace or your shelf."]
+
+
+def _spark():
+    import datetime as _dt
+    return SPARKS[(S.today().toordinal() + (W() or 0)) % len(SPARKS)]
+
+
+def _streak():
+    return _streak_info()[0]
+
 
 # ----------------------------------------------------------------- generic CRUD
 GAP_BANNER_KEYS = {"brand_kit": {"brand_kit"}, "campaigns": {"campaigns"}, "content_items": {"content_items", "content_overdue"},
@@ -958,6 +1100,82 @@ def m_status(key, rid):
     return redirect(safe_next(url_for("kanban", key=key)))
 
 
+@route("/plan-week/accept", methods=["POST"])
+def plan_week_accept():
+    """One tap: the suggested posts for the next 7 days become planned work. `skip` ids are dropped instead."""
+    if g.role not in ("owner", "admin", "manager", "lead"):
+        abort(403)
+    w, t = W(), S.today()
+    skip = {int(x) for x in request.form.getlist("skip") if x.isdigit()}
+    rows = q("SELECT id FROM content_items WHERE workspace_id=? AND status='Idea' AND publish_date BETWEEN ? AND ?", (w, t.isoformat(), (t + dt.timedelta(days=7)).isoformat()))
+    n = 0
+    for r in rows:
+        if r["id"] in skip:
+            ex("DELETE FROM content_items WHERE id=? AND workspace_id=?", (r["id"], w))
+        else:
+            ex("UPDATE content_items SET status='Planned' WHERE id=? AND workspace_id=?", (r["id"], w)); n += 1
+    flash(f"🎉 {n} post{'s' if n != 1 else ''} locked in for this week." if n else "Nothing to accept.")
+    return redirect(safe_next(url_for("dashboard")))
+
+
+@route("/plan-more", methods=["POST"])
+def plan_more():
+    """One tap when the calendar is running low."""
+    if g.role not in ("owner", "admin", "manager", "lead"):
+        abort(403)
+    n = S.plan_more_posts(W(), g.ws["industry"] or "general")
+    flash(f"🎉 {n} new post idea{'s' if n != 1 else ''} added to the next 2 weeks." if n else "Your calendar already has everything this bank of ideas suggests. Try AI Studio for fresh ones.")
+    return redirect(url_for("calendar_view"))
+
+
+@route("/overdue/<what>", methods=["POST"])
+def overdue_posts(what):
+    """One tap for a calendar that has fallen behind: move late posts to the days ahead, or park them."""
+    if g.role not in ("owner", "admin", "manager", "lead"):
+        abort(403)
+    t = S.today()
+    rows = q("SELECT id FROM content_items WHERE workspace_id=? AND publish_date!='' AND publish_date<? AND status NOT IN ('Published','On hold') ORDER BY publish_date", (W(), t.isoformat()))
+    if what == "skip":
+        for r in rows:
+            ex("UPDATE content_items SET status='On hold' WHERE id=? AND workspace_id=?", (r["id"], W()))
+        flash(f"Parked {len(rows)} late post{'s' if len(rows) != 1 else ''} as On hold. They are still in the list when you want them.")
+    else:
+        for i, r in enumerate(rows):      # two a day, starting today
+            ex("UPDATE content_items SET publish_date=? WHERE id=? AND workspace_id=?", ((t + dt.timedelta(days=i // 2)).isoformat(), r["id"], W()))
+        flash(f"Moved {len(rows)} late post{'s' if len(rows) != 1 else ''} to the next {max(1, (len(rows) + 1) // 2)} days, two a day.")
+    return redirect(request.form.get("next") if (request.form.get("next") or "").startswith("/app") else "/app")
+
+
+@route("/checklist/full", methods=["POST"])
+def checklist_full():
+    if g.role not in ("owner", "admin", "manager", "lead"):
+        abort(403)
+    n = S.apply_industry(W(), g.ws["industry"] or "general", full=True)["checklist"]
+    flash(f"Added {n} more checklist step{'s' if n != 1 else ''}." if n else "You already have the full checklist.")
+    return redirect(url_for("m_list", key="launch_checklist"))
+
+
+@route("/welcome", methods=["POST"])
+def welcome_setup():
+    """Three quick questions after sign-up: where do you post, how often, what is the goal. Re-plans the suggested posts around the answers."""
+    if g.role not in ("owner", "admin"):
+        abort(403)
+    w = W()
+    chans = [c for c in request.form.getlist("channels") if c in CHANNELS][:4]
+    per_week = request.form.get("per_week", "3")
+    per_week = int(per_week) if per_week.isdigit() and 1 <= int(per_week) <= 7 else 3
+    goal = (request.form.get("goal") or "").strip()[:140]
+    if chans or request.form.get("per_week"):
+        ex("DELETE FROM content_items WHERE workspace_id=? AND status='Idea' AND notes LIKE 'Suggested by Debut%'", (w,))
+        S.seed_suggested_posts(w, g.ws["industry"] or "general", per_week * 2, chans or None)
+    if goal:
+        eom = (S.today().replace(day=28) + dt.timedelta(days=4)).replace(day=1) - dt.timedelta(days=1)
+        ins("tasks", dict(workspace_id=w, title=f"🎯 This month: {goal}", due_date=eom.isoformat(), priority="High", status="To do", assignee=g.user["name"] or ""))
+    S.audit("welcome_done", "", wid=w, uid=g.user["id"])
+    flash("🎉 Your next 2 weeks are ready. Edit, move or delete anything.")
+    return redirect(url_for("calendar_view"))
+
+
 @route("/m/tasks/<int:rid>/snooze", methods=["POST"])
 def task_snooze(rid):
     """Push a task's due date to tomorrow (or one day later than it already is, if that is further out)."""
@@ -1079,7 +1297,7 @@ TOOL_WORDS = {
     "assets": "files library images assets media", "experiments": "test ab a/b experiment", "feeds": "news rss sources", "watchlist": "watch topics news trends",
 }
 TOOL_PAGES = [("calendar_view", "📅 Calendar", "calendar schedule month plan dates"), ("moodboards", "🖼️ Mood Boards", "mood board vibe inspiration pinterest"), ("ideas", "💡 Idea Bank", "ideas inspiration stuck content ideas"),
-              ("ai_studio", "🤖 AI Studio", "ai write draft generate caption chatgpt"), ("pulse_page", "📡 Live news (Market Pulse)", "news trends market pulse competitors"), ("analytics", "📈 Analytics", "analytics charts results funnel"),
+              ("ai_studio", "🤖 AI Studio", "ai write draft generate caption chatgpt"), ("pulse_page", "📡 Live news & trends", "news trends market pulse competitors"), ("analytics", "📈 Analytics", "analytics charts results funnel"),
               ("marketing_health", "🩺 Marketing Health", "health score check consistency"), ("report", "📑 Client report", "report pdf client monthly"), ("whatnow", "🫠 Idk what to do", "stuck lost help next what now bored"),
               ("glossary", "📖 Jargon buster", "meaning what is glossary jargon terms explain gtm utm kpi icp roi"), ("help_centre", "❓ Help & guides", "help guide manual how to")]
 
@@ -1244,7 +1462,7 @@ def board_new():
     return redirect(url_for("board_view", bid=bid))
 
 
-def _svg_placeholder(label, bg="#7c5cd6", fg="#ffffff"):
+def _svg_placeholder(label, bg="#6a3df0", fg="#ffffff"):
     """A self-contained placeholder picture (no external image host involved) so the sample board always
     renders, even offline — a real upload or image URL replaces it in seconds via the 🔄 button."""
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360">'
@@ -1256,7 +1474,7 @@ def _svg_placeholder(label, bg="#7c5cd6", fg="#ffffff"):
 
 SAMPLE_BOARD_ITEMS = [
     ("image", _svg_placeholder("Reference shot"), "Reference shot — swap for your own"),
-    ("color", "#7c5cd6", "Primary brand colour"), ("color", "#f1ecff", "Light background tint"),
+    ("color", "#6a3df0", "Primary brand colour"), ("color", "#f1ecff", "Light background tint"),
     ("note", "Mood: warm, festive, a little playful. Think golden-hour light, not studio-flat.", "Overall mood"),
     ("note", "Hero shot idea: product on a textured surface, soft natural light, one prop max.", "Hero shot"),
     ("link", "https://www.pinterest.com/search/pins/?q=festive%20product%20photography", "Inspiration search"),
@@ -1287,7 +1505,7 @@ BOARD_TEMPLATES = {
         ("note", "Shots: diya close-ups, hands exchanging gifts, rangoli from above, family at the table (golden-hour light).", "Shot list"),
         ("link", "https://www.pinterest.com/search/pins/?q=diwali%20campaign%20creative", "Inspiration search")]),
     "launch": ("Product launch", "Everything for a launch in one place: look, message, shots and channels.", [
-        ("color", "#7c5cd6", "Brand primary"), ("color", "#f1ecff", "Soft background"), ("color", "#2b2442", "Dark text / contrast"),
+        ("color", "#6a3df0", "Brand primary"), ("color", "#f1ecff", "Soft background"), ("color", "#2b2442", "Dark text / contrast"),
         ("note", "One-line promise: what changes for the customer after buying?", "Core promise"),
         ("note", "Hero shot: product alone, textured surface, soft natural light, one prop max.", "Hero shot"),
         ("note", "Teaser (T-7), reveal (T-0), proof (T+3: reviews / UGC), offer (T+7).", "Launch rhythm"),
@@ -1299,7 +1517,7 @@ BOARD_TEMPLATES = {
         ("note", "Deliverables: 1 Reel (30-45s), 3 Stories with link sticker, 1 static post. Usage rights: 60 days.", "Deliverables"),
         ("link", "https://www.instagram.com/", "Reference account")]),
     "brand": ("Brand identity", "Colours, voice and visual rules at a glance.", [
-        ("color", "#7c5cd6", "Primary"), ("color", "#e8590c", "Secondary"), ("color", "#f1ecff", "Background"), ("color", "#2b2442", "Text"),
+        ("color", "#6a3df0", "Primary"), ("color", "#e8590c", "Secondary"), ("color", "#f1ecff", "Background"), ("color", "#2b2442", "Text"),
         ("note", "Voice: friendly, plain-spoken, confident. We explain, we don't lecture.", "Voice"),
         ("note", "Photography: natural light, real people, uncluttered backgrounds.", "Photography"),
         ("note", "Never: stock-smile photos, ALL-CAPS shouting, more than one exclamation mark.", "Never")]),
@@ -1490,7 +1708,7 @@ def board_item_edit(iid):
     elif it["kind"] == "color":
         content = d.get("content", "")
         if not re.match(r"^#[0-9a-fA-F]{6}$", content or ""):
-            return jsonify(error="Enter a valid hex colour, e.g. #7c5cd6."), 400
+            return jsonify(error="Enter a valid hex colour, e.g. #6a3df0."), 400
         ex("UPDATE board_items SET content=?, caption=? WHERE id=?", (content, caption, iid))
     elif it["kind"] == "link":
         content = S.clean_url(d.get("content", ""))
@@ -1734,7 +1952,7 @@ def kudos_send():
     ins("kudos", dict(workspace_id=W(), from_user=g.user["id"], to_user=to, emoji=emoji, note=note))
     S.audit("kudos", f"to user {to}")
     S.notify(W(), to, "kudos", f"{emoji} {g.user['name'] or g.user['email']} sent you kudos: {note[:100]}", url_for("kudos"))
-    flash("Kudos sent. Made their day 🎉")
+    flash("Cheer sent. Made their day 🎉")
     return redirect(url_for("kudos"))
 
 
@@ -1774,6 +1992,54 @@ def recap():
               ("🎉", "Hype squad", "Send a kudos", bool(q("SELECT 1 x FROM kudos WHERE workspace_id=? AND from_user=? LIMIT 1", (w, g.user["id"])))),
               ("🎨", "Made it yours", "Pick your vibe colours", bool(g.ws["brand_color"]))]
     return render_template("recap.html", badges=badges, stats=stats, total=total, vibe=vibe, streak=_streak(), month=today.strftime("%B"), year=today.year)
+
+
+# ----------------------------------------------------------------- first week
+ENQUIRY_INDS = {"b2b", "realestate", "education", "healthcare", "agency", "saas", "fintech", "startup", "personal_brand"}
+
+
+def _first_week_numbers(industry):
+    """Three numbers anyone can type in 20 seconds. They land on the Numbers page straight away, so results show up on day one instead of after a data import."""
+    sells = "Enquiries" if industry in ENQUIRY_INDS else "Orders"
+    return [("followers", "Followers (all platforms)", "Followers"), ("reach", "Reach or views this week", "Reach"), ("orders", f"{sells} this week", sells)]
+
+
+@route("/first-week")
+def first_week():
+    w, t = W(), S.today()
+    wk0 = (t - dt.timedelta(days=6)).isoformat()
+    c = lambda sql, *a: q(sql, (w,) + a, one=True)["c"]
+    published = c("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status='Published' AND publish_date>=?", wk0)
+    planned = c("SELECT COUNT(*) c FROM content_items WHERE workspace_id=? AND status NOT IN ('Published') AND publish_date BETWEEN ? AND ?", t.isoformat(), (t + dt.timedelta(days=7)).isoformat())
+    done = c("SELECT COUNT(*) c FROM tasks WHERE workspace_id=? AND status='Done'")
+    ideas = c("SELECT COUNT(*) c FROM content_items WHERE workspace_id=?")
+    days = len({str(r["created_at"])[:10] for r in q("SELECT created_at FROM audit_log WHERE workspace_id=? AND user_id=? ORDER BY id DESC LIMIT 400", (w, g.user["id"]))})
+    nxt = q("SELECT name, date FROM key_dates WHERE workspace_id=? AND date>=? ORDER BY date LIMIT 1", (w, t.isoformat()), one=True)
+    have_numbers = c("SELECT COUNT(*) c FROM kpis WHERE workspace_id=?") > 0
+    stats = [("📝", "Posts planned or live", ideas), ("🚀", "Published this week", published), ("🗓️", "Coming up in 7 days", planned), ("✅", "Tasks finished", done), ("🔥", "Days you showed up", days)]
+    share = f"My first week with Debut for {g.ws['name']}: {ideas} posts planned, {published} published, {done} tasks done. Planning content has never been this calm."
+    from urllib.parse import quote
+    return render_template("first_week.html", stats=stats, nxt=nxt, have_numbers=have_numbers, fields=_first_week_numbers(g.ws["industry"]), share=share, wa="https://wa.me/?text=" + quote(share), brand_name=g.ws["name"])
+
+
+@route("/first-week/numbers", methods=["POST"])
+def first_week_numbers():
+    if g.role in ("viewer", "client"):
+        abort(403)
+    w, t = W(), S.today()
+    n = 0
+    for key, _label, metric in _first_week_numbers(g.ws["industry"]):
+        raw = (request.form.get(key) or "").replace(",", "").strip()
+        try:
+            val = float(raw)
+        except ValueError:
+            continue
+        if val < 0 or val > 1e12:
+            continue
+        ins("kpis", dict(workspace_id=w, metric=metric, channel="All", period=t.isoformat(), value=int(val) if val == int(val) else val, target=""))
+        n += 1
+    flash(f"🎉 {n} number{'s' if n != 1 else ''} saved. This is your starting line." if n else "Type at least one number to see it on your Numbers page.")
+    return redirect(url_for("analytics") if n else url_for("first_week"))
 
 
 # ----------------------------------------------------------------- analytics & UTM
@@ -1892,7 +2158,10 @@ def ai_studio():
     live = [(k, AI_TASKS[k][0], C.AI_COST.get(k, 1) + C.AI_RESEARCH_EXTRA) for k in AI_TASKS if k in FORCE_RESEARCH] if C.AI_WEB_SEARCH else []
     rest = [(k, v[0], C.AI_COST.get(k, 1)) for k, v in AI_TASKS.items() if k not in AI_TASK_FOR and k not in FORCE_RESEARCH and k not in HIDDEN_TASKS]
     return render_template("ai.html", tasks=mine + live + rest, n_mine=len(mine), n_live=len(live), ind=IND.get(industry), has_key=bool(C.ANTHROPIC_API_KEY),
-                           used=S.credits_used(W()), limit=g.plan["ai_credits"], web=C.AI_WEB_SEARCH, extra=C.AI_RESEARCH_EXTRA, force=sorted(FORCE_RESEARCH))
+                           used=S.credits_used(W()), limit=g.plan["ai_credits"], web=C.AI_WEB_SEARCH, extra=C.AI_RESEARCH_EXTRA, force=sorted(FORCE_RESEARCH), voice=g.ws["ai_voice"] or "", lang=g.ws["ai_lang"] or "English", langs=list(AI_LANGS))
+
+
+AI_LANGS = {"English": "English", "Hinglish": "Hinglish: natural Hindi and English mixed in Roman script, the way urban Indians talk and post (not translated textbook Hindi)", "Hindi": "Hindi in Devanagari script"}
 
 
 class ClaudeError(Exception):
@@ -1984,7 +2253,12 @@ def api_ai():
         return err
     t = lambda k, n=1000: S.clean_text(d.get(k, ""), n)
     ind = IND.get(g.ws["industry"])
-    parts = [f"TASK: {AI_TASKS[task][1]}", f"Business industry: {ind['label']}", f"Product/brand: {t('product')}", f"Target audience: {t('audience')}", f"Tone: {t('tone')}", f"Extra instructions: {t('extra', 8000)}"]
+    voice, lang = (g.ws["ai_voice"] or ""), (g.ws["ai_lang"] or "English")
+    if "voice" in d and g.role in ("owner", "admin", "manager", "lead"):      # saved once, used every time
+        voice = t("voice", 600)
+        lang = d.get("lang") if d.get("lang") in AI_LANGS else "English"
+        ex("UPDATE workspaces SET ai_voice=?, ai_lang=? WHERE id=?", (voice, lang, W()))
+    parts = [f"TASK: {AI_TASKS[task][1]}", f"Business industry: {ind['label']}", f"Brand voice (write the way this brand talks): {voice or 'not set'}", f"Write in: {AI_LANGS.get(lang, AI_LANGS['English'])}", f"Product/brand: {t('product')}", f"Target audience: {t('audience')}", f"Tone: {t('tone')}", f"Extra instructions: {t('extra', 8000)}"]
     if d.get("use_plan"):
         parts += workspace_context()
     if task == "report":
@@ -2525,7 +2799,7 @@ def manifest():
     icons = [dict(src=url_for("static", filename="icons/icon-192.png"), sizes="192x192", type="image/png", purpose="any"),
              dict(src=url_for("static", filename="icons/icon-512.png"), sizes="512x512", type="image/png", purpose="any"),
              dict(src=url_for("static", filename="icons/maskable-512.png"), sizes="512x512", type="image/png", purpose="maskable")]
-    return Response(json.dumps(dict(name=C.APP_NAME, short_name=C.APP_NAME[:12], start_url="/app", scope="/", display="standalone", display_override=["standalone", "minimal-ui"], orientation="any", background_color="#faf8ff", theme_color="#7c5cd6", icons=icons,
+    return Response(json.dumps(dict(name=C.APP_NAME, short_name=C.APP_NAME[:12], start_url="/app", scope="/", display="standalone", display_override=["standalone", "minimal-ui"], orientation="any", background_color="#faf8ff", theme_color="#6a3df0", icons=icons,
                                      description="Plan, post, launch and report your marketing in one place.", categories=["business", "productivity"],
                                      screenshots=[dict(src=url_for("static", filename="icons/shot-wide.png"), sizes="1280x800", type="image/png", form_factor="wide", label="Home"), dict(src=url_for("static", filename="icons/shot-narrow.png"), sizes="390x844", type="image/png", form_factor="narrow", label="Home on phone")],
                                      shortcuts=[dict(name="Calendar", url="/calendar"), dict(name="Tasks", url="/m/tasks"), dict(name="Idk what to do", url="/whatnow")])),

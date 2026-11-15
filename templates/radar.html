@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Radar — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="head"><h1>📡 {{ tn('radar') }}</h1></div>
+<p class="muted">Your festival calendar plus formats that work, each with a ready script. Tap to make it.</p>
+{% for r in rows %}<div class="card rad"><div class="rad-h"><div><b>{{ r.name }}</b> <span class="tag">{% if r.days == 0 %}today{% elif r.days == 1 %}tomorrow{% else %}in {{ r.days }} days{% endif %}</span></div><span class="pill">{{ r.fmt }}</span></div>
+<p class="rad-hook">“{{ r.hook }}”</p><ol>{% for s in r.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+<a class="btn sm" href="{{ url_for('studio.studio', goal=r.goal, channel='Instagram', kind=r.kind) }}">🎬 Make it</a></div>
+{% else %}<div class="card"><p class="muted">No key dates ahead yet. Add festivals or launches on the calendar and they show up here.</p></div>{% endfor %}
+<p class="muted">Tip: pick trending audio inside Instagram when you post. Debut does not read live audio trends.</p>
+{% endblock %}

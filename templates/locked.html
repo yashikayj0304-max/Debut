@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Locked — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="card" style="max-width:520px;margin:40px auto;text-align:center"><div style="font-size:42px">🔒</div><h1>{{ label }} is locked</h1>
+<p class="muted">A lead chose to keep this page private. You can ask for access, and you will get a message when they decide.</p>
+{% if asked %}<p><span class="pill">⏳ Request sent</span></p>{% else %}<form method="post" action="{{ url_for('tm.access_request') }}"><input type="hidden" name="page" value="{{ pk }}"><button class="btn">Ask for access</button></form>{% endif %}
+<p><a href="{{ url_for('dashboard') }}">Back home</a></p></div>
+{% endblock %}

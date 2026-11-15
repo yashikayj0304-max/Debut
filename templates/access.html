@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Page access — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="head"><h1>🔒 Page access</h1><a class="btn ghost sm" href="{{ url_for('tm.approvals') }}">✅ Approvals</a></div>
+<p class="muted">Tick the pages only owners, admins and leads can open. Everyone else sees a lock and can ask you for access. Calendar, tasks and Create are never locked.</p>
+<form method="post" class="card"><div class="lock-grid">{% for k, label in pages %}<label class="lock-opt"><input type="checkbox" name="lock" value="{{ k }}" {{ 'checked' if k in locked }}> <span>{{ label }}</span></label>{% endfor %}</div>
+<button class="btn" style="margin-top:12px">Save</button></form>
+<div class="card" style="margin-top:14px"><b>People with special access</b>
+{% for a in grants %}<form method="post" action="{{ url_for('tm.access_decide', aid=a['id']) }}" class="apr-row"><div><b>{{ a['who'] or a['email'] }}</b> can open {{ labels.get(a['page_key'], a['page_key']) }}</div><button class="btn ghost sm" name="do" value="revoke">Remove</button></form>
+{% else %}<p class="muted">No one yet. Approved requests show up here.</p>{% endfor %}</div>
+{% endblock %}

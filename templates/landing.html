@@ -1,11 +1,10 @@
 {% extends "base.html" %}{% from "_mascot.html" import deb %}{% set meta_desc = C.APP_NAME ~ ": plan your marketing and see what works. A content calendar, ready-made post ideas, tasks and simple results for small brands, founders, agencies and creators in India. Free plan available." %}{% block title %}{{ C.APP_NAME }}: plan your marketing and see what works{% endblock %}{% block body %}<div class="lp-bg" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="grid"></i></div>
 <section class="hero hero2"><div class="hero-l"><h1>Plan your marketing.<br>See what works.</h1>
 <p class="rot-line">Made for your <span class="rot" aria-label="launch, content, Diwali sale or creator drop"><span aria-hidden="true">launch</span><span aria-hidden="true">content</span><span aria-hidden="true">Diwali sale</span><span aria-hidden="true">creator drop</span></span></p>
-<p><b>Debut is a marketing planner for small brands, founders and creators.</b> Pick your industry and get 2 weeks of posts planned in a minute, then track what is working. You still post on Instagram, WhatsApp and the rest, like you do today. Made in India 🇮🇳</p>
+<p class="hero-sub">2 weeks of posts, planned in a minute.</p>
 <a class="btn" href="{{ url_for('auth.signup') }}" style="padding:12px 26px;font-size:16px">Start free</a> <a class="btn ghost" href="{{ url_for('demo') }}" style="padding:12px 26px;font-size:16px">Try the demo</a>
-<p class="uses">Works with what you already use: <b>Google Calendar</b> sync, <b>Instagram, Meta and Google Ads</b> report import, <b>WhatsApp</b> sharing, and CSV import from <b>Google Sheets or Excel</b>.</p>
-<p class="tag" style="margin-top:10px">Free forever, plus {{ C.TRIAL_DAYS }} days of the Team plan on us. No card, no catch. {% set _pc = C.plan_cards('')|selectattr('price')|list %}{% if _pc %}Paid plans from <a href="#prices"><b>₹{{ '{:,}'.format(_pc[0].price) }}/month</b></a>.{% endif %}</p>
-{% if C.BETA_USERS %}<p class="proof"><i class="ic ic-star" aria-hidden="true"></i> Loved by {{ C.BETA_USERS }}+ beta marketers</p>{% endif %}{% if C.FOUNDING_OPEN %}<p class="proof">⭐ Founding members: join during the beta and lock in {{ C.FOUNDING_PCT }}% off for life when paid plans launch.</p>{% endif %}</div>
+<ul class="chips"><li>Free forever</li><li>{{ C.TRIAL_DAYS }}-day Team trial</li>{% set _pc = C.plan_cards('')|selectattr('price')|list %}{% if _pc %}<li><a href="#prices">From ₹{{ '{:,}'.format(_pc[0].price) }}/mo</a></li>{% endif %}<li>Built for desi brands, by desi people 🇮🇳</li></ul>
+{% if C.FOUNDING_OPEN %}<p class="proof">⭐ Founding members get {{ C.FOUNDING_PCT }}% off for life</p>{% endif %}{% if C.BETA_USERS %}<p class="proof"><i class="ic ic-star" aria-hidden="true"></i> Loved by {{ C.BETA_USERS }}+ beta marketers</p>{% endif %}</div>
 <div class="hero-r"><div class="mock" aria-hidden="true"><div class="mock-bar"><i></i><i></i><i></i><span>Debut · Home</span></div>
 <div class="mock-body"><div class="mock-rail"><b>🏠</b><b>📅</b><b>✅</b><b>📈</b><b>🤖</b></div><div class="mock-main">
 <div class="mock-h">3 things need you today</div>
@@ -13,8 +12,6 @@
 <div class="mock-cal"><span></span><span class="d"></span><span></span><span class="d"></span><span></span><span></span><span class="d"></span><span class="d"></span><span></span><span class="d"></span><span></span><span></span><span class="d"></span><span></span></div>
 <div class="mock-type"><span>New caption: Diwali gifting that actually ships on time ✨</span></div></div></div></div>
 <div class="deb-wrap peek">{{ deb('wave', 92) }}</div></div></section>
-<section class="lp-prices" id="prices"><h2>Pick a plan</h2><p class="muted">Prices in INR {{ C.PRICE_NOTE }}. Cancel any time.</p>
-{% with cur='', cta='signup' %}{% include "_plans.html" %}{% endwith %}</section>
 <p class="seeact"><a href="{{ url_for('demo') }}">See it in action →</a></p>
 <section class="bento bento-sec" aria-label="What is inside"><button type="button" class="bt bt-cal" data-f="calendar"><b>📅 Content calendar</b><span>Tap a day, drop an idea on it. Drag to reschedule.</span><i class="bt-chips" aria-hidden="true"><u>Reel, Fri</u><u>Email, Mon</u><u>Diwali post</u></i><i class="bt-grid" aria-hidden="true"><u></u><u class="d"></u><u></u><u class="d"></u><u></u><u></u><u class="d"></u><u></u><u class="d"></u><u class="d"></u><u></u><u></u></i></button>
 <button type="button" class="bt bt-studio" data-f="studio"><b>🎬 Design it here</b><span>Post, carousel or reel in your brand colours. Free to export.</span></button>
@@ -28,11 +25,6 @@
 <div class="card"><span class="lp-n">2</span><b>Do one step a day</b><p class="muted">Your "Today" list builds itself from what's due and overdue, so you always know what's next.</p></div>
 <div class="card"><span class="lp-n">3</span><b>Track it and share it</b><p class="muted">See what's working, get approvals, and send clients a clean report in one click.</p></div></div></section>
 
-<section class="lp-who"><h2 style="text-align:center">Which sounds like you?</h2>
-<div class="lp-tabs" role="tablist"><button type="button" class="lp-tab on" role="tab" data-w="new">🌱 Just starting</button><button type="button" class="lp-tab" role="tab" data-w="solo">⚡ Solo marketer or creator</button><button type="button" class="lp-tab" role="tab" data-w="agency">🏢 Agency or team</button></div>
-<div class="card lp-pane" data-w="new"><b>Start small, and never feel lost.</b><ul><li>Pick your industry and get a plan you can follow, step by step</li><li>Your "Today" list tells you exactly what to do next</li><li>Your calendar already has festival and sale dates on it</li></ul><a class="btn sm" href="{{ url_for('auth.signup') }}">Start free</a></div>
-<div class="card lp-pane" data-w="solo" hidden><b>Run your whole marketing week from one screen.</b><ul><li>Content calendar with festival and sale dates already on it</li><li>AI drafts that know your brand, plus trackable links and KPIs</li><li>Influencer outreach and follow-ups, never forgotten</li></ul><a class="btn sm" href="{{ url_for('auth.signup') }}">Start free</a></div>
-<div class="card lp-pane" data-w="agency" hidden><b>Keep every client, creator and approval in line.</b><ul><li>Roles for leads, creators and managers, plus a private client portal</li><li>Approvals before anything goes live, with comments and @mentions</li><li>One-click client reports, an API, and a full audit log</li></ul><a class="btn sm" href="{{ url_for('landing') ~ '#prices' }}">See plans</a></div></section>
 
 <section class="lp-faq"><h2 style="text-align:center">Quick answers</h2>
 <details><summary>What is {{ C.APP_NAME }}?</summary><p>A marketing planning workspace. It brings your content calendar, launch plans, mood boards, AI drafts, tasks, KPIs and client reports into one place.</p></details>
@@ -43,6 +35,8 @@
 <details><summary>What happens after the {{ C.TRIAL_DAYS }} days?</summary><p>You stay on the free plan. Nothing is deleted. Upgrade only when you want more seats, credits or features.</p></details></section>
 {% if C.TESTIMONIALS %}<section class="lp-quotes"><h2 style="text-align:center">What beta users say</h2><div class="quotes">{% for t in C.TESTIMONIALS %}<blockquote class="card">{{ t }}</blockquote>{% endfor %}</div></section>{% endif %}
 {% if C.FOUNDER_NAME %}<section class="lp-built card"><h2>Who built this</h2><p><b>{{ C.FOUNDER_NAME }}</b></p>{% if C.FOUNDER_NOTE %}<p class="muted">{{ C.FOUNDER_NOTE }}</p>{% endif %}</section>{% endif %}
+<section class="lp-prices" id="prices"><h2>Pick a plan</h2><p class="muted">Prices in INR {{ C.PRICE_NOTE }}. Cancel anytime, no drama. No hidden fees.</p>
+{% with cur='', cta='signup' %}{% include "_plans.html" %}{% endwith %}</section>
 <section class="lp-cta"><h2>Your first launch plan is 60 seconds away.</h2><a class="btn" href="{{ url_for('auth.signup') }}" style="padding:11px 24px;font-size:15px">Start free</a> <a class="btn ghost" href="{{ url_for('demo') }}" style="padding:11px 24px;font-size:15px">Try the demo</a></section>
 
 {% include "_featdlg.html" %}{% endblock %}

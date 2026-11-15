@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}{{ title }} — Chat{% endblock %}{% block body %}
+<div class="chat-app has-thread"><div class="ca-list">{% include "_chatlist.html" %}</div>
+<div class="ca-pane"><div class="ca-head"><a class="ca-back" href="{{ url_for('tm.chat') }}" aria-label="Back to chats">←</a><div><b>{{ title }}</b><small>{{ topic }}</small></div></div>
+{% if pinned %}<div class="ca-pins">{% for m in pinned %}<div>📌 {{ (m['body'] or m['file_name'])[:90] }}</div>{% endfor %}</div>{% endif %}
+<div id="msgs" class="msgs" aria-live="polite">{% include "chat_msgs.html" %}</div>
+<form id="cf" method="post" action="{{ url_for('tm.send_channel', cid=ident) if kind == 'c' else url_for('tm.send', uid=ident) }}" enctype="multipart/form-data" class="cf">
+<input type="hidden" name="reply_to" id="cf-rt"><div id="cf-rep" class="cf-rep" hidden></div>
+<div class="cf-row"><label class="cf-ic" title="Attach a file or picture">📎<input type="file" name="file" id="cf-file" hidden></label><button type="button" class="cf-ic" id="cf-mic" title="Record a voice note" aria-label="Record a voice note">🎙️</button>
+<textarea name="body" id="cf-body" rows="1" maxlength="2000" placeholder="Message{{ ' #' ~ title[1:] if kind == 'c' else '' }}… use @ to mention" aria-label="Message"></textarea><button class="btn cf-send" aria-label="Send">➤</button></div>
+<div class="cf-more"><span id="cf-fn" class="muted"></span><details><summary class="muted">⏰ Send later</summary><input type="datetime-local" name="send_at" min="{{ now|replace(' ','T') }}"></details><div id="cf-mn" class="cf-mn" hidden></div></div></form></div></div>
+<script>(function(){var box=document.getElementById("msgs"),body=document.getElementById("cf-body"),form=document.getElementById("cf");function down(){box.scrollTop=box.scrollHeight}down();
+var names={{ member_names|tojson }}.filter(Boolean),mn=document.getElementById("cf-mn");names.push("everyone");
+body.addEventListener("input",function(){this.style.height="auto";this.style.height=Math.min(this.scrollHeight,140)+"px";var m=/@(\w*)$/.exec(this.value);if(!m){mn.hidden=true;return}var t=m[1].toLowerCase(),l=names.filter(function(n){return n.split(" ")[0].toLowerCase().indexOf(t)===0}).slice(0,5);mn.innerHTML="";l.forEach(function(n){var b=document.createElement("button");b.type="button";b.className="st-chip sm";b.textContent="@"+n.split(" ")[0];b.onclick=function(){body.value=body.value.replace(/@\w*$/,"@"+n.split(" ")[0]+" ");mn.hidden=true;body.focus()};mn.appendChild(b)});mn.hidden=!l.length});
+body.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey&&window.innerWidth>800){e.preventDefault();if(body.value.trim()||document.getElementById("cf-file").files.length)form.submit()}});
+document.getElementById("cf-file").onchange=function(){document.getElementById("cf-fn").textContent=this.files[0]?"📎 "+this.files[0].name:""};
+window.chatReply=function(id,t){document.getElementById("cf-rt").value=id;var r=document.getElementById("cf-rep");r.hidden=false;r.innerHTML="";var s=document.createElement("span");s.textContent="Replying to: "+t;var x=document.createElement("button");x.type="button";x.className="linkbtn";x.textContent="✕";x.onclick=function(){document.getElementById("cf-rt").value="";r.hidden=true};r.appendChild(s);r.appendChild(x);body.focus()};
+window.chatReact=function(id,e){var fd=new FormData();fd.append("emoji",e);fd.append("csrf_token",window.CSRF);fetch("/chat/msg/"+id+"/react",{method:"POST",body:fd,credentials:"same-origin",headers:{"X-Requested-With":"fetch"}}).then(refresh)};
+function refresh(){fetch(location.pathname+"?frag=1",{credentials:"same-origin"}).then(function(r){return r.ok?r.text():null}).then(function(h){if(h!==null&&h!==box.innerHTML){var end=box.scrollTop+box.clientHeight>=box.scrollHeight-60;box.innerHTML=h;if(end)down()}})}
+setInterval(function(){if(!document.hidden)refresh()},6000);
+var mic=document.getElementById("cf-mic"),rec=null,chunks=[];
+if(!(navigator.mediaDevices&&window.MediaRecorder)){mic.hidden=true}
+mic.onclick=function(){if(rec){rec.stop();return}navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){rec=new MediaRecorder(st);chunks=[];rec.ondataavailable=function(e){chunks.push(e.data)};rec.onstop=function(){st.getTracks().forEach(function(t){t.stop()});var b=new Blob(chunks,{type:rec.mimeType||"audio/webm"});rec=null;mic.textContent="🎙️";var fd=new FormData(form);fd.set("file",b,"voice-note.webm");fd.set("body","");fetch(form.action,{method:"POST",body:fd,credentials:"same-origin",headers:{"X-Requested-With":"fetch"}}).then(refresh)};rec.start();mic.textContent="⏹️"}).catch(function(){document.getElementById("cf-fn").textContent="Microphone is blocked in this browser."})};
+})();</script>{% endblock %}

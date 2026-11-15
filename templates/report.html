@@ -15,6 +15,5 @@
 {% if r.promos or r.events %}<h3 style="margin-top:20px">Promotions &amp; events</h3><table><tr><th>Name</th><th>Type</th><th>When</th><th>Status</th></tr>
 {% for p in r.promos %}<tr><td>🏷️ {{ p['name'] }}</td><td>{{ p['type'] }}</td><td>{{ p['start_date'] }} → {{ p['end_date'] or 'ongoing' }}</td><td>{{ p['status'] }}</td></tr>{% endfor %}
 {% for e in r.events %}<tr><td>🎪 {{ e['name'] }}</td><td>{{ e['type'] }}</td><td>{{ e['date'] }}</td><td>{{ e['status'] }}</td></tr>{% endfor %}</table>{% endif %}
-{% if r.audits.n %}<h3 style="margin-top:20px">Retail audits</h3><p>{{ r.audits.n }} store visits · in stock in <b>{{ (r.audits.in_stock / r.audits.n * 100)|round|int }}%</b> · POSM correct in <b>{{ (r.audits.posm_ok / r.audits.n * 100)|round|int }}%</b></p>{% endif %}
 <p class="muted" style="margin-top:24px">Generated {{ C.APP_NAME }} · {{ r.label }}</p></div>
 {% endblock %}

@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}All tools — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div style="max-width:1020px;margin:0 auto"><h1>🧰 All tools</h1>
+{% set _n = AREAS|map(attribute=1)|map('length')|sum %}<p class="muted">{{ _n }} pages, each with everything that belongs to it inside.</p>
+<label class="sr-only" for="tl-q">Search tools</label><input id="tl-q" type="search" placeholder="Search tools" style="max-width:340px;margin-bottom:14px" autocomplete="off">
+{% for title, cards in AREAS %}<section class="tl-grp"><h3>{{ title }}</h3><div class="tl-grid">{% for l, h, subs in cards %}<div class="card tl-card"><a class="tl-main" href="{{ h }}">{{ l }}</a>{% if subs %}<span class="tl-subs">{% for sl, sh in subs %}<a href="{{ sh }}">{{ sl }}</a>{% endfor %}</span>{% endif %}</div>{% endfor %}</div></section>{% endfor %}
+</div><script>(function(){var q=document.getElementById("tl-q");q.addEventListener("input",function(){var t=q.value.toLowerCase();document.querySelectorAll(".tl-card").forEach(function(a){a.hidden=t&&a.textContent.toLowerCase().indexOf(t)<0;});document.querySelectorAll(".tl-grp").forEach(function(s){s.hidden=!s.querySelector(".tl-card:not([hidden])");});});})();</script>{% endblock %}

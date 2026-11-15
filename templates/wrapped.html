@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% from "_mascot.html" import deb %}{% block title %}Wrapped — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="head"><h1>{{ tn('wrapped') }}</h1><div class="st-chips" role="group" aria-label="Period">{% for p, l in [('week','This week'),('month','This month'),('year','This year')] %}<a class="st-chip {{ 'on' if p == span }}" href="{{ url_for('deb.wrapped', p=p) }}">{{ l }}</a>{% endfor %}</div></div>
+<div class="wr">
+<div class="wr-stage"><canvas id="wr" width="1080" height="1920" aria-label="Your wrapped story card"></canvas></div>
+<div class="card wr-side"><b>Share it</b><p class="muted">A story-ready image with a small {{ C.APP_NAME }} mark. Post it, tag us, and flex.</p>
+<div class="st-row"><button class="btn" id="wr-share" type="button">📲 Share</button><button class="btn ghost" id="wr-dl" type="button">⬇ Download</button></div>
+<p class="muted" id="wr-msg" role="status"></p>
+<ul class="wr-list"><li><b>{{ st.posted }}</b> posts published</li><li><b>{{ st.planned }}</b> planned</li><li><b>{{ st.tasks }}</b> tasks done</li><li><b>{{ streak }}</b> day streak</li>{% if st.reach %}<li><b>{{ '{:,}'.format(st.reach) }}</b> reach logged</li>{% endif %}</ul></div></div>
+<script>(function(){
+var D={brand:{{ brand|tojson }},span:{{ title|tojson }},posted:{{ st.posted }},planned:{{ st.planned }},tasks:{{ st.tasks }},streak:{{ streak }},best:{{ st.best|tojson }},line:{{ line|tojson }},level:{{ level }},lname:{{ lname|tojson }},reach:{{ st.reach }},pri:{{ (brand_pri if brand_pri is defined else (brand.pri if brand and brand.pri else '#7c5cd6'))|tojson }},app:{{ C.APP_NAME|tojson }}};
+var cv=document.getElementById("wr"),x=cv.getContext("2d"),F='"Bricolage Grotesque",Inter,system-ui,sans-serif';
+function draw(){var w=1080,h=1920;var g=x.createLinearGradient(0,0,w,h);g.addColorStop(0,"#1b0f3d");g.addColorStop(.55,"#4b1d6b");g.addColorStop(1,"#c2255c");x.fillStyle=g;x.fillRect(0,0,w,h);
+x.fillStyle="rgba(255,255,255,.07)";x.beginPath();x.arc(900,260,380,0,7);x.fill();x.beginPath();x.arc(120,1700,420,0,7);x.fill();
+x.fillStyle="#fff";x.font="700 44px "+F;x.fillText(D.brand,90,150);x.globalAlpha=.7;x.font="600 36px "+F;x.fillText("your "+D.span+", wrapped",90,205);x.globalAlpha=1;
+x.font="800 330px "+F;x.fillStyle="#ffd166";x.fillText(String(D.posted),90,640);x.fillStyle="#fff";x.font="800 70px "+F;x.fillText("post"+(D.posted===1?"":"s")+" out in the world",90,740);
+var rows=[["🔥",D.streak+" day streak"],["✅",D.tasks+" tasks done"],["📅",D.planned+" planned"]];if(D.best)rows.push(["⭐","Top channel: "+D.best]);if(D.reach)rows.push(["👀",D.reach.toLocaleString("en-IN")+" reach"]);
+var y=900;rows.forEach(function(r){x.fillStyle="rgba(255,255,255,.12)";rr(90,y,900,120,36);x.fillStyle="#fff";x.font="700 54px "+F;x.fillText(r[0]+"  "+r[1],130,y+80);y+=148;});
+x.font="700 56px "+F;x.fillStyle="#fff";wrapT(D.line,90,y+90,900,70);
+x.font="700 38px "+F;x.globalAlpha=.8;x.fillText("Level "+D.level+(D.lname?" · "+D.lname:""),90,1780);x.globalAlpha=1;
+x.font="800 44px "+F;x.textAlign="right";x.fillText("Made with "+D.app,990,1850);x.textAlign="left";}
+function rr(a,b,c,d,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+c,b,a+c,b+d,r);x.arcTo(a+c,b+d,a,b+d,r);x.arcTo(a,b+d,a,b,r);x.arcTo(a,b,a+c,b,r);x.closePath();x.fill();}
+function wrapT(t,px,py,mw,lh){var ws=t.split(" "),l="";ws.forEach(function(w){var n=l?l+" "+w:w;if(x.measureText(n).width>mw&&l){x.fillText(l,px,py);py+=lh;l=w}else l=n});x.fillText(l,px,py)}
+draw();if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);
+function blob(cb){cv.toBlob(cb,"image/png")}
+document.getElementById("wr-dl").onclick=function(){blob(function(b){var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="wrapped-"+D.span+".png";document.body.appendChild(a);a.click();a.remove()})};
+document.getElementById("wr-share").onclick=function(){blob(function(b){var f=new File([b],"wrapped.png",{type:"image/png"});if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],text:"My "+D.span+" on "+D.app}).catch(function(){})}else{document.getElementById("wr-dl").click();document.getElementById("wr-msg").textContent="Saved the image. Post it from your gallery."}})};
+})();</script>{% endblock %}

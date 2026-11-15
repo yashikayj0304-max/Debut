@@ -2,7 +2,7 @@
 {{ line('analytics') }}
 <div class="head"><h1>📊 Numbers</h1><div><a class="btn ghost sm" href="{{ url_for('m_list', key='kpis') }}">All logged results</a> <a class="btn ghost sm" href="{{ url_for('report') }}">Monthly report</a> <a class="btn" href="{{ url_for('m_new', key='kpis', next='/analytics') }}" onclick="return openOverlay(this.href,'')">+ Log KPI</a></div></div>
 <p class="muted">Your results, campaigns and leads in one place. Log a number every week, or import a platform report, and the trend lines appear.</p>
-<details class="card syncbox"{% if not cards %} open{% endif %}><summary><b>⬆ Import your analytics</b> <span class="muted">from Instagram, Meta, Google Ads or Google Analytics</span></summary>
+<details class="card syncbox"><summary><b>⬆ Import your analytics</b> <span class="muted">from Instagram, Meta, Google Ads or Google Analytics</span></summary>
 <p class="muted" style="margin:8px 0">Download the report from the platform (Export → CSV), then drop it here. Dates, metrics and the channel are worked out for you, and importing the same report again only refreshes it.</p>
 <form method="post" action="{{ url_for('analytics_import') }}" enctype="multipart/form-data" class="syncform"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="file" name="file" accept=".csv,.tsv,.txt" required aria-label="Report file">
 <select name="channel" aria-label="Channel"><option value="">Detect the channel</option>{% for c in ['Instagram','Meta Ads','Google Ads','Website','LinkedIn','YouTube','Email','Other'] %}<option>{{ c }}</option>{% endfor %}</select><button class="btn sm">Import numbers</button></form>

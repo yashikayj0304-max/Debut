@@ -517,9 +517,86 @@ def notify(wid, uid, kind, message, link=""):
         send_push(uid, message, link)
 
 
+_VAPID = {}
+
+
+def vapid():
+    """(public, private) web-push keys. Uses the VAPID_* env vars when set, otherwise makes a pair once and keeps it in the database, so push works with no setup."""
+    if C.VAPID_PUBLIC and C.VAPID_PRIVATE:
+        return C.VAPID_PUBLIC, C.VAPID_PRIVATE
+    if _VAPID.get("k"):
+        return _VAPID["k"]
+    row = q("SELECT v FROM kv WHERE k='vapid'", one=True)
+    if not row:
+        import base64
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization as ser
+        k = ec.generate_private_key(ec.SECP256R1())
+        b = lambda x: base64.urlsafe_b64encode(x).rstrip(b"=").decode()
+        pub = b(k.public_key().public_bytes(ser.Encoding.X962, ser.PublicFormat.UncompressedPoint))
+        priv = b(k.private_numbers().private_value.to_bytes(32, "big"))
+        try:
+            ins_kv = ex("INSERT INTO kv (k, v) VALUES ('vapid', ?)", (pub + "|" + priv,))
+        except Exception:
+            pass
+        row = q("SELECT v FROM kv WHERE k='vapid'", one=True)
+    pub, priv = row["v"].split("|", 1)
+    _VAPID["k"] = (pub, priv)
+    return _VAPID["k"]
+
+
+def claim_job(name, stamp):
+    """True for exactly one caller per stamp (e.g. one process per day), so several workers never send the same job twice."""
+    if q("SELECT 1 FROM kv WHERE k=?", ("job:" + name,), one=True) is None:
+        try:
+            ex("INSERT INTO kv (k, v) VALUES (?, '')", ("job:" + name,))
+        except Exception:
+            pass
+    return ex("UPDATE kv SET v=? WHERE k=? AND v<>?", (stamp, "job:" + name, stamp)) == 1
+
+
+def run_due_jobs():
+    """What the built-in scheduler runs every minute: due reminders always; the morning round from 9:00 IST and the evening streak saver from 20:00 IST, once a day each."""
+    now = now_ist()
+    out = {"reminders": fire_due_reminders()}
+    day = now.strftime("%Y-%m-%d")
+    if now.hour >= 9 and claim_job("morning", day):
+        out["digests"], out["pushes"], out["nudges"] = send_digests(), morning_push(), client_approval_nudges()
+    if now.hour >= 20 and claim_job("evening", day):
+        out["evening"] = evening_push()
+    return out
+
+
+_SCHED = {"on": False}
+
+
+def start_scheduler(app):
+    """Background thread so reminders and daily pushes work without an outside cron service. Safe with several workers (claim_job) and a no-op in tests."""
+    import threading
+    import time as _t
+    if _SCHED["on"] or app.config.get("TESTING") or os.environ.get("SCHEDULER", "1") == "0":
+        return False
+    _SCHED["on"] = True
+
+    def loop():
+        _t.sleep(20)
+        while True:
+            try:
+                with app.app_context():
+                    run_due_jobs()
+            except Exception:
+                log.exception("scheduler tick failed")
+            _t.sleep(60)
+    threading.Thread(target=loop, daemon=True, name="debut-scheduler").start()
+    return True
+
+
 def send_push(uid, message, link=""):
-    """Best-effort web push to every device the user turned push on for. Silent no-op when VAPID keys are not configured."""
-    if not (C.VAPID_PUBLIC and C.VAPID_PRIVATE):
+    """Best-effort web push to every device the user turned push on for."""
+    try:
+        vpub, vpriv = vapid()
+    except Exception:
+        log.exception("vapid keys")
         return
     import json as _j
     import threading
@@ -536,7 +613,7 @@ def send_push(uid, message, link=""):
         for sub in subs:
             try:
                 webpush(subscription_info={"endpoint": sub["endpoint"], "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}}, data=payload,
-                        vapid_private_key=C.VAPID_PRIVATE, vapid_claims={"sub": C.VAPID_SUBJECT}, ttl=3600)
+                        vapid_private_key=vpriv, vapid_claims={"sub": C.VAPID_SUBJECT}, ttl=3600)
             except WebPushException as e:
                 if getattr(e, "response", None) is not None and e.response.status_code in (404, 410):
                     try:
@@ -587,6 +664,28 @@ def send_digests():
     return sent
 
 
+def _who(r):
+    u = q("SELECT name FROM users WHERE id=?", (r["by_user"],), one=True)
+    return ((u["name"] or "A teammate").split()[0]) if u else "A teammate"
+
+
+def fire_due_reminders(uid=None):
+    """Notify (in-app + push) for reminders whose time has come. Safe to call often: each reminder fires once."""
+    now = now_ist().strftime("%Y-%m-%d %H:%M")
+    rows = q("SELECT * FROM reminders WHERE fired=0 AND done=0 AND remind_at<=?" + (" AND user_id=?" if uid else ""), (now, uid) if uid else (now,))
+    for r in rows:
+        ex("UPDATE reminders SET fired=1 WHERE id=?", (r["id"],))
+        notify(r["workspace_id"], r["user_id"], "reminder", "⏰ " + (_who(r) + ": " if r["by_user"] and r["by_user"] != r["user_id"] else "") + r["text"], r["link"] or "/reminders")
+        rep = (r["repeat"] if "repeat" in r.keys() else "") or ""
+        if rep in ("daily", "weekly"):
+            nxt = dt.datetime.strptime(r["remind_at"], "%Y-%m-%d %H:%M") + dt.timedelta(days=1 if rep == "daily" else 7)
+            while nxt.strftime("%Y-%m-%d %H:%M") <= now:
+                nxt += dt.timedelta(days=1 if rep == "daily" else 7)
+            ex("UPDATE reminders SET done=1 WHERE id=?", (r["id"],))
+            ins("reminders", dict(workspace_id=r["workspace_id"], user_id=r["user_id"], text=r["text"], remind_at=nxt.strftime("%Y-%m-%d %H:%M"), link=r["link"], repeat=rep, by_user=r["by_user"] or 0))
+    return len(rows)
+
+
 def morning_push():
     """A short push to every person who turned push on and has posts to publish today or tasks that are overdue. Silent when there is nothing to say."""
     t = today().isoformat()
@@ -604,6 +703,25 @@ def morning_push():
             bits = ([f"{posts} post{'s' if posts != 1 else ''} to publish today"] if posts else []) + ([f"{tasks} overdue task{'s' if tasks != 1 else ''}"] if tasks else [])
             send_push(u["id"], "☀️ " + " and ".join(bits) + ". Tap to open.", "/app")
             sent += 1
+    return sent
+
+
+def client_approval_nudges():
+    """Once a day: tell each client how many posts are waiting for their OK (in-app + push). Silent when none."""
+    sent = 0
+    day = today().isoformat()
+    for m in q("SELECT workspace_id, user_id, client_name FROM memberships WHERE role='client'"):
+        cn = (m["client_name"] or "").strip()
+        if not cn:
+            continue
+        n = len(q("SELECT id FROM content_items WHERE workspace_id=? AND status='Review' AND LOWER(client)=LOWER(?)", (m["workspace_id"], cn)))
+        if not n:
+            continue
+        msg = f"{n} post{'s' if n != 1 else ''} waiting for your OK"
+        if q("SELECT id FROM notifications WHERE user_id=? AND kind='nudge' AND message=? AND created_at>=?", (m["user_id"], msg, day), one=True):
+            continue
+        notify(m["workspace_id"], m["user_id"], "nudge", msg, "/portal")
+        sent += 1
     return sent
 
 

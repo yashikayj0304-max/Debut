@@ -60,7 +60,7 @@ PULSE_CACHE_MINUTES = int(env("PULSE_CACHE_MINUTES") or 60)
 PULSE_MIN_REFRESH_MINUTES = int(env("PULSE_MIN_REFRESH_MINUTES") or 10)
 AI_WEB_SEARCH = flag("AI_WEB_SEARCH", "1")                 # allow AI Studio "live web research" (needs web search enabled in your Anthropic console)
 AI_RESEARCH_EXTRA = int(env("AI_RESEARCH_EXTRA") or 2)     # extra credits a research answer costs (web searches cost you more than plain text)               # optional Google Analytics 4 id, loaded on public marketing pages only
-VAPID_PUBLIC = env("VAPID_PUBLIC")      # web-push keys: run  python gen_vapid.py  and paste both into Render env vars
+VAPID_PUBLIC = env("VAPID_PUBLIC")      # optional web-push keys; Debut makes its own if these are empty
 VAPID_PRIVATE = env("VAPID_PRIVATE")
 VAPID_SUBJECT = env("VAPID_SUBJECT", "mailto:hello@example.com")
 APP_URL = env("APP_URL", "http://127.0.0.1:8001").rstrip("/")
@@ -89,6 +89,8 @@ def _db_url():
 
 DATABASE_URL = _db_url()
 UPLOAD_DIR = env("UPLOAD_DIR", os.path.join(BASE, "uploads"))
+PEXELS_KEY = env("PEXELS_KEY")      # optional free key from pexels.com/api for sharper mood-board photo search (works without it via Openverse)
+UNSPLASH_KEY = env("UNSPLASH_KEY")  # optional alternative: unsplash.com/developers
 CRON_KEY = env("CRON_KEY")        # set this, then point a free scheduler (cron-job.org) at /cron/morning?key=... once a day
 SECRET_KEY = env("SECRET_KEY") or ("" if PROD else "dev-only-not-secret")
 
@@ -121,7 +123,7 @@ FLASK = dict(
     RATELIMIT_STORAGE_URI=REDIS_URL or "memory://", RATELIMIT_HEADERS_ENABLED=True,
 )
 
-ALL_FEATURES = {"content_ops", "promo_events", "influencers", "analytics", "ai", "import", "group", "api"}  # "group" = team hub, approvals, Lead role; "api" = REST API keys
+ALL_FEATURES = {"launch_deck", "content_ops", "promo_events", "influencers", "analytics", "ai", "import", "group", "api"}  # "group" = team hub, approvals, Lead role; "api" = REST API keys
 # Prices are placeholders: set your own. price is INR per month, excl. GST. Create matching plans in Razorpay
 # and put their IDs in RAZORPAY_PLAN_STARTER / _TEAM / _AGENCY.
 PLANS = OrderedDict([
@@ -132,7 +134,7 @@ PLANS = OrderedDict([
                    blurb=f"{TRIAL_DAYS} days of the Team plan")),
     ("creator", dict(name="Spark", price=399, seats=1, clients=0, watch=5, ai_credits=20, records=800, boards=10, features={"ai", "import"},
                      blurb="Creators, students & first-time marketers", rzp_env="RAZORPAY_PLAN_CREATOR")),
-    ("starter", dict(name="Starter", price=999, seats=1, clients=0, watch=10, ai_credits=40, records=1500, boards=20, features={"influencers", "analytics", "ai", "import"},
+    ("starter", dict(name="Starter", price=999, seats=1, clients=0, watch=10, ai_credits=40, records=1500, boards=20, features={"launch_deck", "influencers", "analytics", "ai", "import"},
                      blurb="Solo marketers & freelancers", rzp_env="RAZORPAY_PLAN_STARTER")),
     ("team", dict(name="Team", price=3999, seats=5, clients=5, watch=25, ai_credits=250, records=10000, boards=999, features=ALL_FEATURES,
                   blurb="Growing brands & small agencies", rzp_env="RAZORPAY_PLAN_TEAM")),
@@ -143,7 +145,7 @@ PAID_PLANS = [k for k in PLANS if k not in ("free", "trial")]
 
 
 # ---- pricing cards: each plan shows what it ADDS over the one below, so the next step up is easy to see
-FEATURE_LABELS = [("ai", "AI Studio drafts"), ("influencers", "Influencer discovery & outreach"), ("analytics", "KPI tracking & analytics"), ("import", "CSV import"),
+FEATURE_LABELS = [("ai", "AI Studio drafts"), ("launch_deck", "Complete Launch Deck: 15 dated posts, carousels, reels and stories with captions"), ("influencers", "Influencer discovery & outreach"), ("analytics", "KPI tracking & analytics"), ("import", "CSV import"),
                   ("group", "Team hub, Lead role & approvals"), ("content_ops", "Content Ops: creator network, orders, invoices"),
                   ("promo_events", "Promotions & events, online + offline"), ("api", "REST API & integrations")]
 PLAN_PITCH = {"free": ("Try it, no card needed", "Need more AI, analytics or influencer tools? Starter adds them."),

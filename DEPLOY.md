@@ -176,9 +176,33 @@ tests/         pytest suite (isolation, roles, billing, security, workflows)
 ```
 
 
-## Free daily reminders (no paid cron needed)
+## Push notifications and reminders: nothing to set up
+Debut now makes its own push keys the first time it starts and runs its own scheduler (reminders every minute, morning round from 9:00 IST, streak saver from 20:00 IST). People turn push on from the bell page and can press "Send a test". Two things to know:
+- The scheduler runs only while the app is awake. On Render's free plan the app sleeps after idle time, so pushes stop until someone opens it. Use a paid instance, or keep it awake with the cron jobs below (they are still supported and harmless to run alongside).
+- Set `SCHEDULER=0` to turn the built-in scheduler off. Set `VAPID_PUBLIC` and `VAPID_PRIVATE` only if you want to choose the keys yourself.
+
+## Real photos on mood boards
+"Find real photos" works with no setup (Openverse, openly licensed photos, credit saved as the caption). For sharper results add a free key: `PEXELS_KEY` (pexels.com/api) or `UNSPLASH_KEY`.
+
+## Optional: external cron (keeps a sleeping free instance awake)
 1. In Render, set the environment variable `CRON_KEY` to a long random string.
 2. At cron-job.org (free), create a job that opens `https://YOUR-SITE/cron/morning?key=YOUR_CRON_KEY` once a day at 8:30 am IST.
 3. Optional second job: `https://YOUR-SITE/cron/evening?key=YOUR_CRON_KEY` at 8:00 pm IST sends a streak-saver push to people with a 3+ day streak who have not done anything yet today.
-3. That one call sends the email digests (when mail is configured) and a morning push ("2 posts to publish today") to everyone who turned push on. Push also needs the VAPID keys from `gen_vapid.py`.
+3. Third job, for personal reminders and client approval nudges to arrive on time: `https://YOUR-SITE/cron/reminders?key=YOUR_CRON_KEY` every 5 to 15 minutes. (The morning job also sends the day's client nudges.)
+4. That one call sends the email digests (when mail is configured) and a morning push ("2 posts to publish today") to everyone who turned push on.
 4. Also point UptimeRobot at `/healthz` every 10 minutes so the free site stays awake.
+
+
+## Go-live checklist (what only you can do)
+
+| Needed for | Set on Render | Where to get it |
+|---|---|---|
+| Phone push | `VAPID_PUBLIC`, `VAPID_PRIVATE` | optional: made automatically if left empty |
+| Scheduled push, reminders, digests | `CRON_KEY` + 3 cron-job.org jobs (morning, evening, reminders) | any long random string |
+| Payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `BILLING_MODE=live` | Razorpay dashboard |
+| Email (digests, invites, reset) | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | your mail provider |
+| Right links in shared reports | `APP_URL=https://your-site` | your Render URL |
+| AI | `ANTHROPIC_API_KEY` | Anthropic console |
+| Safety | `SECRET_KEY` (long random), `DATABASE_URL` (Postgres) | Render |
+
+Auto-posting to Instagram is not built: it needs Meta app review for the Instagram Graph API. Until then Debut plans and prepares the post and you publish it from your phone.

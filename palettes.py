@@ -25,6 +25,33 @@ for f in FAMILIES:
 KEYS = tuple(p[0] for p in PALS)
 
 
+def _hex_rgb(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _lum(h):
+    f = lambda v: (v / 255 / 12.92) if v / 255 <= .03928 else ((v / 255 + .055) / 1.055) ** 2.4
+    r, g, b = _hex_rgb(h)
+    return .2126 * f(r) + .7152 * f(g) + .0722 * f(b)
+
+
+def _mixhex(a, pct, b):
+    ra, rb = _hex_rgb(a), _hex_rgb(b)
+    return "#%02x%02x%02x" % tuple(round(x * pct / 100 + y * (100 - pct) / 100) for x, y in zip(ra, rb))
+
+
+def on_colour(*fills):
+    """White or dark text, whichever reads better on the WEAKEST of these fills (>= 4.5:1 where possible)."""
+    ink = "#15121f"
+    def c(a, b):
+        x, y = _lum(a), _lum(b)
+        return (max(x, y) + .05) / (min(x, y) + .05)
+    w = min(c("#ffffff", f) for f in fills)
+    d = min(c(ink, f) for f in fills)
+    return "#ffffff" if w >= d else ink
+
+
 def _mix(a, pct, b):
     return f"color-mix(in srgb,{a} {pct}%,{b})"
 
@@ -36,15 +63,17 @@ def build_css():
         L = [f"--p1:{c1}", f"--p2:{c2}", f"--p3:{c3}", f"--pri:{c1}", f"--pri-d:{_mix(c1, 78, '#000')}", f"--sec:{c2}", f"--sec-d:{_mix(c2, 78, '#000')}", f"--accent:{c3}",
              f"--pri2:{_mix(c1, 16 if soft else 10, '#fff')}", f"--pri3:{_mix(c1, 30 if soft else 24, '#fff')}",
              f"--bg:{_mix(c2, 16, '#fff') if soft else _mix(c1, 4, '#fff')}", f"--bg2:{_mix(c3, 38, '#fff') if soft else _mix(c2, 9, '#fff')}",
-             f"--line:{_mix(c1, 30 if soft else 18, '#fff')}", f"--ink:{_mix(c1, 14, '#15121f')}", f"--mut:{_mix(c1, 18, '#5a5470')}", "--on:#fff"]
+             f"--line:{_mix(c1, 30 if soft else 18, '#fff')}", f"--ink:{_mix(c1, 14, '#15121f')}", f"--mut:{_mix(c1, 18, '#5a5470')}", f"--on:{on_colour(c1, c2)}"]
         if soft:    # pastel hues: keep white button text readable and headlines legible
             L += [f"--bt1:{_mix(c1, 64, '#000')}", f"--bt2:{_mix(_mix(c1, 50, c2), 62, '#000')}", f"--h1:{_mix(c1, 72, '#000')}", f"--h2:{_mix(_mix(c1, 50, c2), 66, '#000')}", f"--h3:{_mix(c3, 60, '#000')}"]
         out.append(f"html[data-pal={key}]{{{';'.join(L)}}}")
         d1, d2 = (_mix(c1, 88, '#fff'), _mix(c2, 88, '#fff')) if soft else (_mix(c1, 52, '#fff'), _mix(c2, 52, '#fff'))
+        p1, p2 = (_mixhex(c1, 88, "#ffffff"), _mixhex(c2, 88, "#ffffff")) if soft else (_mixhex(c1, 52, "#ffffff"), _mixhex(c2, 52, "#ffffff"))
         base, card = ("#12101d", "#1b1830") if soft else ("#08070d", "#13111b")
         D = [f"--p1:{d1}", f"--p2:{d2}", f"--p3:{c3}", f"--pri:{d1}", f"--pri-d:{_mix(d1, 50, '#fff')}", f"--sec:{d2}", f"--sec-d:{_mix(d2, 50, '#fff')}", f"--accent:{c3}",
              f"--bg:{_mix(c1, 12 if soft else 9, base)}", f"--bg2:{_mix(c2, 14 if soft else 11, base)}", f"--card:{_mix(c1, 10 if soft else 8, card)}",
-             f"--pri2:{_mix(d1, 18, card)}", f"--pri3:{_mix(d1, 32, card)}", f"--line:{_mix(d1, 28, card)}", "--ink:#f4f1fb", f"--mut:{_mix(d1, 30, '#b5afc9')}"]
+             f"--pri2:{_mix(d1, 18, card)}", f"--pri3:{_mix(d1, 32, card)}", f"--line:{_mix(d1, 28, card)}", "--ink:#f4f1fb", f"--mut:{_mix(d1, 30, '#b5afc9')}", f"--on:{on_colour(p1, p2)}",
+             f"--bt1:{_mix(c1, 86 if not soft else 72, '#000')}", f"--bt2:{_mix(c2, 86 if not soft else 72, '#000')}", f"--h1:{_mix(c1, 70, '#fff')}", f"--h2:{_mix(c2, 70, '#fff')}"]
         out.append(f"html[data-theme=dark][data-pal={key}]{{{';'.join(D)}}}")
     return "\n".join(out)
 

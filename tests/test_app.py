@@ -270,8 +270,8 @@ def test_ssrf_and_url_hygiene(app):
     assert S.clean_url("javascript:alert(1)") == "" and S.clean_url("data:text/html,x") == ""
     assert S.clean_url("example.com/x") == "https://example.com/x"
     o = signup(app, "o@x.com")
-    o.post("/m/reference_links/save", data=dict(title="t", url="javascript:alert(1)", category="Other"))
-    assert dbq(app, "SELECT url FROM reference_links WHERE title='t'", one=True)["url"] == ""
+    o.post("/m/assets/save", data=dict(title="t", url="javascript:alert(1)", type="Other"))
+    assert dbq(app, "SELECT url FROM assets WHERE title='t'", one=True)["url"] == ""
     o.post("/m/feeds/save", data=dict(name="evil", url="http://127.0.0.1:1/feed", category="Other"))
     assert o.get("/updates").status_code == 404                       # the duplicate Updates page is gone; Live news covers it
 
@@ -1387,7 +1387,7 @@ def test_market_pulse_end_to_end(app, monkeypatch, mails):
     assert dbq(app, "SELECT COUNT(*) c FROM pulse_runs", one=True)["c"] == 1
     # the "save" and "idea" buttons work
     assert o.post("/updates/save", data=dict(title="Hotel chains lean into direct booking offers", url="https://news.google.com/rss/articles/AAA", source="ET")).status_code == 302
-    assert dbq(app, "SELECT COUNT(*) c FROM reference_links", one=True)["c"] == 1
+    assert dbq(app, "SELECT COUNT(*) c FROM assets WHERE url!=''", one=True)["c"] == 1
     assert "Idea: Hotel chains lean" in o.get("/m/content_items/new?title=Idea%3A+Hotel+chains+lean+into&notes=Inspired+by").data.decode()
     # a second run marks new rising terms; old runs are pruned to 8
     monkeypatch.setattr(C, "PULSE_MIN_REFRESH_MINUTES", 0)
@@ -1579,7 +1579,7 @@ def test_brand_theming_business_vs_personal_brand(app, mails):
     assert row["brand_color"].lower() == "#1e88e5" and row["secondary_color"] == ""
     # reset goes back to default lavender (no override block rendered), clearing both colours
     biz.post("/account/theme/reset")
-    row = dbq(app, "SELECT brand_color, secondary_color FROM workspaces", one=True)
+    row = dbq(app, "SELECT brand_color, secondary_color FROM workspaces WHERE name='Acme Co'", one=True)
     assert row["brand_color"] == "" and row["secondary_color"] == ""
     assert "--pri:#1e88e5" not in biz.get("/app").data.decode().lower()
     # a viewer/creator cannot change the theme; a lead cannot either (owner/admin only)
@@ -1708,12 +1708,12 @@ def test_onboarding_tour_flag(app):
     o = signup(app, "o@x.com")
     assert dbq(app, "SELECT onboarded FROM users", one=True)["onboarded"] == 0
     home = o.get("/app").data.decode()
-    assert "startTour" in home and "data-tour=\"dashboard\"" in home and "window.addEventListener('load',function(){setTimeout(startTour,600)" in home
+    assert "startTour" in home and "data-tour=\"dashboard\"" in home and "\"tour\":true" in home
     r = o.post("/account/onboarded")
     assert r.status_code == 200 and r.get_json()["ok"] is True
     assert dbq(app, "SELECT onboarded FROM users", one=True)["onboarded"] == 1
     home2 = o.get("/app").data.decode()
-    assert "setTimeout(startTour,600)" not in home2                         # doesn't auto-run again
+    assert "\"tour\":true" not in home2                         # doesn't auto-run again
     assert "onclick=\"startTour()\"" in o.get("/help").data.decode()        # but can be replayed manually
 
 
@@ -2995,7 +2995,7 @@ def test_account_brand_deck_handles_a_totally_blank_deck_with_honest_message(app
 def test_creator_role_cannot_reach_new_account_pages_even_via_direct_url(app, mails):
     o = signup(app, "o6@x.com")
     cr = _join(app, o, mails, "cr6@x.com", "creator", "Cy")
-    for path in ("/marketing-health", "/account/connected-accounts"):
+    for path in ("/analytics", "/account/connected-accounts"):
         r = cr.get(path)
         assert r.status_code == 403, f"{path} should 403 for creator, got {r.status_code}"
     # /account/brand-deck is POST-only (GET correctly 405s before the role check runs) - the real
@@ -3014,7 +3014,7 @@ def test_viewer_role_can_read_new_pages_but_not_write(app, mails):
     o = signup(app, "ov1@x.com")
     vw = _join(app, o, mails, "vw1@x.com", "viewer", "Vee")
     # viewer restriction is on writes, not module access - viewer should be able to READ the new pages
-    for path in ("/marketing-health", "/account/connected-accounts", "/account"):
+    for path in ("/analytics", "/account/connected-accounts", "/account"):
         r = vw.get(path)
         assert r.status_code == 200, f"viewer should be able to view {path}, got {r.status_code}"
     # but the brand-deck scan form itself stays owner/admin-only, same as before
@@ -3056,7 +3056,7 @@ def test_account_page_shows_brand_deck_upload_card_for_owner(app):
 # =====================================================================  Marketing Health: KPIs + a single gap checklist, built from in-app data only
 def test_marketing_health_shows_kpis_and_gap_checklist_for_a_fresh_workspace(app):
     o = signup(app, "health@x.com")
-    html = o.get("/marketing-health").data.decode()
+    html = o.get("/analytics").data.decode()
     assert "Marketing Health" in html
     assert "Brand consistency" in html and "Posting consistency" in html and "Campaign spend efficiency" in html and "Lead" in html
     assert "What's left to fix" in html
@@ -3065,22 +3065,22 @@ def test_marketing_health_shows_kpis_and_gap_checklist_for_a_fresh_workspace(app
 
 def test_marketing_health_brand_score_rises_as_brand_kit_and_logo_fill_in(app):
     o = signup(app, "health2@x.com")
-    before = o.get("/marketing-health").data.decode()
+    before = o.get("/analytics").data.decode()
     assert "0%" in before or "25%" in before  # brand score starts low
-    o.post("/m/brand_kit/save", data=dict(name="Primary", kind="Colour", value="#1E88E5", next="/marketing-health"))
-    o.post("/m/brand_kit/save", data=dict(name="Body font", kind="Font", value="Montserrat", next="/marketing-health"))
-    o.post("/m/brand_kit/save", data=dict(name="Tone", kind="Voice & tone", value="Friendly, direct", next="/marketing-health"))
-    after = o.get("/marketing-health").data.decode()
+    o.post("/m/brand_kit/save", data=dict(name="Primary", kind="Colour", value="#1E88E5", next="/analytics"))
+    o.post("/m/brand_kit/save", data=dict(name="Body font", kind="Font", value="Montserrat", next="/analytics"))
+    o.post("/m/brand_kit/save", data=dict(name="Tone", kind="Voice & tone", value="Friendly, direct", next="/analytics"))
+    after = o.get("/analytics").data.decode()
     assert "75%" in after or "100%" in after  # 3 of 4 categories now filled (logo still missing without a real image upload)
 
 
 def test_marketing_health_gaps_resolve_as_data_is_filled_in(app):
     o = signup(app, "health3@x.com")
-    o.post("/m/campaigns/save", data=dict(name="Launch", status="Live", next="/marketing-health"))  # no KPI target -> a gap
-    assert "Live or planned campaigns with no KPI target set" in o.get("/marketing-health").data.decode()
+    o.post("/m/campaigns/save", data=dict(name="Launch", status="Live", next="/analytics"))  # no KPI target -> a gap
+    assert "Live or planned campaigns with no KPI target set" in o.get("/analytics").data.decode()
     cid = dbq(app, "SELECT id FROM campaigns WHERE name='Launch'", one=True)["id"]
-    o.post("/m/campaigns/save", data=dict(id=cid, name="Launch", status="Live", kpi_target="1000 signups", next="/marketing-health"))
-    html = o.get("/marketing-health").data.decode()
+    o.post("/m/campaigns/save", data=dict(id=cid, name="Launch", status="Live", kpi_target="1000 signups", next="/analytics"))
+    html = o.get("/analytics").data.decode()
     # the campaign gap line should now show a checkmark (count 0), not a warning with that campaign counted
     gap_block = html.split("What's left to fix")[1]
     assert "✅" in gap_block and "no KPI target set" in gap_block
@@ -3090,7 +3090,7 @@ def test_marketing_health_is_feature_gated_like_analytics(app, monkeypatch):
     import config as C
     o = signup(app, "healthgate@x.com")
     monkeypatch.setitem(C.PLANS["trial"], "features", C.PLANS["trial"]["features"] - {"analytics"})
-    r = o.get("/marketing-health")
+    r = o.get("/analytics")
     assert r.status_code == 403 and b"upgrade" in r.data.lower()
 
 
@@ -3189,7 +3189,7 @@ def test_dashboard_today_card_caps_at_eight_and_links_to_marketing_health_for_mo
         o.post("/m/tasks/save", data=dict(title=f"Task {i}", status="To do", due_date=yesterday, next="/app"))
     html = o.get("/app").data.decode()
     assert html.count("Overdue: Task") == 8
-    assert "more" in html and 'href="/marketing-health"' in html
+    assert "more" in html and 'href="/analytics"' in html
 
 
 def test_today_item_link_actually_opens_the_right_record(app):
@@ -3543,7 +3543,7 @@ def test_vibe_presets_and_trophies(app):
 def test_push_endpoints_and_noop(app, monkeypatch):
     import config as C, services as S, pywebpush, threading
     c = signup(app, "push@x.com", ws="Push Co")
-    assert c.get("/push/key").get_json()["key"] == ""
+    assert len(c.get("/push/key").get_json()["key"]) > 60   # keys are made automatically now
     assert "Turn on push" in c.get("/notifications").get_data(as_text=True)
     sub = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "k", "auth": "a"}}
     assert c.post("/push/subscribe", json=sub).get_json()["ok"]
@@ -3693,7 +3693,7 @@ def test_unlock_page_explains_the_benefit_and_keeps_a_way_back(app):
     import config as C
     C.PLANS["trial"]["features"] = C.PLANS["trial"]["features"] - {"analytics"}
     try:
-        r = o.get("/marketing-health")
+        r = o.get("/analytics")
     finally:
         C.PLANS["trial"]["features"] = C.PLANS["trial"]["features"] | {"analytics"}
     page = r.data.decode()
@@ -3764,10 +3764,10 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     h = o.get("/app").data.decode()
     aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
     assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) >= 11  # eleven hubs plus "More tools" (niche pages: same URLs, one place)
-    for name in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
+    for name in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Launch playbook", "Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
         assert name in aside, name
     # the sidebar order is the intended day-to-day order
-    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Strategy &amp; Launch", "Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
+    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Launch playbook", "Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
     assert pos == sorted(pos)
     assert "More tools" in h  # the niche pages live in one place
     # team pages live in the Team hub, not in the Workspace block
@@ -3777,7 +3777,7 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     tools = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     in_hubs = {href for g in tools for _, href in g["items"]}
     allnav = set(re.findall(r'<a href="(/[^"]*)"', h.split('id="allTools" hidden>', 1)[1].split('<details class="ngrp side-foot"', 1)[0]))
-    assert allnav and allnav <= in_hubs | {"/m/utm_links", "/m/kpis", "/m/content_items", "/m/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans", "/m/feeds", "/marketing-health"}, sorted(allnav - in_hubs)
+    assert allnav and allnav <= in_hubs | {"/m/utm_links", "/m/kpis", "/m/content_items", "/m/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans", "/m/feeds", "/analytics"}, sorted(allnav - in_hubs)
     p = o.get("/calendar").data.decode()
     assert 'class="hubtabs"' in p and 'class="ht on"' in p and "Board" in p and "List" in p and "Key dates" in p
     sales = o.get("/m/leads").data.decode()
@@ -4026,7 +4026,7 @@ def test_idea_bank_is_a_tab_right_after_calendar(app):
     groups = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     content = next(g for g in groups if g["k"] == "content")
     labels = [it[0] for it in content["items"]]
-    pi = labels.index(next(l for l in labels if "Posts" in l)); assert any("Create" in l for l in labels) and any("Promo" in l for l in labels) and any("Grid" in l for l in labels) and any("Idea bank" in l for l in labels)    # Create and Promo ideas now sit between Posts and the Idea bank
+    pi = labels.index(next(l for l in labels if "Posts" in l)); assert any("Create" in l for l in labels) and not any("Promo" in l for l in labels) and any("Grid" in l for l in labels) and any("Ideas" in l for l in labels)    # Create and Promo ideas now sit between Posts and the Idea bank
     assert 'data-hub="ideas"' not in h                                                    # not a separate hub
     cal = o.get("/calendar?y=2026&m=11").data.decode()
     assert 'class="dd-ideas"' in cal and 'class="dd-idea"' in cal
@@ -4071,7 +4071,7 @@ def test_no_palette_or_theme_switchers(app):
 
 
 def test_bold_pages_render_for_every_role(app, mails):
-    pages = ("/app", "/pulse", "/ideas", "/calendar", "/analytics", "/moodboards", "/team-hub", "/marketing-health", "/content-ops")
+    pages = ("/app", "/pulse", "/ideas", "/calendar", "/analytics", "/moodboards", "/team-hub", "/analytics", "/content-ops")
     for role in ("admin", "lead", "creator", "viewer"):
         o = signup(app, f"own{role}@x.com")
         c = _join(app, o, mails, f"{role}@x.com", role, role.title())
@@ -4728,10 +4728,8 @@ def test_first_week_page_saves_three_numbers_and_the_card_goes_away(app):
 def test_hub_tabs_keep_every_page_but_tuck_rarely_used_ones_under_more(app):
     o = signup(app, "more@x.com")
     html = o.get("/calendar").data.decode()
-    assert 'class="ht-more"' in html and "More ▾" in html
-    head = html.split('class="ht-more"')[0]
-    assert "Create" in head and "Idea bank" not in head and "Idea bank" in html.split('class="ht-more"')[1]       # Idea bank sits under More, still one tap away
-    assert "Key dates" in html.split('class="ht-more"')[1]
+    assert "Key dates" in html and "Create" in html          # a lone extra tab is shown directly, never hidden behind "More"
+    assert 'class="ht-more"' not in html
     assert o.get("/m/key_dates").status_code == 200 and 'aria-current="page">🗓️ Key dates' in o.get("/m/key_dates").data.decode()      # the open tab is never hidden
 
 
@@ -4905,3 +4903,12 @@ def test_channels_replies_reactions_files_mentions_and_share(app, mails):
     assert m.post(f"/chat/msg/{mid}/pin").status_code == 403
     o.post(f"/chat/msg/{mid}/pin"); assert dbq(app, "SELECT pinned FROM chat_messages WHERE id=?", (mid,), one=True)["pinned"] == 1
     assert o.get(f"/chat/c/{cid}?frag=1").status_code == 200
+
+
+def test_client_portal_uses_the_clients_own_brand_colour(app, mails):
+    o, lead, ids = _agency(app, mails)
+    o.post("/m/clients/save", data=dict(name="Grand Orchid", brand_color="#e63946"))
+    cl = _client(app, o, mails)
+    page = cl.get("/portal").data.decode()
+    assert "--pri:#e63946" in page.replace(" ", "").lower() or "e63946" in page.lower()
+    assert "e63946" not in o.get("/app").data.decode().lower()          # the team's own screens keep the workspace colours

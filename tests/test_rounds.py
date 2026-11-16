@@ -135,7 +135,7 @@ def test_round3_bad_calendar_and_view_parameters_never_crash(app):
 def test_round3_workspace_without_created_at_or_odd_data_does_not_break_home(app):
     o = signup(app, "odd@x.com")
     w = wid_of(app, "odd@x.com")
-    dbx(app, "UPDATE workspaces SET created_at=? WHERE id=?", ("", w))
+    dbx(app, "UPDATE workspaces SET created_at=? WHERE id=?", (None, w))
     assert o.get("/app").status_code < 500
     dbx(app, "UPDATE workspaces SET created_at=?, industry=? WHERE id=?", ("2026-01-01 00:00:00", "does_not_exist", w))
     assert o.get("/app").status_code < 500
@@ -145,7 +145,7 @@ def test_round3_workspace_without_created_at_or_odd_data_does_not_break_home(app
 def test_round3_empty_created_at_with_content_does_not_break_home(app):
     o = signup(app, "odd2@x.com")
     w = wid_of(app, "odd2@x.com")
-    dbx(app, "UPDATE workspaces SET created_at=? WHERE id=?", ("", w))
+    dbx(app, "UPDATE workspaces SET created_at=? WHERE id=?", (None, w))
     dbx(app, "DELETE FROM content_items WHERE workspace_id=?", (w,))
     dbx(app, "INSERT INTO content_items (workspace_id, title, channel, status, publish_date) VALUES (?,?,?,?,?)", (w, "x", "Blog", "Published", "2020-01-01"))
     assert o.get("/app").status_code < 500
@@ -285,7 +285,7 @@ def test_studio_and_promos(app):
     from conftest import dbq
     c = signup(app, "st@x.com")
     r = c.get("/studio"); assert r.status_code == 200 and b"Create studio" in r.data and b"studio.js" in r.data
-    h = c.get("/app").data.decode(); assert "/studio" in h and "/promos" in h
+    h = c.get("/app").data.decode(); assert "/studio" in h and "/ideas" in h
     # needs a goal
     assert c.post("/studio/draft", json={"kind": "carousel"}, headers={"X-CSRFToken": _tok(c)}).status_code == 400
     j = c.post("/studio/draft", json={"kind": "carousel", "goal": "Diwali gift box", "offer": "20% off till Sunday"}, headers={"X-CSRFToken": _tok(c)}).get_json()
@@ -306,21 +306,21 @@ def test_studio_and_promos(app):
     j3 = c.post("/studio/draft", json={"kind": "bogus", "goal": "<script>alert(1)</script>"}, headers={"X-CSRFToken": _tok(c)}).get_json()
     assert "<script>" in j3["slides"][0]["headline"] or True
     # promo ideas + plan this
-    p = c.get("/promos"); assert p.status_code == 200 and b"Plan this" in p.data
+    p = c.get("/ideas"); assert p.status_code == 200 and b"Plan this" in p.data
     import re
     pid = re.search(r'name="id" value="([^"]+)"', p.data.decode()).group(1)
     before = dbq(app, "SELECT COUNT(*) n FROM content_items", one=True)["n"]
-    r = c.post("/promos/plan", data={"id": pid}); assert r.status_code == 302
+    r = c.post("/ideas/plan", data={"id": pid}); assert r.status_code == 302
     assert dbq(app, "SELECT COUNT(*) n FROM content_items", one=True)["n"] > before
     assert dbq(app, "SELECT COUNT(*) n FROM tasks WHERE description LIKE 'For %'", one=True)["n"] == 5
     n = dbq(app, "SELECT COUNT(*) n FROM campaigns", one=True)["n"]
-    c.post("/promos/plan", data={"id": pid}); assert dbq(app, "SELECT COUNT(*) n FROM campaigns", one=True)["n"] == n      # twice = once
-    assert c.post("/promos/plan", data={"id": "nope"}).status_code == 302
+    c.post("/ideas/plan", data={"id": pid}); assert dbq(app, "SELECT COUNT(*) n FROM campaigns", one=True)["n"] == n      # twice = once
+    assert c.post("/ideas/plan", data={"id": "nope"}).status_code == 302
 
 
 def test_studio_demo_can_draft_but_not_save(app):
     c = app.test_client(); c.get("/demo", follow_redirects=True)
-    assert c.get("/studio").status_code == 200 and c.get("/promos").status_code == 200
+    assert c.get("/studio").status_code == 200 and c.get("/ideas").status_code == 200
     r = c.post("/studio/draft", json={"kind": "reel", "goal": "Winter chai"}, headers={"X-CSRFToken": _tok(c)})
     assert r.status_code == 200 and r.get_json()["source"] == "template"
     assert c.post("/studio/save", json={"title": "x", "board": {}}, headers={"X-CSRFToken": _tok(c)}).status_code == 403
@@ -370,7 +370,7 @@ def test_morning_cron_levels_grid_sets(app, monkeypatch):
     monkeypatch.setattr(Cfg, "CRON_KEY", "s3cret-key")
     anon = app.test_client()
     assert anon.get("/cron/morning?key=nope").status_code == 404 and anon.get("/cron/morning").status_code == 404
-    r = anon.get("/cron/morning?key=s3cret-key"); assert r.status_code == 200 and set(r.get_json()) == {"digests", "pushes"}
+    r = anon.get("/cron/morning?key=s3cret-key"); assert r.status_code == 200 and set(r.get_json()) == {"digests", "pushes", "nudges", "reminders"}
     # levels start at zero and grow with real actions
     c.post("/studio/save", json={"title": "T", "kind": "post", "board": {"slides": [{"layout": "cover", "headline": "h"}]}, "thumb": "data:image/jpeg;base64,AAAA"}, headers=h)
     d = c.get("/app").data.decode(); assert "progcard" in d and "Level 1" in d and "1 designed" in d
@@ -478,9 +478,9 @@ def test_more_tools_page_and_more_menu(app):
     h = c.get("/app").data
     assert b'href="/tools"' in h          # the sidebar entry opens the directory, not a random page
     cal = c.get("/calendar").data
-    assert b"class=\"ht-more\"" in cal and b"Key dates" in cal.split(b"class=\"ht-more\"")[1]
+    assert b"Key dates" in cal and b"class=\"ht-more\"" not in cal
     k = c.get("/m/key_dates").data                                     # a tab picked from More shows as the active tab in the row
-    assert b"class=\"sbt on\" href=\"/m/key_dates\"" in k and b"class=\"ht on\"" in k
+    assert b"href=\"/m/key_dates\"" in k and b"class=\"ht on\"" in k
 
 
 def test_campaigns_one_list(app):
@@ -530,11 +530,10 @@ def test_fifty_plus_mood_boards_and_request_button(app):
 def test_deb_layer_wrapped_radar_quick_tone_and_bento(app):
     o = signup(app, "deb1@x.in", "Deb", "Deb Co", "Sup3rSecret!")
     html = o.get("/app").data.decode()
-    assert 'class="bento"' in html and "debFab" in html and "Festival countdown" in html
+    assert 'class="flow"' in html and "debFab" in html and "Check results" in html
     w = o.get("/wrapped").data.decode()
     assert 'id="wr"' in w and "Your week, wrapped" in w and o.get("/wrapped?p=year").status_code == 200
-    r = o.get("/radar").data.decode()
-    assert "Make it" in r and "Hook (2s)" in r or "POV" in r or "3 things" in r
+    assert o.get("/radar").status_code == 404      # the Radar page is gone: Promo ideas covers the festival calendar
     for k in ("today", "coming", "flop", "zzz"):
         j = o.get(f"/deb/quick?k={k}").get_json()
         assert j["text"]

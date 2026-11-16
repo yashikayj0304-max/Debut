@@ -31,13 +31,13 @@ PUBLIC = {"bio.public", "bio.go", "bio.qr", "cron_morning", "cron_evening", "aut
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
 VIEWER_WRITE_OK = {"deb.set_tone", "tm.send", "tm.send_channel", "tm.channel", "tm.new_channel", "tm.react", "tm.pin", "tm.delete_msg", "tm.share", "tm.cancel", "tm.access_request", "auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
-CLIENT_OK = {"push_key", "push_subscribe", "push_unsubscribe", "dashboard", "portal", "portal_item", "portal_decide", "portal_comment", "notifications", "notifications_recent", "notifications_read", "notification_open", "feedback", "help_centre", "auth.logout", "auth.switch_ws",
+CLIENT_OK = {"push_key", "push_subscribe", "push_unsubscribe", "push_test", "dashboard", "portal", "portal_item", "portal_decide", "portal_comment", "notifications", "notifications_recent", "notifications_read", "notification_open", "feedback", "help_centre", "auth.logout", "auth.switch_ws",
              "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify", "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.onboarded"}
-CREATOR_OK = {"deb.wrapped", "deb.radar", "deb.quick", "deb.set_tone", "tm.approvals", "tm.idea_submit", "tm.chat", "tm.thread", "tm.send", "tm.send_channel", "tm.channel", "tm.new_channel", "tm.react", "tm.pin", "tm.delete_msg", "tm.share", "tm.cancel", "tm.access_request", "ideas_schedule", "dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_status", "calendar_view", "search", "moodboards", "board_view", "media", "ideas",
+CREATOR_OK = {"deb.wrapped", "deb.quick", "deb.set_tone", "tm.approvals", "tm.idea_submit", "tm.chat", "tm.thread", "tm.send", "tm.send_channel", "tm.channel", "tm.new_channel", "tm.react", "tm.pin", "tm.delete_msg", "tm.share", "tm.cancel", "tm.access_request", "ideas_schedule", "dashboard", "m_list", "m_new", "m_edit", "m_save", "kanban", "m_status", "calendar_view", "search", "moodboards", "board_view", "media", "ideas",
               "auth.logout", "auth.switch_ws", "ws.account", "ws.account_profile", "ws.account_password", "ws.account_verify",
-              "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "presence", "push_key", "push_subscribe", "push_unsubscribe", "kudos", "kudos_send", "react", "presence", "push_key", "push_subscribe", "push_unsubscribe", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
+              "ws.twofa", "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "presence", "push_key", "push_subscribe", "push_unsubscribe", "push_test", "kudos", "kudos_send", "react", "presence", "push_key", "push_subscribe", "push_unsubscribe", "notifications", "notifications_read", "notification_open", "feedback", "help_centre", "ws.onboarded", "board_new", "board_add", "board_photos", "board_photo_add", "board_item_delete", "board_delete", "board_item_place", "board_item_edit", "board_item_replace_image", "board_arrange", "board_sample"}
 FEATURE_EP = {"content_ops": "content_ops", "order_match": "content_ops", "order_assign": "content_ops", "discover": "influencers", "outreach": "influencers",
-              "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "analytics_import": "analytics", "marketing_health": "analytics", "ai_studio": "ai", "api_ai": "ai"}
+              "influencer_contacted": "influencers", "event_checklist": "promo_events", "team_hub": "group", "analytics": "analytics", "analytics_import": "analytics", "ai_studio": "ai", "api_ai": "ai"}
 
 
 import taglines as _tg
@@ -86,6 +86,7 @@ def create_app(config=None, init=True, database_url=None):
     if init:
         with app.app_context():
             D.init_schema(MODULES)
+        S.start_scheduler(app)
     app.teardown_appcontext(D.close_conn)
 
     from auth import bp as auth_bp
@@ -237,16 +238,26 @@ def create_app(config=None, init=True, database_url=None):
                 except Exception:
                     pass
             d["brand"] = S.brand_shades(g.ws)
+            if g.role == "client":                      # a client sees their own brand colours and logo in their portal
+                try:
+                    _cm = q("SELECT client_name FROM memberships WHERE workspace_id=? AND user_id=?", (g.ws["id"], g.user["id"]), one=True)
+                    _cr = q("SELECT brand_color, logo_url FROM clients WHERE workspace_id=? AND LOWER(name)=LOWER(?)", (g.ws["id"], (_cm["client_name"] or "").strip()), one=True) if _cm else None
+                    if _cr and (_cr["brand_color"] or "").startswith("#"):
+                        d["brand"] = S.hex_shades(_cr["brand_color"], "")
+                    if _cr and _cr["logo_url"]:
+                        d["ws"] = dict(g.ws, logo_url=_cr["logo_url"])
+                except Exception:
+                    pass
             d["is_admin"] = S.is_platform_admin(g.user)
             d["admin_needs_2fa"] = bool(g.user["email_verified"]) and g.user["email"] in C.ADMIN_EMAILS and not d["is_admin"]
             d["on_free"] = g.plan_key == "free"
             d["lapsed"] = g.plan_key == "free" and g.ws["plan"] != "free"
             groups = OrderedDict([("Strategy", []), ("Content", []), ("Campaigns", []), ("Promotions & Events", []), ("Content Ops", []), ("Growth", []), ("Intelligence", [])])
-            special = {"Content": [("Calendar", "calendar_view", "📅"), ("Create studio", "studio.studio", "🎬"), ("Promo ideas", "studio.promos", "🎯"), ("Instagram grid", "studio.grid", "🧩"), ("Trend radar", "deb.radar", "📡"), ("Link in bio", "bio.edit", "🔗"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
+            special = {"Strategy": [("Launch deck", "studio.launch_deck", "🎁")], "Content": [("Calendar", "calendar_view", "📅"), ("Create studio", "studio.studio", "🎬"), ("Instagram grid", "studio.grid", "🧩"), ("Link in bio", "bio.edit", "🔗"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
                        "Campaigns": [("Discover Influencers", "discover", "🔭"), ("Trackable links (UTM)", "utm", "🏷️")],
-                       "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈"), ("Marketing Health", "marketing_health", "🩺")],
+                       "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈")],
                        "Intelligence": [("Live news (Market Pulse)", "pulse_page", "📡"), ("AI Studio", "ai_studio", "🤖")]}
-            feat_of = {"content_ops": "content_ops", "discover": "influencers", "analytics": "analytics", "ai_studio": "ai", "marketing_health": "analytics"}
+            feat_of = {"content_ops": "content_ops", "discover": "influencers", "analytics": "analytics", "ai_studio": "ai"}
             creator = g.role == "creator"
             lock = lambda f: " 🔒" if (f and f not in g.plan["features"]) else ""
             for grp, items in special.items():

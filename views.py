@@ -135,7 +135,81 @@ def cron_morning():
     key = request.args.get("key", "")
     if not C.CRON_KEY or not hmac.compare_digest(key, C.CRON_KEY):
         abort(404)
-    return jsonify(digests=S.send_digests(), pushes=S.morning_push())
+    return jsonify(digests=S.send_digests(), pushes=S.morning_push(), nudges=S.client_approval_nudges(), reminders=S.fire_due_reminders())
+
+
+@route("/cron/reminders")
+def cron_reminders():
+    """Run every 5 to 15 minutes: /cron/reminders?key=<CRON_KEY>. Sends reminders that have come due."""
+    import hmac
+    key = request.args.get("key", "")
+    if not C.CRON_KEY or not hmac.compare_digest(key, C.CRON_KEY):
+        abort(404)
+    return jsonify(sent=S.fire_due_reminders())
+
+
+@route("/reminders/add", methods=["POST"])
+def reminder_add():
+    text = (request.form.get("text") or "").strip()[:200]
+    when = request.form.get("when", "")
+    now = S.now_ist()
+    if when == "1h":
+        at = now + dt.timedelta(hours=1)
+    elif when == "tonight":
+        at = now.replace(hour=20, minute=0) if now.hour < 20 else now + dt.timedelta(hours=1)
+    elif when == "tomorrow":
+        at = (now + dt.timedelta(days=1)).replace(hour=9, minute=0)
+    else:
+        try:
+            at = dt.datetime.strptime((request.form.get("date") or "") + " " + (request.form.get("time") or "09:00"), "%Y-%m-%d %H:%M")
+        except ValueError:
+            flash("Pick a date and time for the reminder.")
+            return redirect(request.referrer or url_for("dashboard"))
+    if not text:
+        flash("Write what to remind you about.")
+        return redirect(request.referrer or url_for("dashboard"))
+    link = (request.form.get("link") or "")[:300]
+    if not link.startswith("/") or link.startswith("//"):
+        link = ""
+    rep = request.form.get("repeat", "")
+    target, tname = g.user["id"], ""
+    if request.form.get("for", "").isdigit() and int(request.form["for"]) != g.user["id"] and g.role != "client":
+        m = q("SELECT u.id, u.name FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND m.user_id=? AND m.role!='client'", (W(), int(request.form["for"])), one=True)
+        if m:
+            target, tname = m["id"], (m["name"] or "your teammate").split()[0]
+    ins("reminders", dict(workspace_id=W(), user_id=target, by_user=g.user["id"], text=text, remind_at=at.strftime("%Y-%m-%d %H:%M"), link=link, repeat=rep if rep in ("daily", "weekly") else ""))
+    flash("⏰ Reminder set for " + (tname + " on " if tname else "") + at.strftime("%d %b, %I:%M %p") + (". They will get a notification." if tname else ". Only you see it."))
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@route("/reminders")
+def reminders_page():
+    S.fire_due_reminders(g.user["id"])
+    rows = q("SELECT * FROM reminders WHERE workspace_id=? AND user_id=? AND done=0 ORDER BY remind_at", (W(), g.user["id"]))
+    past = q("SELECT * FROM reminders WHERE workspace_id=? AND user_id=? AND done=1 ORDER BY remind_at DESC LIMIT 10", (W(), g.user["id"]))
+    team = q("SELECT u.id, u.name FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND m.role!='client' AND u.id!=? ORDER BY u.name", (W(), g.user["id"])) if g.role != "client" else []
+    return render_template("reminders.html", team=team, rows=rows, past=past, tomorrow=(S.today() + dt.timedelta(days=1)).isoformat())
+
+
+@route("/reminders/<int:rid>/snooze", methods=["POST"])
+def reminder_snooze(rid):
+    now = S.now_ist()
+    at = now + dt.timedelta(hours=1) if request.form.get("by") == "1h" else (now + dt.timedelta(days=1)).replace(hour=9, minute=0)
+    ex("UPDATE reminders SET remind_at=?, fired=0, done=0 WHERE id=? AND user_id=? AND workspace_id=?", (at.strftime("%Y-%m-%d %H:%M"), rid, g.user["id"], W()))
+    flash("Snoozed until " + at.strftime("%d %b, %I:%M %p") + ".")
+    return redirect(request.referrer or url_for("reminders_page"))
+
+
+@route("/reminders/<int:rid>/delete", methods=["POST"])
+def reminder_delete(rid):
+    ex("DELETE FROM reminders WHERE id=? AND user_id=? AND workspace_id=?", (rid, g.user["id"], W()))
+    return redirect(request.referrer or url_for("reminders_page"))
+
+
+@route("/reminders/<int:rid>/done", methods=["POST"])
+def reminder_done(rid):
+    ex("UPDATE reminders SET done=1 WHERE id=? AND user_id=? AND workspace_id=?", (rid, g.user["id"], W()))
+    return redirect(request.referrer or url_for("dashboard"))
 
 
 @route("/cron/evening")
@@ -315,7 +389,7 @@ def dashboard():
     done = q("SELECT COUNT(*) c FROM launch_checklist WHERE workspace_id=? AND status='Done'", (w,), one=True)["c"]
     pipeline = q(f"SELECT status, COUNT(*) c FROM content_items WHERE workspace_id=? AND {_ci} GROUP BY status", [w] + _cia)
     leads = q("SELECT stage, COUNT(*) c FROM leads WHERE workspace_id=? GROUP BY stage", (w,))
-    refs = q("SELECT * FROM reference_links WHERE workspace_id=? ORDER BY id DESC LIMIT 5", (w,))
+    refs = q("SELECT * FROM assets WHERE workspace_id=? AND url!='' ORDER BY id DESC LIMIT 5", (w,))
     promos = q("SELECT * FROM promotions WHERE workspace_id=? AND (status='Live' OR start_date BETWEEN ? AND ?) ORDER BY start_date", (w, t, (today + dt.timedelta(days=14)).isoformat()))
     events = q("SELECT * FROM events WHERE workspace_id=? AND date BETWEEN ? AND ? AND status!='Cancelled' ORDER BY date", (w, t, (today + dt.timedelta(days=30)).isoformat()))
     followups = q("SELECT * FROM influencers WHERE workspace_id=? AND next_followup!='' AND next_followup<=? AND status NOT IN ('Booked','Delivered','Rejected') ORDER BY next_followup", (w, t))
@@ -383,7 +457,7 @@ def dashboard():
         from urllib.parse import quote
         wa_url = "https://wa.me/?text=" + quote("\n".join(lines))
     tiles = []
-    for k in ("content_items", "campaigns", "promotions", "events", "content_orders", "creators", "tasks", "leads", "reference_links", "influencers"):
+    for k in ("content_items", "campaigns", "promotions", "events", "content_orders", "creators", "tasks", "leads", "influencers"):
         if locked(k) or (g.role == "creator" and k not in CREATOR_MODULES):
             continue
         m = MODULES[k]
@@ -452,7 +526,9 @@ def dashboard():
         except Exception:
             month_card = None
     import deb as _deb
-    return render_template("dashboard.html", month_card=month_card, bento=_deb.bento(), streak_n=_streak_info()[0], spark=_spark(), prog=prog, promo=promo, topped=topped, late_posts=late_posts, week_plan=week_plan, low_cal=low_cal, first_week_card=first_week_card, welcome=welcome, wa_url=wa_url, goals_channels=CHANNELS, fresh=bool(sug), trial_card=trial_card, pmf_ask=pmf_ask, next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
+    S.fire_due_reminders(g.user["id"])
+    my_rem = q("SELECT * FROM reminders WHERE workspace_id=? AND user_id=? AND done=0 ORDER BY remind_at LIMIT 6", (w, g.user["id"]))
+    return render_template("dashboard.html", my_rem=my_rem, month_card=month_card, bento=_deb.bento(), streak_n=_streak_info()[0], spark=_spark(), prog=prog, promo=promo, topped=topped, late_posts=late_posts, week_plan=week_plan, low_cal=low_cal, first_week_card=first_week_card, welcome=welcome, wa_url=wa_url, goals_channels=CHANNELS, fresh=bool(sug), trial_card=trial_card, pmf_ask=pmf_ask, next_step=next_step, try_next=next_tools(w) if g.role in ("owner", "admin", "lead", "manager") else [], upcoming=upcoming, overdue=overdue, due_soon=due_soon, budget=budget, spent=spent, live=live, total=total, done=done,
                            pipeline=pipeline, leads=leads, refs=refs, tiles=tiles, promos=promos, events=events, followups=followups,
                            today_items=today_items, today_more=today_more, can_toggle=can_toggle, who=who,
                            steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), streak_froze=_streak_info()[1], kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
@@ -1340,12 +1416,12 @@ TOOL_WORDS = {
     "brand_kit": "logo colours colors fonts voice brand tone", "launch_checklist": "launch checklist steps", "influencers": "influencer creator collab outreach dm",
     "payments": "invoice invoices payout pay money payment", "utm_links": "utm tracking link links track clicks", "keywords": "seo keyword search google rank",
     "key_dates": "festival dates sale date holiday", "events": "event events offline", "promotions": "promotion offer discount sale",
-    "pr_contacts": "pr press media journalist", "creators": "creator freelancer writer designer", "clients": "client clients customer account", "reference_links": "inspiration references links save",
-    "assets": "files library images assets media", "experiments": "test ab a/b experiment", "feeds": "news rss sources", "watchlist": "watch topics news trends",
+    "pr_contacts": "pr press media journalist", "creators": "creator freelancer writer designer", "clients": "client clients customer account", 
+    "assets": "files library images assets media inspiration references links save", "experiments": "test ab a/b experiment", "feeds": "news rss sources", "watchlist": "watch topics news trends",
 }
 TOOL_PAGES = [("calendar_view", "📅 Calendar", "calendar schedule month plan dates"), ("moodboards", "🖼️ Mood Boards", "mood board vibe inspiration pinterest"), ("ideas", "💡 Idea Bank", "ideas inspiration stuck content ideas"),
               ("ai_studio", "🤖 AI Studio", "ai write draft generate caption chatgpt"), ("pulse_page", "📡 Live news & trends", "news trends market pulse competitors"), ("analytics", "📈 Analytics", "analytics charts results funnel"),
-              ("marketing_health", "🩺 Marketing Health", "health score check consistency"), ("report", "📑 Client report", "report pdf client monthly"), ("whatnow", "🫠 Idk what to do", "stuck lost help next what now bored"),
+              ("analytics", "🩺 Marketing Health (on Numbers)", "health score check consistency gaps"), ("report", "📑 Client report", "report pdf client monthly"), ("whatnow", "🫠 Idk what to do", "stuck lost help next what now bored"),
               ("glossary", "📖 Jargon buster", "meaning what is glossary jargon terms explain gtm utm kpi icp roi"), ("help_centre", "❓ Help & guides", "help guide manual how to")]
 
 
@@ -1759,6 +1835,42 @@ def board_item_edit(iid):
     return jsonify(ok=True)
 
 
+@route("/moodboards/<int:bid>/photos")
+def board_photos(bid):
+    """Search real photos for this board (JSON). Providers: Pexels / Unsplash with a key, otherwise Openverse."""
+    board_or_404(bid)
+    import photos
+    term = S.clean_text(request.args.get("q", ""), 80)
+    if not term:
+        return jsonify(results=[], provider=photos.provider())
+    try:
+        res = photos.search(term)
+    except Exception:
+        return jsonify(error="The photo library didn't answer. Try again in a moment, or upload your own.", results=[]), 502
+    return jsonify(results=res, provider=photos.provider())
+
+
+@route("/moodboards/<int:bid>/photos/add", methods=["POST"])
+def board_photo_add(bid):
+    """Copy one chosen photo onto the board (downloaded once and stored with the board, with its credit as the caption)."""
+    board_or_404(bid)
+    d = S.jbody()
+    url, credit = str(d.get("url") or ""), S.clean_text(d.get("credit") or "", 200)
+    if not url.startswith("https://"):
+        abort(400)
+    if q("SELECT COUNT(*) c FROM board_items WHERE board_id=? AND workspace_id=?", (bid, W()), one=True)["c"] >= 300:
+        return jsonify(error="Board is full (300 items)."), 400
+    try:
+        data = S.safe_get(url, timeout=12, limit=10 * 1024 * 1024)
+    except Exception:
+        return jsonify(error="Couldn't download that photo. Try another."), 502
+    ext = S.sniff_image(data) if data and len(data) <= 10 * 1024 * 1024 else None
+    if not ext:
+        return jsonify(error="That file isn't a usable photo."), 400
+    iid = ins("board_items", dict(workspace_id=W(), board_id=bid, kind="image", content=S.store_file(W(), ext, data), caption=credit, **_next_slot(bid)))
+    return jsonify(ok=True, id=iid)
+
+
 @route("/moodboards/item/<int:iid>/replace-image", methods=["POST"])
 def board_item_replace_image(iid):
     """Swap the picture on an existing image card in place — position, size and z-order stay put, so a card never has to be deleted and re-added just to change the photo."""
@@ -1894,8 +2006,8 @@ def fetch_all(wid, force=False):
 def updates_save():
     url = S.clean_url(request.form.get("url", ""))
     if url:
-        ins("reference_links", dict(workspace_id=W(), title=S.clean_text(request.form.get("title"), 200), url=url, category="Article", tags=S.clean_text(request.form.get("source"), 100), notes="Saved from Live news", favorite="No"))
-        flash("Saved to References.")
+        ins("assets", dict(workspace_id=W(), title=S.clean_text(request.form.get("title"), 200), url=url, type="Article", tags=S.clean_text(request.form.get("source"), 100), body="Saved from Live news", favorite="No", status="Approved"))
+        flash("Saved to your Library.")
     return redirect(url_for("pulse_page"))
 
 
@@ -2063,7 +2175,7 @@ def analytics():
         hit = [c["name"] for c in cards if c["pct"] is not None and c["pct"] > 100]
         if hit:
             working.append("Over target: " + ", ".join(hit[:3]) + ".")
-    return render_template("analytics.html", cards=cards, camps=camps, funnel=funnel, working=working)
+    return render_template("analytics.html", cards=cards, camps=camps, funnel=funnel, working=working, **_health_ctx())
 
 
 # ----------------------------------------------------------------- Marketing Health (KPIs + a single gap checklist, for a one-person marketing team)
@@ -2099,8 +2211,7 @@ def _marketing_gaps():
     ]
 
 
-@route("/marketing-health")
-def marketing_health():
+def _health_ctx():
     w, t = W(), S.today().isoformat()
     brand_checks = _brand_checks()
     brand_score = round(100 * sum(1 for _, ok in brand_checks if ok) / len(brand_checks))
@@ -2115,7 +2226,7 @@ def marketing_health():
     won = [r for r in leads if r["stage"] == "Won"]
     conv_pct = round(100 * len(won) / len(leads)) if leads else None
     gaps = _marketing_gaps()
-    return render_template("marketing_health.html", brand_checks=brand_checks, brand_score=brand_score,
+    return dict(brand_checks=brand_checks, brand_score=brand_score,
                            n_due=n_due, n_published=n_published, posting_pct=posting_pct,
                            n_campaigns=len(camps), util_pct=util_pct, over_budget=over_budget,
                            n_leads=len(leads), n_won=len(won), conv_pct=conv_pct, won_value=sum(num(r["value"]) for r in won),
@@ -2548,7 +2659,10 @@ def whatnow():
 def ideas():
     ind = IND.get(g.ws["industry"])
     have = {r["name"] for r in q("SELECT name FROM personas WHERE workspace_id=?", (W(),))}
-    return render_template("ideas.html", ind=ind, can_kpi="analytics" in g.plan["features"], have_personas=have)
+    import studio as _st
+    today = S.today()
+    return render_template("ideas.html", ind=ind, can_kpi="analytics" in g.plan["features"], have_personas=have,
+                           items=_st.suggestions(W(), g.ws["industry"], today), today=today.isoformat(), canwrite=g.role not in ("viewer", "client"))
 
 
 @route("/ideas/picker")
@@ -2821,7 +2935,10 @@ def service_worker():
 
 @route("/push/key")
 def push_key():
-    return jsonify(key=C.VAPID_PUBLIC or "")
+    try:
+        return jsonify(key=S.vapid()[0])
+    except Exception:
+        return jsonify(key="")
 
 
 @route("/push/subscribe", methods=["POST"])
@@ -2834,6 +2951,15 @@ def push_subscribe():
     ex("DELETE FROM push_subs WHERE endpoint=?", (ep,))
     ins("push_subs", dict(user_id=g.user["id"], endpoint=ep, p256dh=p256, auth=au))
     return jsonify(ok=True)
+
+
+@route("/push/test", methods=["POST"])
+def push_test():
+    n = q("SELECT COUNT(*) c FROM push_subs WHERE user_id=?", (g.user["id"],), one=True)["c"]
+    if not n:
+        return jsonify(ok=False, error="Turn on push on this device first."), 400
+    S.send_push(g.user["id"], "✅ Push works. This is how Debut will ping you.", "/notifications")
+    return jsonify(ok=True, devices=n)
 
 
 @route("/push/unsubscribe", methods=["POST"])

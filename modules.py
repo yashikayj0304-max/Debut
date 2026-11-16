@@ -52,7 +52,6 @@ REQUIRED = {
     "launch_checklist": {"item"},
     "watchlist": {"term"},
     "assets": {"title"},
-    "reference_links": {"title"},
     "keywords": {"keyword"},
     "campaigns": {"name"},
     "influencers": {"name"},
@@ -114,14 +113,10 @@ MODULES = OrderedDict([
                 F("publish_date", "Publish date", "date"), F("campaign", "Campaign"), F("persona", "Target persona"), F("owner", "Owner"), F("client", "Client (shows in that client's portal)"),
                 F("copy", "Copy / script", "textarea"), F("cta", "Call to action"), F("hashtags", "Hashtags / keywords"), F("asset_url", "Asset / design link", "url"), F("notes", "Notes", "textarea")],
         cols=["title", "channel", "format", "status", "publish_date", "owner"], filter="status", kanban="status")),
-    ("assets", dict(title="Content Library", icon="📚", group="Content", desc="Saved copy, templates and AI outputs.",
-        fields=[F("title", "Title"), F("type", "Type"), F("channel", "Channel", "select", CHANNELS), F("status", "Status", "select", ["Draft", "Approved", "Archived"]),
-                F("campaign", "Campaign"), F("body", "Content", "textarea")],
-        cols=["title", "type", "channel", "status"], filter="status")),
-    ("reference_links", dict(title="Reference Links", icon="🔗", group="Content", desc="Inspiration, benchmarks, tools and articles.",
-        fields=[F("title", "Title"), F("url", "URL", "url"), F("category", "Category", "select", ["Inspiration", "Competitor", "Benchmark", "Article", "Tool", "Template", "Case study", "Design", "Ad library", "Other"]),
-                F("tags", "Tags"), F("notes", "Notes", "textarea"), F("favorite", "Favourite", "select", ["No", "Yes"])],
-        cols=["title", "url", "category", "tags", "favorite"], filter="category")),
+    ("assets", dict(title="Library", icon="📚", group="Content", desc="Saved copy, templates, AI outputs and links: everything you want to find again, in one place. Inspiration and articles live here too (give them a link).",
+        fields=[F("title", "Title"), F("type", "Type"), F("url", "Link", "url"), F("channel", "Channel", "select", CHANNELS), F("status", "Status", "select", ["Draft", "Approved", "Archived"]),
+                F("campaign", "Campaign"), F("tags", "Tags"), F("favorite", "Favourite", "select", ["No", "Yes"]), F("body", "Content or notes", "textarea")],
+        cols=["title", "type", "url", "status"], filter="status")),
     ("keywords", dict(title="Search Keywords (SEO)", icon="🔎", group="Content", desc="Keyword targets and rank tracking.",
         fields=[F("keyword", "Keyword"), F("volume", "Monthly volume", "number"), F("difficulty", "Difficulty (0-100)", "number"),
                 F("intent", "Intent", "select", ["Informational", "Commercial", "Transactional", "Navigational"]), F("target_url", "Target URL", "url"),
@@ -166,7 +161,7 @@ MODULES = OrderedDict([
         cols=["name", "category", "url"], filter="category")),
     ("clients", dict(title="Clients", icon="🏢", group="Content Ops", desc="Brands / accounts you produce content for.",
         fields=[F("name", "Client / brand"), F("industry", "Industry"), F("contact_person", "Contact person"), F("email", "Email"), F("phone", "Phone"),
-                F("plan", "Plan / retainer"), F("monthly_value", "Monthly value (₹)", "number"), F("status", "Status", "select", ["Lead", "Active", "Paused", "Churned"]), F("notes", "Notes", "textarea")],
+                F("plan", "Plan / retainer"), F("monthly_value", "Monthly value (₹)", "number"), F("status", "Status", "select", ["Lead", "Active", "Paused", "Churned"]), F("brand_color", "Portal colour (e.g. #e63946)"), F("logo_url", "Portal logo link", "url"), F("notes", "Notes", "textarea")],
         cols=["name", "industry", "contact_person", "monthly_value", "status"], filter="status")),
     ("creators", dict(title="Creator Network", icon="✍️", group="Content Ops", desc="Vetted writers, designers, video editors and social managers (your freelancer marketplace). Share the Apply form to onboard. Skills are comma separated, e.g. Copywriter, Video editor, Photographer.",
         fields=[F("name", "Name"), F("email", "Email"), F("phone", "Phone"), F("skills", "Skills (comma separated)"), F("niches", "Niches / industries"),
@@ -263,7 +258,7 @@ MODULES["watchlist"] = dict(title="News Watchlist (Market Pulse)", icon="🔭", 
 # --- SaaS wiring: which plan feature unlocks which module, and what the limited "creator" role can touch
 MODULE_FEATURE = {"clients": "content_ops", "creators": "content_ops", "content_orders": "content_ops", "rate_card": "content_ops", "payments": "content_ops",
                   "promotions": "promo_events", "events": "promo_events", "influencers": "influencers", "outreach_templates": "influencers", "kpis": "analytics"}
-CREATOR_MODULES = {"content_items", "assets", "content_orders", "tasks", "reference_links"}
+CREATOR_MODULES = {"content_items", "assets", "content_orders", "tasks"}
 # money fields freelancers (creator role) never see or change: the agency's margin stays private
 HIDDEN_FOR_CREATOR = {"content_orders": {"price_client", "cost_creator"}}
 SEED_TABLES = ("launch_checklist", "feeds", "key_dates", "outreach_templates", "rate_card", "watchlist")

@@ -16,9 +16,22 @@ def app(tmp_path, monkeypatch):
     a = create_app(config={"TESTING": True, "WTF_CSRF_ENABLED": False, "RATELIMIT_ENABLED": False}, database_url=url)
     if url.startswith("postgresql"):  # start every test from a clean slate (and reset ids)
         from modules import MODULES
-        tables = ["webhook_events", "audit_log", "ai_usage", "invites", "memberships", "board_items", "boards", "comments", "notifications", "api_keys", "feedback", "pulse_runs", "workspaces", "users"] + list(MODULES)
+        tables = ["webhook_events", "audit_log", "ai_usage", "invites", "memberships", "board_items", "boards", "comments", "notifications", "api_keys", "feedback", "pulse_runs", "reminders", "push_subs", "kv", "workspaces", "users"] + list(MODULES)
         with a.app_context():
             ex("TRUNCATE " + ",".join(tables) + " RESTART IDENTITY CASCADE")
+    if app_has_js := True:
+        _js = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "app.js"), encoding="utf-8").read()
+
+        @a.after_request
+        def _inline_app_js(r):
+            # The shared page script moved into static/app.js. Tests that look for its code or data in the page still see it.
+            if r.mimetype == "text/html" and not r.direct_passthrough and b"static/app.js" in r.get_data():
+                import re as _re
+                t = r.get_data(as_text=True)
+                m = _re.search(r'"tools":(\[.*?\]),"hubnow":(".*?"),"vp"', t, _re.S)
+                extra = ("<script>" + (f"window.TOOLS={m.group(1)};window.HUBNOW={m.group(2)};" if m else "") + _js + "</script>")
+                r.set_data(t.replace("</body>", extra + "</body>", 1) if "</body>" in t else t + extra)
+            return r
     yield a
 
 

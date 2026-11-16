@@ -90,7 +90,7 @@ def studio():
             saved = json.loads(item["studio"])
         except ValueError:
             saved = {}
-    cfg = dict(brand=g.ws["name"].replace(" (demo)", ""), pri=(brand or {}).get("pri") or g.ws["brand_color"] or "#6a3df0", sec=g.ws["secondary_color"] or "#ff4f9a",
+    cfg = dict(ind=g.ws["industry"] or "general", brand=g.ws["name"].replace(" (demo)", ""), pri=(brand or {}).get("pri") or g.ws["brand_color"] or "#6a3df0", sec=g.ws["secondary_color"] or "#ff4f9a",
                logo=g.ws["logo_url"] or "", today=S.today().isoformat(), kd=kd, rizz=__import__("voice").tn("rizz"), saved=saved, rid=item["id"] if item else 0, title=item["title"] if item else "",
                channel=item["channel"] if item else "", date=item["publish_date"] if item else "", caption=item["copy"] if item else "", demo=_is_demo(),
                goal=_trim(request.args.get("goal"), 140), offer=_trim(request.args.get("offer"), 80), kind=request.args.get("kind") if request.args.get("kind") in KINDS else "carousel",
@@ -237,14 +237,7 @@ def suggestions(wid, ind_key, today):
     return out
 
 
-@bp.route("/promos")
-def promos():
-    today = S.today()
-    items = suggestions(W(), g.ws["industry"], today)
-    return render_template("promos.html", items=items, ind=IND.get(g.ws["industry"]), today=today.isoformat(), canwrite=g.role not in ("viewer", "client"))
-
-
-@bp.route("/promos/plan", methods=["POST"])
+@bp.route("/ideas/plan", methods=["POST"])
 def promo_plan():
     if g.role in ("viewer", "client"):
         abort(403)
@@ -253,11 +246,11 @@ def promo_plan():
     card = next((c for c in suggestions(W(), g.ws["industry"], today) if c["id"] == pid), None)
     if not card:
         flash("That idea is out of date. Here is the latest list.")
-        return redirect(url_for("studio.promos"))
+        return redirect(url_for("ideas"))
     name = f"{card['title']} ({card['date'][5:]})"[:120]
     if q("SELECT id FROM campaigns WHERE workspace_id=? AND name=?", (W(), name), one=True):
         flash("This plan already exists. Find it under Campaigns.")
-        return redirect(url_for("studio.promos"))
+        return redirect(url_for("ideas"))
     end = dt.date.fromisoformat(card["date"])
     start = max(today, end - dt.timedelta(days=card["lead"]))
     ins("campaigns", dict(workspace_id=W(), name=name, objective="Sales" if not card["trend"] else "Awareness", channel=card["channels"][0]["channel"] if card["channels"][0]["channel"] in __import__("modules").CHANNELS else "Instagram",
@@ -351,3 +344,57 @@ def pack():
             continue
         items.append(dict(id=r["id"], title=r["title"], channel=r["channel"], date=r["publish_date"], caption=r["copy"], hashtags=r["hashtags"], board=board))
     return jsonify(items=items)
+
+
+# ---------------------------------------------------------------- launch deck (paid)
+@bp.route("/launch-deck")
+def launch_deck():
+    if g.role == "client":
+        abort(403)
+    brand = S.brand_shades(g.ws)
+    cfg = dict(ind=g.ws["industry"] or "general", brand=g.ws["name"].replace(" (demo)", ""), pri=(brand or {}).get("pri") or g.ws["brand_color"] or "#6a3df0", sec=g.ws["secondary_color"] or "#ff4f9a",
+               logo=g.ws["logo_url"] or "", today=S.today().isoformat(), paid=S.feature_ok(g.ws, "launch_deck"), canwrite=g.role not in ("viewer",) and not _is_demo(),
+               prefill=_trim(request.args.get("name"), 80))
+    import modules as MOD
+    return render_template("launch_deck.html", cfg=cfg, chans=MOD.CHANNELS, plan_name=S.plan_of(g.ws)["name"])
+
+
+@bp.route("/launch-deck/create", methods=["POST"])
+def launch_deck_create():
+    """Paid: saves the whole dated deck (designs + captions) to the calendar in one go, so each piece opens in the studio."""
+    if g.role in ("viewer", "client"):
+        abort(403)
+    if not S.feature_ok(g.ws, "launch_deck"):
+        return jsonify(error="The complete Launch Deck is on paid plans. Upgrade to add it to your calendar.", upgrade="/billing"), 402
+    if _is_demo():
+        return jsonify(error="This is a read-only demo. Make your own workspace to save the deck."), 403
+    d = S.jbody()
+    items = d.get("items") if isinstance(d.get("items"), list) else []
+    camp = _trim(d.get("campaign"), 100) or "Launch deck"
+    out = []
+    for it in items[:24]:
+        if not isinstance(it, dict):
+            continue
+        title = _trim(it.get("title"), 140)
+        kind = it.get("kind") if it.get("kind") in KINDS else "post"
+        chan = it.get("channel") if it.get("channel") in __import__("modules").CHANNELS else "Instagram"
+        date = str(it.get("date") or "")
+        try:
+            dt.date.fromisoformat(date)
+        except ValueError:
+            continue
+        if not title:
+            continue
+        b = it.get("board") if isinstance(it.get("board"), dict) else {}
+        board = dict(slides=(b.get("slides") or [])[:12], theme=_trim(b.get("theme"), 20) or "auto", size=_trim(b.get("size"), 12), kind=kind, trans=_trim(b.get("trans"), 12))
+        blob = json.dumps(board)
+        if len(blob) > 200000:
+            continue
+        tags = " ".join(_trim(t, 30) for t in (it.get("hashtags") or [])[:8])
+        thumb = str(it.get("thumb") or "")
+        thumb = thumb if thumb.startswith("data:image/jpeg;base64,") and len(thumb) < 30000 else ""
+        rid = ins("content_items", dict(workspace_id=W(), status="Planned", title=title, channel=chan, format=FORMAT_OF[kind], publish_date=date, copy=str(it.get("caption") or "")[:2200],
+                                        cta=_trim(it.get("cta"), 80), hashtags=tags, studio=blob, thumb=thumb, campaign=camp))
+        out.append(dict(id=rid, title=title, date=date, kind=kind, url=url_for("studio.studio", item=rid)))
+    S.audit("launch_deck", f"{len(out)} items")
+    return jsonify(ok=True, items=out, calendar=url_for("calendar_view"))

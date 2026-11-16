@@ -67,7 +67,7 @@ def _pk():
 
 # modules whose records can be dragged into a custom order (a sort_order column is added to each)
 MANUAL_ORDER = ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "accounts",
-                "personas", "competitors", "key_dates", "reference_links", "brand_kit", "gtm_plans", "keywords", "kpis", "assets", "clients")
+                "personas", "competitors", "key_dates", "brand_kit", "gtm_plans", "keywords", "kpis", "assets", "clients")
 EXTRA_COLUMNS = {
     "workspaces": [("ai_voice", "TEXT DEFAULT ''"), ("ai_lang", "TEXT DEFAULT 'English'"), ("founding", "INTEGER DEFAULT 0"), ("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
     "memberships": [("client_name", "TEXT DEFAULT ''")],
@@ -83,6 +83,7 @@ EXTRA_COLUMNS = {
 EXTRA_COLUMNS["chat_messages"] = [("channel_id", "INTEGER DEFAULT 0"), ("reply_to", "INTEGER DEFAULT 0"), ("ref", "TEXT DEFAULT ''"), ("file", "TEXT DEFAULT ''"), ("file_name", "TEXT DEFAULT ''"), ("pinned", "INTEGER DEFAULT 0")]
 EXTRA_COLUMNS["users"] = EXTRA_COLUMNS["users"] + [("tone", "TEXT DEFAULT 'chill'")]      # tone of voice: chill / normal / corporate
 EXTRA_COLUMNS["workspaces"] = EXTRA_COLUMNS["workspaces"] + [("bio", "TEXT DEFAULT ''")]      # link-in-bio page settings (JSON)
+EXTRA_COLUMNS["reminders"] = [("repeat", "TEXT DEFAULT ''"), ("by_user", "INTEGER DEFAULT 0")]      # '', daily, weekly
 EXTRA_COLUMNS["content_items"] = EXTRA_COLUMNS["content_items"] + [("studio", "TEXT DEFAULT ''"), ("thumb", "TEXT DEFAULT ''")]      # saved Create-studio design (slides, theme, size)
 
 
@@ -95,6 +96,8 @@ def init_schema(modules):
         f"CREATE TABLE IF NOT EXISTS invites (id {pk}, workspace_id INTEGER NOT NULL, email TEXT NOT NULL, role TEXT NOT NULL, token_hash TEXT NOT NULL, client_name TEXT DEFAULT '', accepted INTEGER DEFAULT 0, expires TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS ai_usage (id {pk}, workspace_id INTEGER NOT NULL, user_id INTEGER, task TEXT, credits INTEGER DEFAULT 1, month TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS kudos (id {pk}, workspace_id INTEGER NOT NULL, from_user INTEGER NOT NULL, to_user INTEGER NOT NULL, emoji TEXT DEFAULT '', note TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS reminders (id {pk}, workspace_id INTEGER NOT NULL, user_id INTEGER NOT NULL, text TEXT NOT NULL, remind_at TEXT NOT NULL, link TEXT DEFAULT '', done INTEGER DEFAULT 0, fired INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS kv (k VARCHAR(80) PRIMARY KEY, v TEXT DEFAULT '')",
         f"CREATE TABLE IF NOT EXISTS push_subs (id {pk}, user_id INTEGER NOT NULL, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS presence (workspace_id INTEGER NOT NULL, module TEXT NOT NULL, record_id INTEGER NOT NULL, user_id INTEGER NOT NULL, seen_at BIGINT NOT NULL, PRIMARY KEY (workspace_id, module, record_id, user_id))",
         f"CREATE TABLE IF NOT EXISTS reactions (id {pk}, workspace_id INTEGER NOT NULL, module TEXT NOT NULL, record_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
@@ -137,6 +140,9 @@ def init_schema(modules):
             for col, ddl in cols:
                 if col not in have_cols:
                     c.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+        if "reference_links" in insp.get_table_names():     # Reference Links became part of the Library: copy every row across once, then remove the old table
+            c.exec_driver_sql("INSERT INTO assets (workspace_id, title, type, url, tags, favorite, body, status, created_at) SELECT workspace_id, title, CASE WHEN COALESCE(category,'')='' THEN 'Link' ELSE category END, url, tags, favorite, notes, 'Approved', created_at FROM reference_links")
+            c.exec_driver_sql("DROP TABLE reference_links")
         for t in list(modules) + ["boards", "board_items", "memberships", "ai_usage", "audit_log", "comments", "notifications", "api_keys", "pulse_runs"]:
             col = "workspace_id"
             c.exec_driver_sql(f"CREATE INDEX IF NOT EXISTS ix_{t}_ws ON {t} ({col})")

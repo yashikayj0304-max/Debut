@@ -9,7 +9,6 @@ V = {
     "err": ("Oops, the internet ate it. Try again?", "Something went wrong. Try again.", "An error occurred. Please retry."),
     "saved": ("Locked in 🔒", "Saved", "Saved"),
     "wrapped": ("Your week, wrapped 🎁", "Your week in marketing", "Weekly summary"),
-    "radar": ("What's hot right now", "Coming up", "Upcoming moments"),
     "ask": ("Ask Deb", "Ask Deb", "Ask the assistant"),
 }
 

@@ -73,31 +73,6 @@ def wrapped():
     return render_template("wrapped.html", st=st, streak=streak, span=span, title=title, line=line, level=(pr or {}).get("level", 1), lname=(pr or {}).get("name", ""), brand=g.ws["name"])
 
 
-# Ideas for what to post next. These come from your festival calendar and proven formats, not from live trend data.
-FORMATS = [
-    ("POV reel", "reel", "POV: {t}", ["Hook (2s): “POV: {t}”", "Show the moment in one shot", "Text on screen: what it means for the customer", "Last frame: your name + “link in bio”"]),
-    ("3 tips carousel", "carousel", "3 things to know about {t}", ["Slide 1: “3 things about {t}” (hook)", "Slides 2 to 4: one tip each, 8 words max", "Last slide: save this + your offer"]),
-    ("Countdown story", "story", "{t} is coming", ["Day 3: tease the colour or product", "Day 2: show a behind-the-scenes shot", "Day 1: poll “ready?”", "Day 0: link sticker to order"]),
-    ("Before / after", "reel", "Before vs after {t}", ["Left: the stressful way", "Right: the easy way with you", "End card: “Which one are you?”"]),
-]
-
-
-@bp.route("/radar")
-def radar():
-    _need()
-    rows = []
-    for k in q("SELECT name, date FROM key_dates WHERE workspace_id=? AND date>=? ORDER BY date LIMIT 6", (W(), S.today().isoformat())):
-        try:
-            days = (dt.date.fromisoformat(k["date"]) - S.today()).days
-        except ValueError:
-            continue
-        i = (len(rows) + days) % len(FORMATS)
-        nm, kind, hook, steps = FORMATS[i]
-        t = k["name"].split("(")[0].strip()
-        rows.append(dict(name=k["name"], date=k["date"], days=days, fmt=nm, kind=kind, hook=hook.format(t=t), steps=[s.format(t=t) for s in steps], goal=f"{t}: {nm.lower()}"))
-    return render_template("radar.html", rows=rows)
-
-
 @bp.route("/deb/quick")
 def quick():
     """Answers that need no AI: built from your own calendar, so Ask Deb is useful even without an API key."""
@@ -115,7 +90,7 @@ def quick():
         return jsonify(text="Nothing planned for today. A quick “behind the scenes” story is always a win.", link=url_for("studio.studio"), label="Make one")
     if k == "coming":
         f = festival_next(3)
-        return jsonify(text=("Coming up: " + ", ".join(f"{x['name']} in {x['days']} days" for x in f) + ".") if f else "No key dates ahead. Add some on the calendar.", link=url_for("deb.radar"), label="See the radar")
+        return jsonify(text=("Coming up: " + ", ".join(f"{x['name']} in {x['days']} days" for x in f) + ".") if f else "No key dates ahead. Add some on the calendar.", link=url_for("ideas"), label="See ideas")
     if k == "flop":
         r = q("SELECT title, channel, format FROM content_items WHERE workspace_id=? AND status='Published' ORDER BY publish_date DESC, id DESC LIMIT 1", (W(),), one=True)
         if not r:

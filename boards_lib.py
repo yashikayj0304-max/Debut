@@ -92,14 +92,32 @@ def svg(label, c1, c2, emoji):
     return "data:image/svg+xml;base64," + base64.b64encode(s.encode()).decode()
 
 
+def _q(t): return t.lower().replace(" ", "%20")
+
+
 def build(row):
     key, cat, emoji, name, pal, mood, shots, tone, never = row
     c = pal.split()
+    nm = _q(name)
+    tag = "".join(ch for ch in name.lower() if ch.isalnum())
     items = [("image", svg("Hero look", c[1], c[0] if c[0] != "#FFFFFF" else c[4], emoji), "Hero look: replace with your best photo"),
-             ("image", svg("Texture and detail", c[2], c[4], "✨"), "Texture and detail")]
+             ("image", svg("Texture and detail", c[2], c[4], "✨"), "Texture and detail"),
+             ("image", svg("Flat lay / props", c[3], c[1], "🧺"), "Flat lay or props: drop your photo here")]
     items += [("color", hx, role) for hx, role in zip(c, ROLES)]
-    items += [("note", mood, "Mood"), ("note", shots, "Shots to get"), ("note", tone, "Tone"), ("note", "Never: " + never, "Avoid"),
-              ("link", "https://www.pinterest.com/search/pins/?q=" + name.lower().replace(" ", "%20") + "%20brand%20inspiration", "Find more inspiration")]
+    items += [("note", mood, "Mood")]
+    for n, shot in enumerate([x.strip() for x in shots.replace(" and ", ", ").split(",") if x.strip()][:5], 1):
+        items.append(("note", shot[0].upper() + shot[1:], f"Shot {n}"))
+    items += [("note", tone, "Tone of voice"), ("note", "Never: " + never, "Avoid"),
+              ("note", f"Post ideas: 1) {name}: behind the scenes. 2) Before and after. 3) One tip in 3 slides. 4) Customer moment. 5) Reel: 3 quick cuts with big text.", "Content ideas"),
+              ("note", f"Caption starters: \"The part nobody sees...\", \"Made for {name.lower()} moments\", \"Save this for later\"", "Caption starters"),
+              ("note", f"#{tag} #smallbusinessindia #madeinindia #reelsindia #supportlocal", "Hashtags to try"),
+              ("link", "https://www.pinterest.com/search/pins/?q=" + nm + "%20aesthetic", "Pinterest: " + name + " ideas"),
+              ("link", "https://www.instagram.com/explore/search/keyword/?q=%23" + tag, "Instagram: see #" + tag),
+              ("link", "https://www.behance.net/search/projects?search=" + nm, "Behance: designer work"),
+              ("link", "https://www.google.com/search?tbm=isch&q=" + nm + "%20photography%20reference", "Google Images: photo reference"),
+              ("link", "https://unsplash.com/s/photos/" + nm.replace("%20", "-"), "Unsplash: free photos"),
+              ("link", "https://coolors.co/" + "-".join(h.lstrip("#").lower() for h in c), "Open this palette in Coolors"),
+              ("link", "https://www.youtube.com/results?search_query=" + nm + "%20reel%20ideas", "YouTube: video ideas")]
     return name, mood, items
 
 

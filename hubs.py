@@ -9,26 +9,26 @@ HUBS = [
     dict(key="content", icon="✍️", label="Content & Calendar", lv=1, tabs=[
         ("📅 Posts", "calendar_view", {}, ["/m/content_items", "/kanban/content_items"], None),
         ("🎬 Create", "studio.studio", {}, [], None),
-        ("🎯 Promo ideas", "studio.promos", {}, [], None),
-        ("📡 Radar", "deb.radar", {}, [], None),
         ("🧩 Grid", "studio.grid", {}, [], None),
-        ("💡 Idea bank", "ideas", {}, [], None),
+        ("💡 Ideas", "ideas", {}, [], None),
         ("🗓️ Key dates", "m_list", {"key": "key_dates"}, [], None),
         ("📚 Library", "m_list", {"key": "assets"}, [], None)]),
     dict(key="brand", icon="🎨", label="Brand & Ideas", lv=1, tabs=[
         ("🖼️ Mood boards", "moodboards", {}, [], None),
         ("🎨 Brand kit", "m_list", {"key": "brand_kit"}, [], None),
-        ("📎 References", "m_list", {"key": "reference_links"}, [], None),
         ("🔗 Link in bio", "bio.edit", {}, [], None)]),
     dict(key="tasks", icon="✅", label="Tasks", lv=1, tabs=[
         ("✅ Tasks", "m_list", {"key": "tasks"}, [], None)]),
     dict(key="news", icon="🤖", label="AI & Market News", lv=1, tabs=[
         ("🤖 AI Studio", "ai_studio", {}, [], None),
-        ("📡 Live news", "pulse_page", {}, [], None)]),
-    dict(key="plan", icon="🧭", label="Strategy & Launch", lv=2, tabs=[
+        ("📡 Live news", "pulse_page", {}, [], None),
+        ("📰 News sources", "m_list", {"key": "feeds"}, [], None)]),
+    dict(key="plan", icon="🧭", label="Launch playbook", lv=1, tabs=[
+        ("🎁 Launch deck", "studio.launch_deck", {}, ["/launch-deck"], None),
         ("🚀 Launch plans", "m_list", {"key": "gtm_plans"}, [], None),
         ("🎯 Ideal customers", "m_list", {"key": "personas"}, [], None),
-        ("🕵️ Competitors", "m_list", {"key": "competitors"}, [], None)]),
+        ("🕵️ Competitors", "m_list", {"key": "competitors"}, [], None),
+        ("✅ Launch checklist", "m_list", {"key": "launch_checklist"}, [], None)]),
     dict(key="campaigns", icon="📣", label="Campaigns", lv=2, tabs=[
         ("📣 Campaigns", "campaigns_all", {}, ["/m/campaigns", "/kanban/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans"], "camp")]),
     dict(key="sales", icon="🧲", label="Leads & Clients", lv=2, tabs=[
@@ -38,15 +38,20 @@ HUBS = [
         ("📈 Numbers", "analytics", {}, ["/m/kpis"], None),
         ("🎯 Results log", "m_list", {"key": "kpis"}, [], "hid"),
         ("📑 Report", "report", {}, ["/report"], "rep"),
-        ("🎁 Wrapped", "deb.wrapped", {}, [], None)]),
+        ("🎁 Wrapped", "deb.wrapped", {}, [], None),
+        ("🏷️ Trackable links", "utm", {}, ["/utm"], None),
+        ("🔎 Search keywords", "m_list", {"key": "keywords"}, [], None)]),
     dict(key="people", icon="🤳", label="Influencers & PR", lv=3, tabs=[
         ("🤳 Influencers", "m_list", {"key": "influencers"}, ["/outreach"], None),
         ("🔭 Find influencers", "discover", {}, [], None),
-        ("📰 PR & media", "m_list", {"key": "pr_contacts"}, [], None)]),
+        ("📰 PR & media", "m_list", {"key": "pr_contacts"}, [], None),
+        ("✉️ Outreach templates", "m_list", {"key": "outreach_templates"}, [], None)]),
     dict(key="money", icon="💸", label="Creators & Payments", lv=3, tabs=[
         ("📊 Creator overview", "content_ops", {}, [], None),
         ("✍️ Creators", "m_list", {"key": "creators"}, [], None),
-        ("🧾 Invoices & payouts", "m_list", {"key": "payments"}, [], None)]),
+        ("🧾 Invoices & payouts", "m_list", {"key": "payments"}, [], None),
+        ("📦 Content orders", "m_list", {"key": "content_orders"}, [], None),
+        ("💳 Rate card", "m_list", {"key": "rate_card"}, [], None)]),
     dict(key="team", icon="👥", label="Team", lv=3, tabs=[
         ("✅ Approvals", "tm.approvals", {}, [], None),
         ("💬 Chat", "tm.chat", {}, ["/chat"], None),
@@ -73,7 +78,7 @@ FOCUS = [
     ("ai", "🤖", "AI help and market news", ["news"]),
     ("team", "👥", "Run a team", ["team"]),
 ]
-ALWAYS = {"content", "tasks"}
+ALWAYS = {"content", "tasks", "plan"}
 
 
 def focus_keys(csv):
@@ -94,24 +99,25 @@ def clean_focus(vals):
 
 
 # Niche tools: not shown in any hub. They stay under "More tools" (same URLs, roles and plan locks) so a new person sees only what a typical marketer uses.
-PRO_TABS = {("utm", None),
-            ("m_list", "pr_contacts")}
+PRO_TABS = {("m_list", "pr_contacts")}
 
 # Tabs shown under a quiet "More" chip so every hub opens with 2 to 4 clear choices. Nothing is removed: these pages keep their URLs, search entries and role rules.
-MORE_TABS = {("m_list", "key_dates"), ("m_list", "assets"),
+MORE_TABS = {("m_list", "launch_checklist"), ("utm", None), ("m_list", "keywords"), ("m_list", "outreach_templates"),
+             ("m_list", "content_orders"), ("m_list", "rate_card"), ("m_list", "feeds"),
+             ("m_list", "key_dates"), ("m_list", "assets"),
              ("m_list", "events"), ("m_list", "pr_contacts"),
              ("m_list", "creators"),
              ("ws.activity", None), ("kudos", None),
-             ("studio.grid", None), ("ideas", None), ("m_list", "reference_links")}   # fewer tabs on show; the rest sit under "More"
+             ("studio.grid", None), ("ideas", None)}   # fewer tabs on show; the rest sit under "More"
 
 
 # Pages of one kind share ONE tab. The tab opens the first page and a small switch under the tab bar moves between them, so each hub shows 1 to 4 choices.
 # Nothing is merged in the data: every page keeps its URL, search entry, role rule and plan lock.
 GROUPS = [
     ("📅 Calendar", [("calendar_view", None), ("m_list", "key_dates")]),
-    ("🎬 Create", [("studio.studio", None), ("studio.promos", None), ("deb.radar", None), ("studio.grid", None)]),
+    ("🎬 Create", [("studio.studio", None), ("studio.grid", None)]),
     ("💡 Ideas & library", [("ideas", None), ("m_list", "assets")]),
-    ("🎨 Brand", [("moodboards", None), ("m_list", "brand_kit"), ("m_list", "reference_links"), ("bio.edit", None)]),
+    ("🎨 Brand", [("moodboards", None), ("m_list", "brand_kit"), ("bio.edit", None)]),
     ("📈 Results", [("analytics", None), ("report", None), ("deb.wrapped", None)]),
     ("📡 News", [("pulse_page", None)]),
     ("🧭 Strategy", [("m_list", "gtm_plans"), ("m_list", "personas"), ("m_list", "competitors")]),

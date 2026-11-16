@@ -624,7 +624,7 @@ Third-party code bundled: Chart.js 4.5.1 (MIT) in `static/vendor/`, licence file
 - New surfaces must use CSS variables (`--card`, `--ink`, `--line`, ...) not hard-coded `#fff`, or add a dark override in polish.css.
 
 ## Push notifications (phone pings)
-1. Run `python gen_vapid.py` once. It prints `VAPID_PUBLIC` and `VAPID_PRIVATE`.
+1. Nothing to run: Debut makes its own push keys on first start (set `VAPID_PUBLIC` and `VAPID_PRIVATE` only to choose them yourself).
 2. Add both as environment variables on Render (plus optional `VAPID_SUBJECT=mailto:you@yourdomain.com`) and redeploy.
 3. Users open Notifications and tap **Turn on push**. Every in-app notification (assigned, @mention, kudos, approvals) is then also sent as a phone/desktop push.
 Without the keys the button explains push isn't set up and nothing else changes. Dead subscriptions are removed automatically.

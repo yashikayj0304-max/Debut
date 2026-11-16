@@ -1,0 +1,50 @@
+
+<script>(function(){var t=document.querySelector(".lp-tabs");if(!t)return;t.addEventListener("click",function(e){var b=e.target.closest("[data-w]");if(!b)return;t.querySelectorAll(".lp-tab").forEach(function(c){c.classList.toggle("on",c===b);});document.querySelectorAll(".lp-pane").forEach(function(p){p.hidden=p.dataset.w!==b.dataset.w;});});})();</script>
+<dialog id="featDlg" class="featdlg"><button type="button" class="fd-x" aria-label="Close" onclick="this.closest('dialog').close()">✕</button><div id="fdBody"></div></dialog>
+<script>
+var FEATS={
+calendar:["📅","Content calendar","Drag it, drop it, done.",["Drag to reschedule","Festival dates built in","Sync to Google"]],
+boards:["🖼️","Mood boards","Vibe it before you make it.",["Images and swatches","Share a link","Ready templates"]],
+gtm:["🚀","Launch and GTM","Launch like you mean it.",["Plans and personas","8-phase checklist","Your brand kit"]],
+contentops:["✍️","Content Ops","Creators, briefs and payouts, sorted.",["Brief matching","Review rounds","Margins stay private"]],
+influencers:["🤳","Influencers and PR","Slide into the right DMs.",["Find people","Track replies","Outreach templates"]],
+promos:["🎪","Promotions and events","Plan the drop, track the ROI.",["Auto checklists","Budgets","On your calendar"]],
+studio:["🎬","Create studio","Design the post, carousel or reel here.",["Your brand colours","Hook and season checks","Download or save to calendar"]],
+promoideas:["🎯","Promo ideas","Know what to promote, and when.",["Festival and trend ideas","One-tap campaign plan","Margin check"]],
+ai:["🤖","AI Studio","First drafts in seconds.",["Copy and briefs","Knows your brand","Cites its sources"]],
+kpis:["📈","KPIs and links","Know what is working.",["Trackable links","KPI vs target","Health score"]],
+pulse:["📡","Live Market Pulse","Know before everyone else.",["Live headlines","Trending topics","Competitor watch"]],
+collab:["💬","Collaboration","Everyone on the same page.",["@mentions","Approvals","Daily digest"]],
+reports:["📑","Client reports","Your month, on one page.",["One-click PDF","Share link","Client portal"]],
+api:["🔌","Integrations and API","Plays nice with your tools.",["Lead form","API keys","Zapier and Make"]],
+security:["🔐","Secure by design","Your work stays yours.",["2-step login","Roles","Audit log"]],
+mobile:["📱","On your phone","Fits in your pocket.",["Install it","Thumb-friendly","Light and dark"]],
+group:["👑","Group mode","Lead without the mess.",["Approvals","Balanced workload","Client portals"]]};
+var DEMO_TO={studio:"/studio",promoideas:"/ideas",calendar:"/calendar",boards:"/moodboards",gtm:"/m/gtm_plans",contentops:"/content-ops",influencers:"/m/influencers",promos:"/m/promotions",ai:"/ai",kpis:"/analytics",pulse:"/pulse",collab:"/m/content_items",reports:"/report",api:"/app",security:"/app",mobile:"/app",group:"/team-hub"};
+var DESC={
+calendar:"See every post, sale and festival on one calendar. Drag a card to a new day, and sync it to Google Calendar.",
+boards:"Collect images, colours and references for a shoot or campaign before you spend a rupee. Share the board with one link.",
+gtm:"Answer a few questions and get a launch plan with a checklist, ideal customers and competitors, all in one place.",
+contentops:"Send briefs to creators, track drafts and review rounds, and keep track of payouts. Your margins stay hidden from freelancers.",
+influencers:"Find creators that fit, keep notes on every conversation, and send follow-ups from ready-made templates.",
+promos:"Plan a sale, a launch or an event with a built-in checklist and budget. It lands on your calendar automatically.",
+studio:"Type what it is for and get a finished post, carousel or reel in your brand colours. Check the hook, hashtags and season, download it, and drop it on your calendar.",
+promoideas:"Debut looks at upcoming festivals, your industry and live trends, then suggests what to promote. Press Plan this to get the campaign, dated posts and tasks.",
+ai:"Get a first draft of captions, briefs and plans that already know your brand, in seconds.",
+kpis:"Log your numbers or import a report from Meta, Google or GA4. See progress against target, week by week.",
+pulse:"A live feed of headlines, trends and competitor news for your industry, so you hear it first.",
+collab:"Tag teammates, send posts for approval and get a daily digest, so nothing waits in someone's inbox.",
+reports:"Turn the month into one clean page: what you posted, what it cost and what worked. Share it as a link or PDF.",
+api:"Capture leads from your website form and connect Zapier, Make or your own tools through an API.",
+security:"Two-step login, roles for every teammate and an activity log. Export all your data whenever you like.",
+mobile:"Install it on your phone like an app. Light and dark modes, built for thumbs.",
+group:"Give a team lead the keys to approvals and workload, and give each client a private portal for their own work."};
+(function(){var d=document.getElementById("featDlg"),b=document.getElementById("fdBody");
+var ICM={'🤖':'bot','📈':'chart','📡':'radar','💬':'chat','📑':'doc','🔌':'plug','🔐':'lock','📱':'phone','👑':'crown','🖼':'img','🚀':'rocket','✍':'note','🤳':'camera','🎪':'event','📅':'cal'};function icn(e){return '<i class="ic ic-'+(ICM[String(e).replace(/\uFE0F/g,'')]||'sparkle')+'" aria-hidden="true"></i>';}
+function esc(t){return String(t).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+function show(k){var f=FEATS[k];if(!f)return;b.innerHTML='<div class="fd-ic">'+icn(f[0])+'</div><h2>'+esc(f[1])+'</h2><p class="fd-lead">'+esc(f[2])+'</p><p class="fd-desc">'+esc(DESC[k]||"")+'</p><div class="fd-cta"><a class="btn" href="{{ url_for('auth.signup') }}">Try it free</a> <a class="btn ghost" href="{{ url_for('demo') }}?to='+encodeURIComponent(DEMO_TO[k]||"/app")+'">See it live</a></div>';if(!d.open)d.showModal();}
+document.addEventListener("click",function(e){var t=e.target.closest("[data-f]");if(t&&(t.closest(".chips")||t.closest(".bento")||t.closest(".fcard")||t.closest("#featDlg")))show(t.dataset.f);else if(e.target===d)d.close();});
+document.addEventListener("keydown",function(e){if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("fcard")){e.preventDefault();show(e.target.dataset.f);}});
+})();
+</script>
+

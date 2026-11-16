@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% from "_mascot.html" import deb %}{% block title %}Make your own — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="card" style="max-width:520px;margin:50px auto;text-align:center"><div style="display:flex;justify-content:center">{{ deb('wave', 110) }}</div>
+<h1>This one is a look-around copy</h1><p>You can click everything, but changes are saved only in your own workspace. Make one free in about a minute and this will be yours.</p>
+<p><a class="btn" href="{{ url_for('auth.signup') }}">Sign up free</a> <a class="btn ghost" href="{{ url_for('dashboard') }}">Keep exploring</a></p></div>{% endblock %}

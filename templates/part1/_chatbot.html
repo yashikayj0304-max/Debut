@@ -1,0 +1,48 @@
+{% if user and role and role != "client" and not bare and not hide_chrome %}{% from "_mascot.html" import deb as _deb %}
+<button type="button" class="deb-fab" id="debFab" aria-label="{{ tn('ask') }}" aria-expanded="false">{{ _deb('happy', 44) }}<i class="deb-dot" id="debDot" hidden></i></button>
+<div class="deb-pan" id="debPan" hidden role="dialog" aria-label="Chat with Deb">
+<div class="deb-hd"><span class="deb-av">{{ _deb('happy', 34) }}</span><div class="deb-who"><b>Deb</b><small>online · your marketing buddy</small></div>
+<div class="deb-menu"><button type="button" class="deb-ib" id="debMore" aria-label="More" aria-haspopup="true">⋮</button><div class="deb-mm" id="debMM" hidden><button type="button" id="debClear">🧹 Clear this chat</button><button type="button" id="debHide">🙈 Hide this bubble</button><small>Bring it back in Profile › Look and feel.</small></div></div>
+<button type="button" class="deb-ib" id="debX" aria-label="Close chat">✕</button><a class="deb-link" href="{{ url_for('ai_studio') }}">✍️ Write with AI</a><a class="deb-link" href="{{ url_for('ideas') }}">💡 Get ideas</a></div>
+<div class="deb-log" id="debLog" aria-live="polite"></div>
+<div class="deb-chips" id="debChips"><button type="button" data-k="due">📅 What's due?</button><button type="button" data-k="share">📲 Share my week</button><button type="button" data-k="sync">🔄 Sync calendar</button><button type="button" data-k="today">✨ What to post today?</button><button type="button" data-k="coming">🎉 What's coming up?</button><button type="button" data-k="howdid">📊 How did my posts do?</button><button type="button" data-k="flop">📉 Why did my post flop?</button></div>
+<form class="deb-in" id="debF"><input id="debQ" placeholder="Type a message" maxlength="300" autocomplete="off" aria-label="Your message"><button class="deb-send" aria-label="Send"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg></button></form></div>
+<script>(function(){
+var f=document.getElementById("debFab"),p=document.getElementById("debPan"),l=document.getElementById("debLog"),KEY="debChat:{{ ws['id'] }}",HID="debOff",ERR={{ tn('err')|tojson }};
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}return null;}
+if(ls(HID)==="1"){f.hidden=true;p.hidden=true;return;}
+var hist=[];try{hist=JSON.parse(ls(KEY)||"[]")||[];}catch(e){hist=[];}
+function hm(ts){var d=new Date(ts);return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}
+function day(ts){var d=new Date(ts),n=new Date(),y=new Date(n.getTime()-864e5);return d.toDateString()===n.toDateString()?"Today":d.toDateString()===y.toDateString()?"Yesterday":d.toLocaleDateString([], {day:"numeric",month:"short"});}
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e;}
+function post(url,body){var u=new URLSearchParams(body);u.set("csrf_token",window.CSRF||"");return fetch(url,{method:"POST",credentials:"same-origin",headers:{"X-Requested-With":"fetch"},body:u});}
+function card(it){var c=el("div","deb-it"+(it.late?" late":""));var top=el("div","deb-it-t");top.appendChild(el("span","deb-w",it.when));top.appendChild(el("b","",it.title));c.appendChild(top);c.appendChild(el("small","",it.date+" · "+it.extra+(it.status?" · "+it.status:"")));
+ var a=el("div","deb-act");
+ function lk(txt,href,ext){var x=el("a","",txt);x.href=href;if(ext){x.target="_blank";x.rel="noopener";}a.appendChild(x);}
+ lk("➕ Calendar",it.ics);lk("📲 Share",it.wa,1);
+ var r=el("button","","⏰ Remind me");r.type="button";r.onclick=function(){r.disabled=true;post("/reminders/add",{text:it.title,when:"tomorrow"}).then(function(){r.textContent="✓ Reminder set";}).catch(function(){r.disabled=false;});};a.appendChild(r);lk("Open",it.open);c.appendChild(a);return c;}
+function paint(m,anim){var w=el("div","deb-row "+m.s);var b=el("div","deb-b "+m.s);
+ if(m.text)b.appendChild(el("div","deb-tx",m.text));
+ (m.items||[]).forEach(function(it){b.appendChild(card(it));});
+ if(m.link){var a=el("a","deb-lk",(m.label||"Open")+" →");a.href=m.link;b.appendChild(a);}
+ if(m.links){var bar=el("div","deb-act");m.links.forEach(function(k){if(k.copy){var x=el("button","",k.label);x.type="button";x.onclick=function(){if(window.copyTxt)return copyTxt(k.copy,x);try{navigator.clipboard.writeText(k.copy);x.textContent="✓ Copied";}catch(e){}};bar.appendChild(x);}else{var y=el("a","",k.label);y.href=k.href;y.target="_blank";y.rel="noopener";bar.appendChild(y);}});b.appendChild(bar);}
+ var t=el("span","deb-tm",hm(m.t)+(m.s==="u"?" ✓✓":""));b.appendChild(t);w.appendChild(b);if(anim)w.classList.add("in");l.appendChild(w);l.scrollTop=l.scrollHeight;return w;}
+var lastDay="";function stamp(ts){var d=day(ts);if(d!==lastDay){lastDay=d;var s=el("div","deb-day",d);l.appendChild(s);}}
+function push(m){m.t=Date.now();hist.push(m);hist=hist.slice(-40);ls(KEY,JSON.stringify(hist));stamp(m.t);return paint(m,true);}
+function typing(){var w=el("div","deb-row d");var b=el("div","deb-b d deb-typing");b.innerHTML="<i></i><i></i><i></i>";w.appendChild(b);l.appendChild(w);l.scrollTop=l.scrollHeight;return w;}
+function render(){l.innerHTML="";lastDay="";if(!hist.length){hist=[{s:"d",text:"Hey! 👋 I'm Deb. Ask me what's due, what to post today, or tap a button below.",t:Date.now()}];}hist.forEach(function(m){stamp(m.t);paint(m,false);});}
+function reply(j){var m={s:"d",text:j.text||"",items:j.items,link:j.link,label:j.label,links:j.links};push(m);}
+function ask(label,run){push({s:"u",text:label});var t=typing();run().then(function(j){t.remove();reply(j);}).catch(function(){t.remove();push({s:"d",text:ERR});});}
+function quick(k,label){ask(label,function(){return fetch("/deb/quick?k="+k,{credentials:"same-origin"}).then(function(r){return r.json();});});}
+f.onclick=function(){p.hidden=!p.hidden;f.setAttribute("aria-expanded",!p.hidden);if(!p.hidden){document.getElementById("debDot").hidden=true;ls("debSeen",String(Date.now()));l.scrollTop=l.scrollHeight;setTimeout(function(){document.getElementById("debQ").focus();},50);}};
+document.getElementById("debX").onclick=function(){p.hidden=true;f.setAttribute("aria-expanded","false");};
+var mm=document.getElementById("debMM");document.getElementById("debMore").onclick=function(e){e.stopPropagation();mm.hidden=!mm.hidden;};document.addEventListener("click",function(){mm.hidden=true;});
+document.getElementById("debClear").onclick=function(){hist=[];ls(KEY,null);render();};
+document.getElementById("debHide").onclick=function(){ls(HID,"1");f.hidden=true;p.hidden=true;};
+document.querySelectorAll("#debChips [data-k]").forEach(function(b){b.onclick=function(){quick(b.dataset.k,b.textContent.replace(/^\S+\s/,""));};});
+document.getElementById("debF").onsubmit=function(e){e.preventDefault();var i=document.getElementById("debQ"),v=i.value.trim();if(!v)return;i.value="";
+ ask(v,function(){return fetch("/api/ask",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-CSRFToken":window.CSRF},body:JSON.stringify({q:v})}).then(function(r){return r.json();}).then(function(j){return j.text?{text:j.text}:{text:(j.error&&/not configured/i.test(j.error)?"I can't chat freely yet (AI is off), but the buttons below answer from your own calendar.":j.error)||ERR};});});};
+render();
+// a gentle nudge: a dot on the bubble when something is due today and the chat has not been opened today
+(function(){var seen=+ls("debSeen")||0;if(new Date(seen).toDateString()===new Date().toDateString())return;fetch("/deb/quick?k=due",{credentials:"same-origin"}).then(function(r){return r.json();}).then(function(j){if(j.items&&j.items.length&&p.hidden)document.getElementById("debDot").hidden=false;}).catch(function(){});})();
+})();</script>{% endif %}

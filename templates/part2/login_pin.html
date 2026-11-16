@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% set bare = True %}{% block title %}PIN login{% endblock %}{% block body %}
+<div class="authbox card"><h1>Enter your PIN</h1><p class="muted">Enter the 4-6 digit PIN you set up for quick sign-in.</p>
+<form method="post"><label>PIN<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus required></label><button class="btn">Verify</button></form>
+<p class="muted"><a href="{{ url_for('auth.login') }}">Start over</a></p></div>{% endblock %}

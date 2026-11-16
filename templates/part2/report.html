@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}{{ ws['name'] }} report {{ r.label }}{% endblock %}{% from "_bold.html" import line %}{% block body %}{{ line('report') }}
+<div class="report">
+<div class="head"><div><h1>📑 {{ ws['name'] }}: marketing report</h1><span class="muted">{{ r.label }}</span></div>
+<div class="noprint"><a class="btn ghost sm" href="?month={{ prev_m }}">◀ {{ prev_m }}</a> <a class="btn ghost sm" href="?month={{ next_m }}">{{ next_m }} ▶</a> <button class="btn sm" onclick="window.print()">Print / save PDF</button></div></div>
+{% if not public %}<div class="card noprint sendcl"><b>📤 Send this report to your client</b>
+{% if share %}<p class="muted" style="margin:4px 0 8px">Pick how they see it. The link needs no sign-in and updates every month.</p>
+<div class="sc-row"><input readonly id="sc-link" aria-label="Share link" value="{{ share }}?month={{ r.month }}" onclick="this.select()"><button type="button" class="btn sm" onclick="copyTxt(document.getElementById('sc-link').value,this)">Copy link</button></div>
+<div class="sc-acts"><a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/?text={{ ('Hi! Here is our ' ~ r.label ~ ' marketing report: ' ~ share ~ '?month=' ~ r.month)|urlencode }}">💬 Send on WhatsApp</a>
+<a class="btn ghost sm" href="mailto:?subject={{ (ws['name'] ~ ' marketing report ' ~ r.label)|urlencode }}&body={{ ('Hi,\n\nHere is our ' ~ r.label ~ ' report (no sign-in needed):\n' ~ share ~ '?month=' ~ r.month ~ '\n\nThanks!')|urlencode }}">✉️ Send by email</a>
+<button type="button" class="btn ghost sm" onclick="window.print()">⬇ Download PDF</button>
+<a class="btn ghost sm" href="{{ url_for('ws.team') }}" title="They sign in and see their own portal: approvals, report and chat">🔑 Invite client to sign in</a></div>
+<p class="muted" style="margin:8px 0 0;font-size:12px">Two ways in: <b>link</b> (no account, view only) or <b>sign-in</b> (client portal with approvals and chat). Clients can install Debut on their phone from either. Reset the link any time from Calendar → Reset link.</p>
+{% else %}<p class="muted" style="margin:4px 0 8px">Sharing a live link is on paid plans. You can still <button type="button" class="btn ghost sm" onclick="window.print()">⬇ download this as PDF</button> and send it yourself.</p>{% endif %}</div>{% endif %}
+{% if public %}<div class="card noprint cl-install" id="cl-install" style="display:none"><b>📲 Get {{ C.APP_NAME }} on your phone</b> <span class="muted">to see every new report in one tap.</span> <button type="button" class="btn sm" id="cl-ibtn">Install app</button> <button type="button" class="btn ghost sm" onclick="this.parentNode.remove()">Not now</button><span class="muted" id="cl-ios" style="display:none"> On iPhone: tap Share, then “Add to Home Screen”.</span> <a class="btn ghost sm" href="{{ url_for('auth.login') }}">Sign in to portal</a></div>
+<script>(function(){var b=document.getElementById('cl-install'),btn=document.getElementById('cl-ibtn'),ev=null;if(!b)return;if(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)return;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();ev=e;b.style.display='';});
+if(/iphone|ipad/i.test(navigator.userAgent)){b.style.display='';btn.style.display='none';document.getElementById('cl-ios').style.display='';}
+btn.onclick=function(){if(ev){ev.prompt();b.remove();}};})();</script>{% endif %}
+<div class="grid" style="margin:12px 0"><div class="tile"><span class="muted">Content published</span><b>{{ r.published }}</b></div><div class="tile"><span class="muted">Content scheduled this month</span><b>{{ r.content|length }}</b></div>
+<div class="tile"><span class="muted">New leads</span><b>{{ r.leads|length }}</b></div><div class="tile"><span class="muted">Campaign spend</span><b>{{ (r.spent)|inr }}</b><span class="tag">of {{ (r.budget)|inr }} budget</span></div></div>
+<h3>KPIs</h3>{% if r.kpis %}<table><tr><th>Metric</th><th>Channel</th><th>Latest</th><th>Target</th><th>Progress</th></tr>
+{% for k in r.kpis %}<tr><td><b>{{ k.metric }}</b></td><td>{{ k.channel }}</td><td>{{ k.value }}</td><td>{{ k.target or '—' }}</td><td>{% if k.pct is not none %}<div style="background:var(--pri2);border-radius:99px;height:10px;width:140px;display:inline-block;vertical-align:middle"><div style="background:{{ 'var(--ok)' if k.pct >= 100 else 'var(--pri)' }};height:10px;border-radius:99px;width:{{ [k.pct, 100]|min }}%"></div></div> {{ k.pct }}%{% else %}—{% endif %}</td></tr>{% endfor %}</table>
+{% else %}<p class="muted">No KPI entries for this month.</p>{% endif %}
+<h3 style="margin-top:20px">Campaigns</h3>{% if r.camps %}<table><tr><th>Campaign</th><th>Status</th><th>Channel</th><th>Budget</th><th>Spent</th><th>Target</th></tr>{% for c in r.camps %}<tr><td>{{ c['name'] }}</td><td><span class="badge">{{ c['status'] }}</span></td><td>{{ c['channel'] }}</td><td>₹{{ c['budget'] or 0 }}</td><td>₹{{ c['spent'] or 0 }}</td><td>{{ c['kpi_target'] }}</td></tr>{% endfor %}</table>{% else %}<p class="muted">No campaigns active this month.</p>{% endif %}
+<h3 style="margin-top:20px">Content</h3>{% if r.content %}<p>{% for ch, n in r.by_channel %}<span class="badge">{{ ch }}: {{ n }}</span> {% endfor %}</p>
+<table><tr><th>Date</th><th>Title</th><th>Channel</th><th>Format</th><th>Status</th></tr>{% for c in r.content %}<tr><td>{{ c['publish_date'] }}</td><td>{{ c['title'] }}</td><td>{{ c['channel'] }}</td><td>{{ c['format'] }}</td><td><span class="badge">{{ c['status'] }}</span></td></tr>{% endfor %}</table>{% else %}<p class="muted">No content scheduled this month.</p>{% endif %}
+<h3 style="margin-top:20px">Leads</h3>{% if r.leads %}<p>{% for st, n in r.lead_stage %}<span class="badge">{{ st }}: {{ n }}</span> {% endfor %}</p>{% else %}<p class="muted">No new leads this month.</p>{% endif %}
+{% if r.promos or r.events %}<h3 style="margin-top:20px">Promotions &amp; events</h3><table><tr><th>Name</th><th>Type</th><th>When</th><th>Status</th></tr>
+{% for p in r.promos %}<tr><td>🏷️ {{ p['name'] }}</td><td>{{ p['type'] }}</td><td>{{ p['start_date'] }} → {{ p['end_date'] or 'ongoing' }}</td><td>{{ p['status'] }}</td></tr>{% endfor %}
+{% for e in r.events %}<tr><td>🎪 {{ e['name'] }}</td><td>{{ e['type'] }}</td><td>{{ e['date'] }}</td><td>{{ e['status'] }}</td></tr>{% endfor %}</table>{% endif %}
+<p class="muted" style="margin-top:24px">Generated {{ C.APP_NAME }} · {{ r.label }}</p></div>
+{% endblock %}

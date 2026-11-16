@@ -1,5 +1,6 @@
 import re
 from tests.test_app import signup, _invite
+from tests.conftest import read_template
 
 def test_sweep_every_page_every_role_no_500(app):
     o = signup(app, "sw@x.com", ws="Sweep Co")
@@ -111,7 +112,7 @@ def test_studio_has_new_layouts_motion_and_industry_wording():
         assert f"{lay}: function (c)" in js and f'{lay}: "' in js, lay
     for word in ("progressBar", "frameAt", 'id="st-trans"' if False else "st-trans"):
         assert word in js
-    assert 'id="st-trans"' in open("templates/studio.html").read()
+    assert 'id="st-trans"' in read_template("studio.html")
     tpl = open("static/studio_tpl.js").read()
     for lab in ("Product spotlight", "Price tag", "Stop scrolling reel", "Countdown reel", "Review card", "Coupon", "Event invite", "Magazine cover", "How it works"):
         assert lab in tpl

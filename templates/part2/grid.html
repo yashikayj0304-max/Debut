@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Instagram grid — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<link rel="stylesheet" href="{{ url_for('static', filename='studio.css') }}?v={{ ASSET_V }}">
+<div class="head"><h1>Instagram grid</h1><a class="btn ghost sm" href="{{ url_for('studio.studio') }}">← Back to Create</a></div>
+<p class="muted">See how your profile will look before you post. Newest on top. {% if canwrite %}Drag a planned post onto another to swap their dates.{% endif %}</p>
+{% if rows %}<div class="igwrap"><div class="igprof"><span class="igav">{{ ws['name'][:1]|upper }}</span><div><b>{{ ws['name']|replace(' (demo)', '') }}</b><small>{{ posted }} posted · {{ planned }} planned</small></div></div>
+<div class="igrid" id="igrid">{% for r in rows %}{% set done = r['status'] == 'Published' %}<a class="itile{{ ' pub' if done }}{{ ' nod' if not r['thumb'] }}" href="{{ url_for('studio.studio', item=r['id']) }}" data-id="{{ r['id'] }}" data-done="{{ 1 if done }}" title="{{ r['title'] }}" {% if canwrite and not done %}draggable="true"{% endif %}>{% if r['thumb'] %}<img src="{{ r['thumb'] }}" alt="{{ r['title'] }}" loading="lazy" draggable="false">{% else %}<span class="ino">{{ r['title'] }}<em>Tap to design</em></span>{% endif %}{% if r['format'] in ('Reel / Short', 'Video') %}<i class="ig-k">▶</i>{% elif r['format'] == 'Carousel' %}<i class="ig-k">❐</i>{% endif %}<small>{{ r['publish_date'][5:] }} · {{ 'Posted' if done else 'Planned' }}</small></a>{% endfor %}</div></div>
+<p class="muted" id="igmsg" role="status" style="text-align:center"></p>
+<script>(function(){var g=document.getElementById("igrid");if(!g)return;var drag=null,msg=document.getElementById("igmsg");
+g.addEventListener("dragstart",function(e){var t=e.target.closest(".itile");if(!t||t.dataset.done)return;drag=t;t.classList.add("dragging");e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",t.dataset.id);}catch(x){}});
+g.addEventListener("dragend",function(){if(drag)drag.classList.remove("dragging");[].forEach.call(g.querySelectorAll(".dropat"),function(x){x.classList.remove("dropat");});drag=null;});
+g.addEventListener("dragover",function(e){var t=e.target.closest(".itile");if(drag&&t&&!t.dataset.done&&t!==drag){e.preventDefault();t.classList.add("dropat");}});
+g.addEventListener("dragleave",function(e){var t=e.target.closest(".itile");if(t)t.classList.remove("dropat");});
+g.addEventListener("drop",function(e){var t=e.target.closest(".itile");if(!drag||!t||t.dataset.done||t===drag)return;e.preventDefault();var a=drag.dataset.id,b=t.dataset.id;
+ fetch("{{ url_for('studio.grid_swap') }}",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":window.CSRF||""},body:JSON.stringify({a:a,b:b})}).then(function(r){return r.json();}).then(function(j){if(j.ok){msg.textContent="Swapped. Reloading the grid…";location.reload();}else msg.textContent=j.error||"Could not swap.";}).catch(function(){msg.textContent="Could not swap. Check your connection.";});});})();</script>
+{% else %}<div class="empty-state"><div class="ill">🧩</div><b>Your grid is empty</b><p class="muted">Design a post in Create and save it. It appears here.</p><a class="btn" href="{{ url_for('studio.studio') }}">Design a post</a></div>{% endif %}
+{% endblock %}

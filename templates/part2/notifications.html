@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% from "_empty.html" import empty %}{% from "_bold.html" import line %}{% block body %}{{ line('notifications') }}
+<div class="head"><h1>🔔 Notifications</h1><form method="post" action="{{ url_for('notifications_read') }}"><button class="btn ghost sm">Mark all read</button></form></div>
+<div class="card pushcard" id="pushCard" hidden><b>📲 Get pinged on your phone</b><p class="muted">Turn on push and Debut nudges you when someone assigns you work, @mentions you or sends kudos, even when the tab is closed.</p><button class="btn sm" id="pushBtn" type="button" onclick="enablePush()">Turn on push</button> <button class="btn ghost sm" id="pushTest" type="button" hidden>Send a test</button> <span class="muted" id="pushMsg"></span></div>
+<div class="card">{% for n in rows %}<div class="news" style="{{ '' if n['is_read'] else 'background:var(--pri2);border-radius:8px;padding-left:10px' }}">
+<a class="t" href="{{ url_for('notification_open', nid=n['id']) }}">{{ n['message'] }}</a> <span class="tag">{{ n['created_at']|string|truncate(16, True, '') }}</span></div>
+{% else %}{{ empty('bell', 'Nothing yet', 'You will be notified when someone assigns you work, @mentions you, comments on your items, or sends something for approval.') }}{% endfor %}</div>
+<script>(function(){var b=document.getElementById("pushTest");if(!b||!("serviceWorker" in navigator))return;
+navigator.serviceWorker.ready.then(function(r){return r.pushManager.getSubscription()}).then(function(s){if(s){b.hidden=false;var c=document.getElementById("pushCard");if(c){c.hidden=false;c.querySelector("b").textContent="📲 Push is on for this device";var t=document.getElementById("pushBtn");if(t)t.hidden=true}}}).catch(function(){});
+b.onclick=function(){var m=document.getElementById("pushMsg");m.textContent="Sending…";fetch("/push/test",{method:"POST",headers:{"X-CSRFToken":window.CSRF}}).then(function(r){return r.json()}).then(function(d){m.textContent=d.ok?"Sent. It should arrive in a few seconds.":(d.error||"Couldn't send.")}).catch(function(){m.textContent="Couldn't send."})}})()</script>
+{% endblock %}

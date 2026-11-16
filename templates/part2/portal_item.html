@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}{{ it['title'] }}{% endblock %}{% block body %}
+{% if preview %}<div class="banner">👁 Previewing as <b>{{ cn }}</b>. Only the client can approve or request changes.</div>{% endif %}
+<div class="head"><h1>{{ it['title'] }}</h1><a class="btn ghost" href="{{ url_for('portal', client=(cn if preview else None)) }}">← Back to portal</a></div>
+{% set nice = {'In progress': 'With the team', 'Idea': 'Being planned', 'Planned': 'Being planned', 'Review': 'Waiting for your review', 'On hold': 'On hold'} %}
+<div class="card"><p><span class="badge">{{ nice.get(it['status'], it['status']) }}</span> <span class="tag">{{ it['channel'] }} · {{ it['format'] }} · {{ 'Publishes ' ~ it['publish_date'] if it['publish_date'] else 'no date yet' }}{% if it['campaign'] %} · Campaign: {{ it['campaign'] }}{% endif %}</span></p>
+{% if it['copy'] %}<b>Copy / script</b><div style="white-space:pre-wrap;background:var(--pri2);padding:12px;border-radius:10px;margin:6px 0 12px">{{ it['copy'] }}</div>{% endif %}
+{% if it['cta'] %}<p><b>Call to action:</b> {{ it['cta'] }}</p>{% endif %}{% if it['hashtags'] %}<p><b>Hashtags:</b> {{ it['hashtags'] }}</p>{% endif %}
+{% if it['asset_url'] %}<p><b>Design / asset:</b> <a href="{{ it['asset_url'] }}" target="_blank" rel="noopener noreferrer">Open the design ↗</a></p>{% endif %}</div>
+{% if it['status'] == 'Review' and not preview %}<div class="card"><b>Your decision</b><p class="muted">Approve it as it is, or tell us what to change.</p>
+<form method="post" action="{{ url_for('portal_decide', iid=it['id']) }}"><label>Comment (required if you request changes)<textarea name="comment" rows="3"></textarea></label>
+<button class="btn" name="action" value="approve">✓ Approve</button> <button class="btn ghost" name="action" value="changes">Request changes</button></form></div>{% endif %}
+<div class="card" id="thread"><b>💬 Conversation with the team</b>
+{% for c in thread %}<div class="news"><b>{{ c['uname'] or 'Team' }}</b> <span class="tag">{{ c['created_at']|string|truncate(16, True, '') }}</span><div style="white-space:pre-wrap">{{ c['body'] }}</div></div>{% else %}<p class="muted">No messages yet.</p>{% endfor %}
+{% if not preview %}<form method="post" action="{{ url_for('portal_comment', iid=it['id']) }}" style="margin-top:8px"><textarea name="comment" rows="2" placeholder="Write a message to the team…" required></textarea><div style="margin-top:6px"><button class="btn sm">Send</button></div></form>{% endif %}</div>
+{% endblock %}

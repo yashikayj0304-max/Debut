@@ -1,0 +1,4 @@
+<div class="head"><h1 style="font-size:16px">💡 Need an idea?</h1></div>
+<p class="muted" style="margin-top:-6px">A few ready-made ideas for {{ ind['label'] }}. Pick one to start a content item, pre-filled — or <a href="{{ url_for('ideas') }}" target="_top">open the full Idea Bank</a> for campaigns, KPIs and personas too.</p>
+{% for pillar, group in ind['ideas']|groupby(0) %}<h4 style="margin:14px 0 4px;color:var(--pri-d)">{{ pillar }}</h4>{% for i in group %}<div class="news" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span>{{ i[1] }} <span class="badge">{{ i[2] }}</span> <span class="badge">{{ i[3] }}</span></span>
+<a class="btn ghost sm" href="{{ url_for('m_new', key='content_items', title=i[1], channel=i[2], format=i[3], notes='Idea pillar: ' ~ i[0]) }}" onclick="return openOverlay(this.href,'')">+ Use this</a></div>{% endfor %}{% endfor %}

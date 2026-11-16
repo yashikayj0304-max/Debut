@@ -1083,3 +1083,32 @@ def test_no_two_routes_claim_the_same_url(app):
             by_rule[(r.rule, m)].add(r.endpoint)
     clashes = {k: sorted(v) for k, v in by_rule.items() if len(v) > 1}
     assert not clashes, clashes
+
+
+def test_every_template_resolves_from_either_folder(app):
+    """The templates are split across part1 and part2 for GitHub's 100-file upload limit. Every one
+    of them must still be findable by its plain name, from whichever folder it ended up in."""
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    names = []
+    for part in ("part1", "part2"):
+        d = os.path.join(here, "templates", part)
+        assert os.path.isdir(d), part
+        names += [f for f in os.listdir(d) if f.endswith(".html")]
+    assert len(names) == len(set(names)), "the same template exists in both folders"
+    assert len(names) > 100                                  # the reason the split exists
+    with app.app_context():
+        for n in names:
+            assert app.jinja_env.get_template(n) is not None, n
+
+
+def test_once_a_day_nudge_survives_indian_midnight(app):
+    """created_at is stored in UTC. Comparing it against an Indian calendar date made every
+    "once a day" check fire again and again between 00:00 and 05:30 IST."""
+    import datetime as dt
+    import services as S
+    with app.app_context():
+        cutoff = S.day_start_utc()
+    start_ist = dt.datetime.combine(S.today(), dt.time.min, tzinfo=S.IST)
+    assert cutoff == start_ist.astimezone(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    assert cutoff <= dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")

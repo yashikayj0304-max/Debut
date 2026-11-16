@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% set bare = True %}{% block title %}{{ 'Email verified' if ok else 'Verification link' }} — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="authbox card" style="text-align:center">
+{% if ok %}<div style="font-size:48px;line-height:1">✅</div><h1>Email verified</h1><p class="muted">Thanks — your email is confirmed. You're all set.</p>
+<a class="btn" href="{{ url_for('dashboard') if user else url_for('auth.login') }}">{{ 'Continue to Dashboard' if user else 'Log in to continue' }} →</a>
+{% else %}<div style="font-size:48px;line-height:1">⚠️</div><h1>Link expired or already used</h1><p class="muted">This verification link is no longer valid. You can request a fresh one from your Account page, or from the banner after logging in.</p>
+<a class="btn" href="{{ url_for('dashboard') if user else url_for('auth.login') }}">{{ 'Go to Dashboard' if user else 'Log in' }} →</a>
+{% endif %}
+</div>
+{% endblock %}

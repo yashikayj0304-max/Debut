@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}Refund and cancellation policy{% endblock %}{% block body %}
+<h1>Refund &amp; cancellation policy</h1>
+<div class="banner">TEMPLATE. Confirm this policy with your lawyer and accountant before launch. The number of days is set with the REFUND_WINDOW_DAYS setting.</div>
+<p class="muted">Last updated: [date]</p>
+<h3>Free plan and trial</h3><p>{{ C.APP_NAME }} has a free plan and a {{ C.TRIAL_DAYS }}-day trial of paid features. No payment is taken for either.</p>
+<h3>Cancelling</h3><p>You can cancel a paid plan at any time from <b>Plan</b> (Billing) inside the app. Cancellation takes effect at the end of the period you have already paid for; you keep paid features until then, and then your workspace continues on the Free plan. Your data is not deleted.</p>
+<h3>Refunds</h3><p>Subscriptions renew monthly. Fees for a period that has started are generally non-refundable. As a goodwill exception, if you are not satisfied with your <b>first payment</b>, write to <a href="mailto:{{ C.SUPPORT_EMAIL }}">{{ C.SUPPORT_EMAIL }}</a> within <b>{{ C.REFUND_WINDOW_DAYS }} days</b> of paying and we will refund it in full. Where the law requires a refund, we will provide one.</p>
+<h3>Failed or duplicate payments</h3><p>If a payment fails, your plan may move to the Free plan until the payment succeeds. If you were charged twice or charged after cancelling, contact us and we will correct it. Approved refunds are returned to the original payment method by our payment partner (Razorpay) and usually take 5 to 7 working days to appear.</p>
+<h3>Taxes and invoices</h3><p>Prices are shown in Indian rupees {{ C.PRICE_NOTE }}. A payment receipt is issued for each charge. [Add GST invoice details as advised by your accountant.]</p>
+<h3>Contact</h3><p>{{ C.COMPANY_NAME }} · <a href="mailto:{{ C.SUPPORT_EMAIL }}">{{ C.SUPPORT_EMAIL }}</a>{% if C.SUPPORT_PHONE %} · {{ C.SUPPORT_PHONE }}{% endif %}</p>
+{% endblock %}

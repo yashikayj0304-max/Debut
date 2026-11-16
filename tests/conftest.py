@@ -62,3 +62,15 @@ def signup(app, email, name="Tester", ws="Acme Foods", pw="Sup3rSecret!"):
 
 def wid_of(app, email):
     return dbq(app, "SELECT w.id FROM workspaces w JOIN users u ON u.id=w.owner_id WHERE u.email=?", (email,), one=True)["id"]
+
+
+def read_template(name):
+    """Read a template by name. They live in templates/part1 or templates/part2 (GitHub's uploader
+    takes 100 files at a time, and there are more than 100), so tests must not hardcode either."""
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for part in ("part1", "part2", ""):
+        p = os.path.join(here, "templates", part, name)
+        if os.path.exists(p):
+            return open(p, encoding="utf-8").read()
+    raise FileNotFoundError(f"template not found in either part: {name}")

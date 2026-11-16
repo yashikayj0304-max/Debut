@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% block title %}Templates — {{ C.APP_NAME }}{% endblock %}{% from "_bold.html" import line %}{% block body %}
+{% if user %}
+<div class="head"><h1>🧩 Start from a template</h1></div>
+<p class="muted">Pick the date it builds around — Diwali, launch day, the first day of the sale — and the whole plan lands on your calendar: the posts, dated and in order, and the tasks around them. Everything is a draft you can change or delete.</p>
+<div class="tpl-list">
+{% for p in books %}{% set posts, tasks, span = summary(p) %}
+<div class="card tpl-card">
+  <b>{{ p.icon }} {{ p.title }}</b>
+  <p class="muted" style="margin:4px 0 8px">{{ p.desc }}</p>
+  <p class="tpl-meta"><span class="pill">{{ posts }} posts</span> <span class="pill">{{ tasks }} tasks</span> <span class="pill">over {{ span }} days</span> <span class="muted">{{ p.tag }}</span></p>
+  <form method="post" action="{{ url_for('templates_use', key=p.key) }}" class="st-row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="d-{{ p.key }}" class="muted" style="font-size:13px">{{ p.anchor }}</label>
+    <input id="d-{{ p.key }}" type="date" name="date" value="{{ today }}" required>
+    <button class="btn">Use this</button>
+  </form>
+  <details style="margin-top:8px"><summary class="muted" style="font-size:13px;cursor:pointer">See what it adds</summary>
+    <ul class="tpl-items">{% for off, kind, title, ch, fmt in p['items'] %}
+      <li><span class="tpl-day">{% if off < 0 %}{{ -off }} days before{% elif off == 0 %}on the day{% else %}{{ off }} days after{% endif %}</span>
+      <span class="tpl-txt">{% if kind == 'task' %}✅{% else %}📝{% endif %} {{ title }}{% if ch %} <span class="muted">· {{ ch }}</span>{% endif %}</span></li>
+    {% endfor %}</ul>
+  </details>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<h1 style="text-align:center">Start from a template</h1><p class="muted" style="text-align:center">Pick one, sign up free, and it goes straight onto your calendar — every post dated, with the tasks around it.</p>
+<div class="bento-sec tpl-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">{% for p in books %}{% set posts, tasks, span = summary(p) %}<a class="bt" href="{{ url_for('auth.signup') }}"><b>{{ p.icon }} {{ p.title }}</b><span>{{ p.desc }}</span><small class="muted">{{ posts }} posts · {{ tasks }} tasks · {{ p.tag }}</small></a>{% endfor %}</div>
+{% endif %}
+{% endblock %}

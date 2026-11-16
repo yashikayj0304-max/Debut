@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block body %}
+<div class="head"><h1>Find creators — {{ o['title'] }}</h1><a class="btn ghost" href="{{ url_for('m_edit', key='content_orders', rid=o['id']) }}">Back to order</a></div>
+<p class="muted">Order type “{{ o['type'] }}” → skill “{{ skill or 'any' }}”. Showing Vetted/Active creators, best rated first.</p>
+<form class="filters" method="get"><input name="lang" placeholder="Filter by language" value="{{ lang }}"><button class="btn ghost">Filter</button></form>
+<table><tr><th>Creator</th><th>Skills</th><th>Languages</th><th>Rate</th><th>Rating</th><th>Test</th><th></th></tr>
+{% for c in cs %}<tr><td><a href="{{ url_for('m_edit', key='creators', rid=c['id']) }}">{{ c['name'] }}</a></td><td>{{ c['skills']|truncate(40) }}</td><td>{{ c['languages'] }}</td><td>{{ c['rate'] }}</td><td>{{ c['rating'] }}</td><td>{{ c['test_score'] }}</td>
+<td><form method="post" action="{{ url_for('order_assign', oid=o['id'], cid=c['id']) }}"><button class="btn sm">Assign</button></form></td></tr>
+{% else %}<tr><td colspan="7" class="muted">No matching vetted creators. Add creators (status Vetted/Active) with the skill “{{ skill }}”.</td></tr>{% endfor %}</table>
+{% endblock %}

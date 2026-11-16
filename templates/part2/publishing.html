@@ -1,0 +1,94 @@
+{% extends "base.html" %}{% from "_bold.html" import bold %}{% block title %}Publishing — {{ C.APP_NAME }}{% endblock %}{% block body %}
+{{ bold("Post <b>without</b> opening Instagram", "Connect the account once. After that, anything you schedule goes out on its own.") }}
+
+{% if not configured %}
+<div class="card" style="border-color:var(--warn)"><b>⚠ This server has no Meta app yet</b>
+<p class="muted">Posting to Instagram is free, but it runs through Meta. Someone with server access needs to create an app at
+<a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer">developers.facebook.com</a>, then set
+<code>META_APP_ID</code> and <code>META_APP_SECRET</code>. Until then, every scheduled post still reaches you as a reminder with the
+caption ready to copy.</p></div>
+{% elif not public %}
+<div class="card" style="border-color:var(--warn)"><b>⚠ Debut is not online yet</b>
+<p class="muted">Instagram downloads your picture from a public web address, so this only works once Debut is deployed and
+<code>APP_URL</code> points at your real site. Right now it is <code>{{ app_url }}</code>.</p></div>
+{% endif %}
+
+<div class="card">
+<h3 style="margin:0 0 6px">Connected accounts</h3>
+{% if accounts %}
+<table class="tbl"><thead><tr><th>Account</th><th>Where</th><th>Status</th><th></th></tr></thead><tbody>
+{% for a in accounts %}
+<tr><td><b>{{ a['name'] }}</b></td><td>{{ labels.get(a['platform'], a['platform']) }}</td>
+<td>{% if a['status'] == 'ok' %}<span class="pill ok">Ready</span>{% else %}<span class="pill bad" title="{{ a['last_error'] }}">Needs reconnecting</span>{% endif %}</td>
+<td><form method="post" action="{{ url_for('social.publishing_disconnect') }}" onsubmit="return confirm('Remove {{ a['name'] }}? Scheduled posts will become reminders instead.')">
+<input type="hidden" name="id" value="{{ a['id'] }}"><button class="btn ghost sm">Remove</button></form></td></tr>
+{% endfor %}
+</tbody></table>
+{% else %}
+<p class="muted">Nothing connected yet. Schedule a post anyway — Debut will remind you at the right moment with the caption ready to copy.</p>
+{% endif %}
+</div>
+
+<div class="card">
+<h3 style="margin:0 0 6px">Connect an Instagram account</h3>
+<p class="muted">Instagram only lets apps post to <b>Business</b> or <b>Creator</b> accounts that are linked to a Facebook Page.
+In the Instagram app: Settings → Account type and tools → Switch to professional account, then link your Page.</p>
+<form method="post" action="{{ url_for('social.publishing_connect') }}" class="stack">
+<label>Access token from your Meta app
+<input name="token" required autocomplete="off" placeholder="Paste the token from Meta's Graph API Explorer">
+</label>
+<p class="muted" style="font-size:13px">Open Meta's <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer">Graph API Explorer</a>,
+pick your app, tick <code>instagram_basic</code>, <code>instagram_content_publish</code> and <code>pages_show_list</code>, generate the token and paste it here.
+Debut swaps it for a long-lived one, so you only do this once.</p>
+<button class="btn">Connect</button>
+</form>
+</div>
+
+
+<div class="card">
+<h3 style="margin:0 0 6px">Connect LinkedIn</h3>
+<p class="muted">LinkedIn is separate from Meta and needs its own free app at
+<a href="https://www.linkedin.com/developers/apps" target="_blank" rel="noopener noreferrer">linkedin.com/developers</a>,
+with the <code>w_member_social</code> permission. Posting to a company page also needs the Community Management API,
+which LinkedIn reviews.</p>
+<form method="post" action="{{ url_for('social.publishing_connect_linkedin') }}" class="stack">
+<label>Access token<input name="token" required autocomplete="off" placeholder="Paste the token from your LinkedIn app"></label>
+<label>Your member id<input name="author" required autocomplete="off" placeholder="The id from LinkedIn's /me endpoint"></label>
+<label>Company page id <span class="muted">(leave empty to post as yourself)</span><input name="org" autocomplete="off"></label>
+<button class="btn">Connect LinkedIn</button>
+</form>
+</div>
+<div class="card">
+<h3 style="margin:0 0 6px">Numbers from Instagram</h3>
+<p class="muted">Debut brings in your followers, reach and how each published post did, once a day. They land in the Results Log, so the Numbers page fills in without you typing anything.</p>
+<form method="post" action="{{ url_for('social.publishing_refresh') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button class="btn ghost">Bring the numbers in now</button></form>
+{% if top %}
+<table class="tbl" style="margin-top:10px"><thead><tr><th>Post</th><th>Reach</th><th>Likes</th><th>Saves</th></tr></thead><tbody>
+{% for t in top %}<tr><td>{% if t['permalink'] %}<a href="{{ t['permalink'] }}" target="_blank" rel="noopener noreferrer">{{ t['title'] or 'Post' }}</a>{% else %}{{ t['title'] or 'Post' }}{% endif %}</td>
+<td>{{ t['reach'] }}</td><td>{{ t['likes'] }}</td><td>{{ t['saves'] }}</td></tr>{% endfor %}
+</tbody></table><p class="muted" style="font-size:13px;margin:6px 0 0">Your best posts so far, by reach.</p>
+{% endif %}
+</div>
+
+<div class="card">
+<h3 style="margin:0 0 6px">Scheduled and sent</h3>
+{% if jobs %}
+<table class="tbl"><thead><tr><th>Post</th><th>When</th><th>Where</th><th>Status</th><th></th></tr></thead><tbody>
+{% for j in jobs %}
+<tr><td>{% if j['content_id'] %}<a href="{{ url_for('m_edit', key='content_items', rid=j['content_id']) }}">{{ j['title'] or 'Post' }}</a>{% else %}{{ j['title'] or 'Post' }}{% endif %}</td>
+<td>{{ j['publish_at'] }}</td><td>{{ labels.get(j['platform'], j['platform']) }}</td>
+<td>{% if j['status'] == 'sent' %}<span class="pill ok">Posted</span>
+{% elif j['status'] == 'queued' %}<span class="pill">Waiting</span>
+{% elif j['status'] == 'helper' %}<span class="pill">You posted it</span>
+{% elif j['status'] == 'cancelled' %}<span class="muted">Cancelled</span>
+{% else %}<span class="pill bad" title="{{ j['error'] }}">Failed</span>{% endif %}</td>
+<td>{% if j['status'] == 'queued' %}<form method="post" action="{{ url_for('social.publishing_cancel') }}"><input type="hidden" name="id" value="{{ j['id'] }}"><button class="btn ghost sm">Cancel</button></form>{% endif %}</td></tr>
+{% if j['status'] == 'failed' and j['error'] %}<tr><td colspan="5" class="muted" style="font-size:13px">{{ j['error'] }}</td></tr>{% endif %}
+{% endfor %}
+</tbody></table>
+{% else %}
+<p class="muted">Nothing scheduled yet. Open any post and use <b>Post to Instagram</b>.</p>
+{% endif %}
+</div>
+{% endblock %}

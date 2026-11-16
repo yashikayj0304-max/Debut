@@ -2,9 +2,10 @@
 <div class="head"><h1>🖼️ {{ b['name'] }}</h1><div>
 <button type="button" class="btn ghost sm" onclick="document.getElementById('helpModal').showModal()">❓ How to use</button>
 <form method="post" action="{{ url_for('board_arrange', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">🧹 Tidy up</button></form>
-<button type="button" class="btn sm" onclick="document.getElementById('shareModal').showModal()">🔗 Share</button> <button type="button" class="btn ghost sm" onclick="document.getElementById('renameModal').showModal()">✏️ Rename</button> <form method="post" action="{{ url_for('board_duplicate', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">⧉ Duplicate</button></form> <form method="post" action="{{ url_for('board_save_colours', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm" title="Add every colour swatch on this board to your Brand Kit">🎨 Save colours to Brand Kit</button></form> <a class="btn ghost" href="{{ url_for('moodboards') }}">All boards</a>
-<form method="post" action="{{ url_for('board_delete', bid=b['id']) }}" style="display:inline" onsubmit="return confirm('Delete this whole board?')"><button class="btn danger">Delete board</button></form></div></div>
-<p class="muted">{{ b['description'] }} Drag any card to move it, drag the corner to resize, click to bring to front, <b>double-click a card to edit its text</b> (images get a 🔄 Replace button). Changes save as you go — just like a Miro board for your workspace.</p>
+<button type="button" class="btn sm" onclick="document.getElementById('shareModal').showModal()">🔗 Share</button>
+<details class="mb-more"><summary class="btn ghost sm">⋯ More</summary><div class="mb-more-pop"><button type="button" class="btn ghost sm" onclick="document.getElementById('renameModal').showModal()">✏️ Rename</button> <form method="post" action="{{ url_for('board_duplicate', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm">⧉ Duplicate</button></form> <form method="post" action="{{ url_for('board_save_colours', bid=b['id']) }}" style="display:inline"><button class="btn ghost sm" title="Add every colour swatch on this board to your Brand Kit">🎨 Save colours to Brand Kit</button></form>  <a class="btn ghost sm" href="{{ url_for('moodboards') }}">All boards</a>
+<form method="post" action="{{ url_for('board_delete', bid=b['id']) }}" style="display:inline" onsubmit="return confirm('Delete this whole board?')"><button class="btn danger sm">Delete board</button></form></div></details></div></div>
+<p class="muted">{{ b['description'] }} <span class="mb-desk">Drag any card to move it, drag the corner to resize, <b>double-click a card to edit its text</b>. Changes save as you go.</span><span class="mb-touch">Drag cards to move them, <b>double-tap one to edit</b>, use − / + to zoom. Changes save as you go.</span></p>
 
 <dialog id="shareModal" class="overlay-modal" style="max-width:560px"><div class="overlay-head"><button type="button" class="btn ghost sm" onclick="document.getElementById('shareModal').close()">✕ Close</button></div><div class="overlay-body">
 <div class="fhead"><span class="fico">🔗</span><div><h1>Share this board</h1><p class="fdesc">Send the board to teammates or to anyone outside — clients, agencies, creators.</p></div></div>
@@ -43,9 +44,24 @@
 <span class="muted mb-zoom-tip" style="margin-left:10px">Tip: Ctrl/Cmd + scroll to zoom</span>
 </div>
 
+<dialog id="photoModal" class="overlay-modal" style="max-width:760px"><div class="overlay-head"><button type="button" class="btn ghost sm" onclick="document.getElementById('photoModal').close()">✕ Close</button></div><div class="overlay-body">
+<h2 style="margin:0 0 4px">📷 Find real photos</h2><p class="muted" style="margin:0 0 10px">Search free photos, tap one to add it to this board. The photographer's credit is saved as the caption.</p>
+<form id="phForm" style="display:flex;gap:8px;margin-bottom:10px"><input id="phQ" value="{{ b['name'] }}" maxlength="80" aria-label="Search photos"><button class="btn sm">Search</button></form>
+<div id="phMsg" class="muted"></div><div id="phGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:55vh;overflow:auto"></div></div></dialog>
+<script>(function(){var BID={{ b['id'] }},done=false;function msg(t){document.getElementById("phMsg").textContent=t||""}
+window.phInit=function(){if(!done){done=true;go()}};
+function go(){var q=document.getElementById("phQ").value.trim(),g=document.getElementById("phGrid");g.innerHTML="";if(!q)return;msg("Searching…");
+fetch("/moodboards/"+BID+"/photos?q="+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(d){if(d.error){msg(d.error);return}
+ msg(d.results.length?"Photos from "+d.provider+". Tap one to add it.":"No photos found. Try simpler words, like \"coffee\" or \"flat lay\".");
+ d.results.forEach(function(p){var b=document.createElement("button");b.type="button";b.style.cssText="padding:0;border:0;border-radius:10px;overflow:hidden;cursor:pointer;background:var(--card2,#eee);aspect-ratio:4/3";b.title=p.credit;
+  var i=document.createElement("img");i.src=p.thumb;i.alt=p.credit;i.loading="lazy";i.style.cssText="width:100%;height:100%;object-fit:cover;display:block";b.appendChild(i);
+  b.onclick=function(){b.disabled=true;b.style.opacity=.5;fetch("/moodboards/"+BID+"/photos/add",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":window.CSRF},body:JSON.stringify({url:p.full,credit:p.credit})}).then(function(r){return r.json()}).then(function(x){if(x.ok){b.style.opacity=1;b.style.outline="3px solid var(--pri,#7c5cff)";msg("Added. Add more, or close to arrange them.");window._phAdded=1}else{b.disabled=false;b.style.opacity=1;msg(x.error||"Couldn't add it.")}}).catch(function(){b.disabled=false;b.style.opacity=1;msg("Couldn't add it.")})};g.appendChild(b)})}).catch(function(){msg("Couldn't reach the photo library.")})}
+document.getElementById("phForm").onsubmit=function(e){e.preventDefault();go()};
+document.getElementById("photoModal").addEventListener("close",function(){if(window._phAdded)location.reload()})})()</script>
 <div class="mb-toolbar">
 <form method="post" action="{{ url_for('board_add', bid=b['id']) }}" enctype="multipart/form-data"><input type="hidden" name="kind" value="upload"><input type="file" name="file" multiple accept="image/*" id="mb-file" style="display:none" onchange="this.form.submit()">
 <button type="button" class="btn sm" onclick="document.getElementById('mb-file').click()">🖼️ Upload image</button></form>
+<button type="button" class="btn sm" onclick="document.getElementById('photoModal').showModal();phInit()">📷 Find real photos</button>
 <button type="button" class="btn ghost sm" onclick="toggle('mb-note')">📝 Note</button>
 <button type="button" class="btn ghost sm" onclick="toggle('mb-color')">🎨 Colour</button>
 <button type="button" class="btn ghost sm" onclick="toggle('mb-link')">🔗 Link</button>
@@ -92,7 +108,7 @@ function toggle(id){var el=document.getElementById(id);['mb-note','mb-color','mb
 
 // ---------- zoom (Miro-style: buttons, Ctrl/Cmd+scroll, pointer math scaled accordingly) ----------
 var BOARD_ID={{ b['id'] }};
-var zoom=1;
+var zoom=innerWidth<700?0.55:1;      // on a phone start zoomed out so more than one card shows
 (function(){try{var s=sessionStorage.getItem('mbZoom-'+BOARD_ID);if(s)zoom=Math.max(0.25,Math.min(3,parseFloat(s)||1));}catch(e){}})();
 function applyZoom(){
  var c=document.getElementById('canvas');if(!c)return;
@@ -103,7 +119,7 @@ function applyZoom(){
 function zoomBy(d){zoom=Math.max(0.25,Math.min(3,Math.round((zoom+d)*100)/100));applyZoom();}
 function zoomTo(v){v=parseFloat(v);if(!isFinite(v))v=100;zoom=Math.max(0.25,Math.min(3,v/100));applyZoom();document.getElementById('zoomLabel').value=Math.round(zoom*100);}
 (function(){var z=document.getElementById('zoomLabel');z.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();zoomTo(z.value);z.blur();}});z.addEventListener('change',function(){zoomTo(z.value);});})();
-function zoomReset(){zoom=1;applyZoom();}
+function zoomReset(){zoom=innerWidth<700?0.55:1;applyZoom();}
 applyZoom();
 var canvasWrap=document.getElementById('canvasWrap');
 if(canvasWrap)canvasWrap.addEventListener('wheel',function(e){

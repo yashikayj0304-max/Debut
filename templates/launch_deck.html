@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Complete Launch Deck{% endblock %}{% block body %}
+<div class="head"><h1>🎁 Complete Launch Deck <span class="pill ld-paid">Paid</span></h1></div>
+<p class="muted ld-lead">Tell us what you are launching and when. Debut builds the whole run, from the teaser a week before to the thank-you a week after: <b>15 dated pieces</b>, each with its design (reels, carousels, posts, stories) and its caption, in one deck. Edit anything, then add it all to your calendar.</p>
+{% if not cfg.paid %}<div class="card ld-lock"><b>🔒 The complete deck is on paid plans.</b> You are on <b>{{ plan_name }}</b>. You can build the deck below and see the first 3 pieces in full. <a class="btn sm" href="{{ url_for('billing.billing') }}">Unlock the full deck</a></div>{% endif %}
+<section class="card ld-form" aria-label="Your launch">
+<div class="ld-grid"><label>What are you launching?<input id="ld-name" maxlength="60" placeholder="e.g. Glow Serum" value="{{ cfg.prefill }}"></label>
+<label>One line about it<input id="ld-prod" maxlength="60" placeholder="e.g. vitamin C face serum"></label>
+<label>Launch day<input type="date" id="ld-date"></label>
+<label>Post on<select id="ld-plat"><option>Instagram</option><option>LinkedIn</option><option>Facebook</option><option>YouTube</option><option>WhatsApp</option></select></label>
+<label>Colours<select id="ld-look"><option value="launch">Launch (bright)</option><option value="celebrate">Celebrate</option><option value="flash">Flash sale</option><option value="trust">Trust (calm)</option><option value="people">Warm and human</option><option value="brand">My brand colour</option></select></label></div>
+<div class="st-row"><button type="button" class="btn" id="ld-build">✨ Build my deck</button><span class="muted" id="ld-msg" aria-live="polite"></span></div></section>
+<section id="ld-out" hidden>
+<div class="card ld-sum" id="ld-sum"></div>
+<div class="st-row ld-acts"><button type="button" class="btn" id="ld-add">📅 Add the whole deck to my calendar</button><button type="button" class="btn ghost" id="ld-txt">⬇ Download all captions</button><button type="button" class="btn ghost" onclick="window.print()">🖨 Print / save as PDF</button></div>
+<div id="ld-done" class="card" hidden></div>
+<div id="ld-list"></div></section>
+<script>window.STUDIO={{ cfg|tojson }};</script>
+<script src="{{ url_for('static', filename='studio_tpl.js') }}?v={{ ASSET_V }}"></script><script src="{{ url_for('static', filename='studio.js') }}?v={{ ASSET_V }}"></script><script src="{{ url_for('static', filename='launch_deck.js') }}?v={{ ASSET_V }}"></script>
+{% endblock %}

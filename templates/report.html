@@ -2,7 +2,20 @@
 <div class="report">
 <div class="head"><div><h1>📑 {{ ws['name'] }}: marketing report</h1><span class="muted">{{ r.label }}</span></div>
 <div class="noprint"><a class="btn ghost sm" href="?month={{ prev_m }}">◀ {{ prev_m }}</a> <a class="btn ghost sm" href="?month={{ next_m }}">{{ next_m }} ▶</a> <button class="btn sm" onclick="window.print()">Print / save PDF</button></div></div>
-{% if share %}<div class="card noprint"><b>Share with your client</b> <span class="muted">— read-only link, no login needed. Reset it any time from Calendar → Reset link.</span><input readonly aria-label="Share link" value="{{ share }}" onclick="this.select()"></div>{% endif %}
+{% if not public %}<div class="card noprint sendcl"><b>📤 Send this report to your client</b>
+{% if share %}<p class="muted" style="margin:4px 0 8px">Pick how they see it. The link needs no sign-in and updates every month.</p>
+<div class="sc-row"><input readonly id="sc-link" aria-label="Share link" value="{{ share }}?month={{ r.month }}" onclick="this.select()"><button type="button" class="btn sm" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('sc-link').value);this.textContent='Copied ✓'">Copy link</button></div>
+<div class="sc-acts"><a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/?text={{ ('Hi! Here is our ' ~ r.label ~ ' marketing report: ' ~ share ~ '?month=' ~ r.month)|urlencode }}">💬 Send on WhatsApp</a>
+<a class="btn ghost sm" href="mailto:?subject={{ (ws['name'] ~ ' marketing report ' ~ r.label)|urlencode }}&body={{ ('Hi,\n\nHere is our ' ~ r.label ~ ' report (no sign-in needed):\n' ~ share ~ '?month=' ~ r.month ~ '\n\nThanks!')|urlencode }}">✉️ Send by email</a>
+<button type="button" class="btn ghost sm" onclick="window.print()">⬇ Download PDF</button>
+<a class="btn ghost sm" href="{{ url_for('ws.team') }}" title="They sign in and see their own portal: approvals, report and chat">🔑 Invite client to sign in</a></div>
+<p class="muted" style="margin:8px 0 0;font-size:12px">Two ways in: <b>link</b> (no account, view only) or <b>sign-in</b> (client portal with approvals and chat). Clients can install Debut on their phone from either. Reset the link any time from Calendar → Reset link.</p>
+{% else %}<p class="muted" style="margin:4px 0 8px">Sharing a live link is on paid plans. You can still <button type="button" class="btn ghost sm" onclick="window.print()">⬇ download this as PDF</button> and send it yourself.</p>{% endif %}</div>{% endif %}
+{% if public %}<div class="card noprint cl-install" id="cl-install" style="display:none"><b>📲 Get {{ C.APP_NAME }} on your phone</b> <span class="muted">to see every new report in one tap.</span> <button type="button" class="btn sm" id="cl-ibtn">Install app</button> <button type="button" class="btn ghost sm" onclick="this.parentNode.remove()">Not now</button><span class="muted" id="cl-ios" style="display:none"> On iPhone: tap Share, then “Add to Home Screen”.</span> <a class="btn ghost sm" href="{{ url_for('auth.login') }}">Sign in to portal</a></div>
+<script>(function(){var b=document.getElementById('cl-install'),btn=document.getElementById('cl-ibtn'),ev=null;if(!b)return;if(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)return;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();ev=e;b.style.display='';});
+if(/iphone|ipad/i.test(navigator.userAgent)){b.style.display='';btn.style.display='none';document.getElementById('cl-ios').style.display='';}
+btn.onclick=function(){if(ev){ev.prompt();b.remove();}};})();</script>{% endif %}
 <div class="grid" style="margin:12px 0"><div class="tile"><span class="muted">Content published</span><b>{{ r.published }}</b></div><div class="tile"><span class="muted">Content scheduled this month</span><b>{{ r.content|length }}</b></div>
 <div class="tile"><span class="muted">New leads</span><b>{{ r.leads|length }}</b></div><div class="tile"><span class="muted">Campaign spend</span><b>₹{{ '{:,.0f}'.format(r.spent) }}</b><span class="tag">of ₹{{ '{:,.0f}'.format(r.budget) }} budget</span></div></div>
 <h3>KPIs</h3>{% if r.kpis %}<table><tr><th>Metric</th><th>Channel</th><th>Latest</th><th>Target</th><th>Progress</th></tr>

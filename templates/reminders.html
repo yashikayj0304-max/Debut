@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}My reminders{% endblock %}
+{% block body %}<h1>⏰ My reminders</h1><p class="muted">Only you see these. You get a notification (and a phone push if it is on) at the time you set.</p>
+<div class="card remcard">
+<form method="post" action="{{ url_for('reminder_add') }}" class="rem-add"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="text" placeholder="Remind me to…" maxlength="200" aria-label="Reminder text" required>
+<input type="date" name="date" value="{{ tomorrow }}" aria-label="Date"><input type="time" name="time" value="09:00" aria-label="Time"><input type="hidden" name="when" value="pick">
+{% if team %}<select name="for" aria-label="Remind who"><option value="">Me</option>{% for t in team %}<option value="{{ t['id'] }}">{{ t['name'] }}</option>{% endfor %}</select>{% endif %}<select name="repeat" aria-label="Repeat"><option value="">Once</option><option value="daily">Every day</option><option value="weekly">Every week</option></select><button class="btn sm">Set reminder</button></form></div>
+{% for r in rows %}<div class="card rem-row"><span><b>{{ r['text'] }}</b><br><small class="muted">{{ r['remind_at'] }}{% if r['repeat'] %} · repeats {{ r['repeat'] }}{% endif %}{% if r['fired'] %} · <b>due</b>{% endif %}</small>{% if r['link'] %} <a href="{{ r['link'] }}">Open</a>{% endif %}</span>
+<span class="st-row"><form method="post" action="{{ url_for('reminder_snooze', rid=r['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="by" value="1h"><button class="btn ghost sm">Snooze 1h</button></form>
+<form method="post" action="{{ url_for('reminder_snooze', rid=r['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="by" value="tomorrow"><button class="btn ghost sm">Tomorrow</button></form>
+<form method="post" action="{{ url_for('reminder_done', rid=r['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn sm">✓ Done</button></form>
+<form method="post" action="{{ url_for('reminder_delete', rid=r['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn danger sm">Delete</button></form></span></div>{% else %}<div class="card"><p class="muted">No reminders. Add one above.</p></div>{% endfor %}
+{% if past %}<h3>Done</h3>{% for r in past %}<div class="card"><s>{{ r['text'] }}</s> <small class="muted">{{ r['remind_at'] }}</small></div>{% endfor %}{% endif %}{% endblock %}

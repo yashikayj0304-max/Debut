@@ -1,7 +1,10 @@
 {% extends "base.html" %}{% block title %}Link in bio — {{ C.APP_NAME }}{% endblock %}{% block body %}
 <div style="max-width:760px;margin:0 auto">
 <h1>🔗 Link in bio</h1>
-<p class="muted">One free page for your Instagram bio. It uses your brand colours, counts clicks and has a QR code for print. No separate link-in-bio app needed.</p>
+<div class="card" style="background:var(--pri2,#f4f0ff)"><b>What is this?</b>
+<p style="margin:6px 0">Instagram lets you put only <b>one link</b> in your profile. This gives you that one link, and it opens a small page of <b>all your links in one place</b>: your shop, WhatsApp, latest offer, a contact form.</p>
+<ol style="margin:6px 0 0 18px;padding:0;line-height:1.6"><li>Fill in the boxes below and Save.</li><li>Copy your link (or print the QR code).</li><li>Paste it in your Instagram bio, under <i>Edit profile → Links</i>.</li></ol>
+<p class="muted" style="margin:8px 0 0">Example: a bakery adds “Order on WhatsApp”, “Today's menu” and “Find us on Maps”. We count the taps on each so you see what people want.</p></div>
 <div class="card" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
 <img src="{{ url_for('bio.qr', slug=slug) }}" alt="QR code for your page" width="110" height="110" style="background:#fff;border-radius:10px;padding:4px">
 <div style="flex:1;min-width:200px"><b>Your page</b><br><a href="{{ url_for('bio.public', slug=slug) }}" target="_blank" id="bio-url">{{ pub }}</a><br>

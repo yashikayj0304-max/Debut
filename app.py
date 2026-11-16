@@ -3,6 +3,7 @@ import re
 import logging
 import datetime as dt
 import os
+from jinja2 import ChoiceLoader, FileSystemLoader
 from flask import Flask, g, request, session, render_template, redirect, url_for, flash, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config as C
@@ -62,6 +63,14 @@ _TITLE_EMOJI = re.compile(r'(<h1[^>]*>|<title>)\s*(?:[\u2190-\u2BFF\U0001F000-\U
 
 def create_app(config=None, init=True, database_url=None):
     app = Flask(__name__)
+    # The templates are split across templates/part1 and templates/part2 for one dull but real reason:
+    # GitHub's web uploader takes at most 100 files at a time, and there are more than 100 of them.
+    # Jinja searches both folders, so every render_template("x.html") and {% extends %} is unchanged -
+    # a template can sit in either folder, and new ones can go in whichever has room.
+    _tpl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+    app.jinja_loader = ChoiceLoader([FileSystemLoader(os.path.join(_tpl, "part1")),
+                                     FileSystemLoader(os.path.join(_tpl, "part2")),
+                                     FileSystemLoader(_tpl)])
     app.url_map.converters["int"] = SafeInt
     app.config.update(C.FLASK)
     if config:

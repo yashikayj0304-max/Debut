@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block body %}<div class="head"><h1>💬 Feedback inbox</h1><a class="btn ghost" href="{{ url_for('admin.index') }}">← Admin</a></div>
+{% for r in rows %}<div class="card" style="{{ 'opacity:.55' if r['resolved'] }}"><div><span class="badge">{{ r['kind'] }}</span> <b>{{ r['uname'] or r['email'] }}</b> <span class="tag">{{ r['email'] }} · {{ r['wname'] }} ({{ r['plan'] }}) · {{ r['created_at']|string|truncate(16, True, '') }}</span></div>
+<div style="white-space:pre-wrap;margin:8px 0">{{ r['message'] }}</div><div class="tag">Page: {{ r['page'] or '—' }}</div>
+{% if not r['resolved'] %}<form method="post" action="{{ url_for('admin.feedback_resolve', fid=r['id']) }}" style="margin-top:6px"><button class="btn ghost sm">Mark resolved</button></form>{% endif %}</div>
+{% else %}<p class="muted">No feedback yet.</p>{% endfor %}{% endblock %}

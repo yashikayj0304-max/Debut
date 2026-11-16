@@ -676,3 +676,10 @@ partial dictionary degrades gracefully. `workspaces.lang` picks it; the context 
 exposes `t`, `LANG` and `LANGUAGES`, and translates hub/tab labels into per-request copies — never the
 shared `hubs.HUBS` dicts, or one workspace's language would leak into another's. Hindi covers the
 navigation, bottom bar and main actions; deeper screens stay English by design.
+
+## Why templates sit in two folders
+`templates/part1` and `templates/part2` hold ~52 files each, because GitHub's web uploader accepts at
+most 100 files per upload and there are more than 100 templates. `app.py` gives Jinja a `ChoiceLoader`
+over both, so `render_template("x.html")`, `{% extends %}` and `{% include %}` are unaffected and a new
+template can go in either folder. Don't merge them back into one folder — the upload will break.
+Tests must not hardcode a path: use `read_template(name)` from `tests/conftest.py`.

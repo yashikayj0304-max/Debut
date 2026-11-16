@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}Get leads from Instagram — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div style="max-width:760px;margin:0 auto">
+<p class="muted" style="margin:0"><a href="{{ url_for('m_list', key='leads') }}">← Leads</a></p><h1>🔗 Get leads from Instagram</h1>
+<p class="muted" style="margin:-6px 0 14px"><b>What is this?</b> Instagram (and TikTok, YouTube) let you put only <b>one</b> link in your profile. This page is that one link: when someone taps it, they see a small page with all your buttons (shop, WhatsApp, offer). Debut counts every visit and tap, and messages arrive in Leads. Also called “link in bio”.</p>
+<div class="bio-steps"><div><i>1</i><b>Add your links</b><small>Shop, WhatsApp, offer. Fill the boxes below.</small></div><div><i>2</i><b>Copy your address</b><small>Or print the QR code for packaging and posters.</small></div><div><i>3</i><b>Paste it in Instagram</b><small>Profile → Edit profile → Links.</small></div></div>
+{% if "127.0.0.1" in pub or "localhost" in pub %}<div class="banner">This address only works on this computer. Once Debut is deployed online (see DEPLOY.md), set <b>APP_URL</b> to your real website and this link will work from anywhere, including Instagram.</div>{% endif %}
+<div class="card bio-link"><img src="{{ url_for('bio.qr', slug=slug) }}" alt="QR code for your page" width="96" height="96">
+<div><b>Your page address</b><br><a href="{{ url_for('bio.public', slug=slug) }}" target="_blank" id="bio-url">{{ pub }}</a><br>
+<button type="button" class="btn ghost sm" onclick="copyTxt(document.getElementById('bio-url').textContent,this)">Copy link</button>
+<a class="btn ghost sm" href="{{ url_for('bio.qr', slug=slug) }}" download="bio-qr.svg">Download QR</a></div></div>
+<div class="card" id="bio-track"><b>📊 What people did on your page</b>
+<div class="bio-kpis"><div><b>{{ stats.views }}</b><small>page visits</small></div><div><b>{{ stats.taps }}</b><small>link taps{% if stats.views %} · {{ stats.rate }}% of visits{% endif %}</small></div><div><b>{{ stats.msgs }}</b><small>messages sent to you</small></div></div>
+{% set mx = (stats.days|map(attribute=1)|max) or 1 %}<div class="bio-bars" aria-label="Visits in the last 7 days">{% for d, n in stats.days %}<span title="{{ d }}: {{ n }} visits"><i style="height:{{ (n * 100 / mx)|round|int }}%"></i><small>{{ d[3:] }}</small></span>{% endfor %}</div>
+<p class="muted" style="margin:8px 0 4px">Last 7 days: <b>{{ stats.week }}</b> visits. Taps for each link show next to it below.</p>
+<b style="display:block;margin-top:10px">💬 Messages from the page</b>
+{% for m in msgs %}<div class="bio-msg"><span>{{ m['name'] or 'Someone' }} <small class="muted">{{ m['email'] or m['phone'] }}</small></span><small class="muted">{{ (m['created_at'] or '')[:10] }}</small></div>{% else %}<p class="muted" style="margin:4px 0">Nothing yet. When someone taps “Send us a message”, it appears here and as a new lead.</p>{% endfor %}
+{% if stats.msgs %}<a class="btn ghost sm" href="{{ url_for('m_list', key='leads') }}">Open them in Leads</a>{% endif %}</div>
+<form method="post" class="card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label>Headline<input name="headline" maxlength="80" value="{{ d.headline }}" placeholder="{{ fl.headline.replace('{n}', g.ws['name']) }}"></label>
+<label>One line about you<input name="sub" maxlength="160" value="{{ d.sub }}" placeholder="{{ fl.sub }}"></label>
+<label>Special offer button (optional)<input name="offer" maxlength="100" value="{{ d.offer }}" placeholder="e.g. 10% off your first order"></label>
+<label>Offer link<input name="offer_url" value="{{ d.offer_url }}" placeholder="https://"></label>
+<p class="muted" style="margin:0 0 6px">Your page uses your brand colours and logo (change them in Brand kit) and the wording for <b>{{ fl.chip|lower }}</b>. Empty boxes show our suggestions in grey.</p><h3 style="margin:14px 0 6px">Links <small class="muted">(up to {{ slots }})</small></h3>
+{% for i in range(slots) %}{% set l = d.links[i] if i < d.links|length else {} %}
+<div style="display:grid;grid-template-columns:1fr 1.6fr 64px;gap:8px;margin-bottom:6px;align-items:center">
+<input name="label{{ i }}" maxlength="40" value="{{ l.get('label','') }}" placeholder="{{ fl.labels[i] if i < fl.labels|length else 'Label' }}" aria-label="Link {{ i+1 }} label">
+<input name="url{{ i }}" value="{{ l.get('url','') }}" placeholder="https://" aria-label="Link {{ i+1 }} address">
+<span class="muted" title="Taps on this link">{% if l %}{{ clicks.get(i ~ ':' ~ l.get('label',''), 0) }} taps{% endif %}</span></div>{% endfor %}
+<label style="font-weight:400"><input type="checkbox" name="form" value="1" style="width:auto" {{ 'checked' if d.form }}> Show a “Send us a message” button (messages show above and land in Leads)</label>
+<button class="btn">Save</button> <a class="btn ghost" href="{{ url_for('bio.public', slug=slug) }}" target="_blank">Preview</a>
+</form></div>{% endblock %}

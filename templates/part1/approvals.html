@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}Approvals — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="head"><h1>✅ Approvals</h1><span class="muted">{% if mgr %}{{ total }} waiting for you{% else %}Suggest ideas and see what was decided{% endif %}</span></div>
+<p class="muted">{% if mgr %}Everything that needs a yes from you is here. An approved idea lands on the calendar straight away.{% else %}Suggest an idea. A lead or manager approves it, and it goes on the calendar.{% endif %}</p>
+
+<div class="card"><b>💡 Suggest an idea</b>
+<form method="post" action="{{ url_for('tm.idea_submit') }}" class="two" style="margin-top:8px"><label>Idea<input name="title" required maxlength="200" placeholder="e.g. Reel: how our chai is made"></label>
+<label>Channel<select name="channel">{% for c in channels %}<option>{{ c }}</option>{% endfor %}</select></label>
+<label>Format<select name="format">{% for c in formats %}<option>{{ c }}</option>{% endfor %}</select></label>
+<label>Post on <input type="date" name="date" min="{{ today }}"></label>
+<label>Why it will work <span class="muted">(optional)</span><input name="note" maxlength="300"></label>
+<div><button class="btn">{% if mgr %}Add to calendar{% else %}Send for approval{% endif %}</button></div></form></div>
+
+{% if mgr %}
+<div class="card" style="margin-top:14px"><b>💡 Ideas waiting ({{ ideas|length }})</b>
+{% for r in ideas %}<form method="post" action="{{ url_for('tm.idea_decide', rid=r['id']) }}" class="apr-row"><div><b>{{ r['title'] }}</b><div class="tag">{{ r['who'] or 'Someone' }} · {{ r['channel'] }} · {{ r['format'] }}{% if r['note'] %} · {{ r['note'] }}{% endif %}</div></div>
+<input type="date" name="date" value="{{ r['proposed_date'] or today }}" min="{{ today }}" aria-label="Post on"><input name="reason" placeholder="Reason if declining" aria-label="Reason" maxlength="200">
+<button class="btn sm" name="do" value="approve">✅ Approve → calendar</button><button class="btn ghost sm" name="do" value="decline">Decline</button></form>
+{% else %}<p class="muted">No ideas waiting. 🎉</p>{% endfor %}</div>
+
+<div class="card" style="margin-top:14px"><b>📅 Posts waiting for review ({{ content|length }})</b>
+{% for r in content %}<form method="post" action="{{ url_for('m_status', key='content_items', rid=r['id']) }}" class="apr-row"><div><a href="{{ url_for('m_edit', key='content_items', rid=r['id']) }}"><b>{{ r['title'] or '(untitled)' }}</b></a><div class="tag">{{ r['channel'] }} · {{ r['publish_date'] or 'no date' }}{% if r['owner'] %} · {{ r['owner'] }}{% endif %}</div></div>
+<button class="btn sm" name="value" value="Approved">✅ Approve</button><button class="btn ghost sm" name="value" value="Draft">Ask for changes</button></form>
+{% else %}<p class="muted">Nothing to review.</p>{% endfor %}</div>
+{% endif %}
+
+{% if g.role in ('owner','admin','lead') %}<div class="card" style="margin-top:14px"><b>🔒 Page access requests ({{ access|length }})</b> <a class="muted" href="{{ url_for('tm.access') }}">Choose locked pages</a>
+{% for a in access %}<form method="post" action="{{ url_for('tm.access_decide', aid=a['id']) }}" class="apr-row"><div><b>{{ a['who'] or 'Someone' }}</b> wants to open <b>{{ labels.get(a['page_key'], a['page_key']) }}</b></div><button class="btn sm" name="do" value="grant">Allow</button><button class="btn ghost sm" name="do" value="deny">No</button></form>
+{% else %}<p class="muted">No requests.</p>{% endfor %}</div>{% endif %}
+
+{% if mine %}<div class="card" style="margin-top:14px"><b>Your suggestions</b>
+{% for r in mine %}<div class="apr-row"><div><b>{{ r['title'] }}</b><div class="tag">{{ r['channel'] }}{% if r['reason'] %} · {{ r['reason'] }}{% endif %}</div></div><span class="pill">{{ {'pending':'⏳ waiting','approved':'✅ on calendar','declined':'✖ not this time'}[r['status']] }}</span></div>{% endfor %}</div>{% endif %}
+{% endblock %}

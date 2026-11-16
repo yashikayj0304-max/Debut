@@ -1,0 +1,132 @@
+{% extends "base.html" %}{% from "_bold.html" import line %}{% block body %}{{ line('account') }}<div class="head"><h1>⚙ Account</h1></div>
+<div class="two"><div class="card"><b>Profile</b><form method="post" action="{{ url_for('ws.account_profile') }}"><label>Name<input name="name" value="{{ user['name'] }}"></label><p class="muted">{{ user['email'] }} {% if user['email_verified'] %}✓ verified{% else %}(not verified){% endif %}</p><button class="btn">Save</button></form></div>
+<div class="card"><b>Change password</b><form method="post" action="{{ url_for('ws.account_password') }}"><label>Current password<input type="password" name="current" autocomplete="current-password" required></label><label>New password<input type="password" name="new" autocomplete="new-password" data-new minlength="8" required></label><p class="muted" style="margin-top:-6px">At least 8 characters, with one UPPERCASE letter and one special character (e.g. ! @ # $ %).</p><button class="btn">Update</button></form></div></div>
+<div class="two"><div class="card"><b>🔐 Two-factor login</b><p class="muted">{% if user['totp_on'] %}On. You'll enter a code from your authenticator app at login.{% else %}Add a second step when you log in, using an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password).{% endif %}</p><a class="btn {{ 'ghost' if user['totp_on'] }}" href="{{ url_for('ws.twofa') }}">{{ 'Manage' if user['totp_on'] else 'Set up two-factor' }}</a></div>
+<div class="card"><b>🔢 PIN sign-in</b><p class="muted">{% if user['pin_hash'] %}On. You'll be asked for your PIN after your password at login &mdash; a lighter option than an authenticator app.{% else %}A quick 4-6 digit PIN as a second login step, for when an authenticator app feels like a lot.{% endif %}</p>
+{% if user['pin_hash'] %}<form method="post" action="{{ url_for('ws.account_pin') }}"><input type="hidden" name="remove" value="1"><button class="btn ghost sm">Turn off PIN sign-in</button></form>
+{% else %}<form method="post" action="{{ url_for('ws.account_pin') }}" class="filters" style="max-width:none"><input type="password" name="current" autocomplete="current-password" placeholder="Current password" required style="max-width:160px"><input name="pin" inputmode="numeric" maxlength="6" placeholder="4-6 digit PIN" required style="max-width:140px"><button class="btn sm">Turn on</button></form>{% endif %}</div></div>
+<div class="card"><b>🎭 How should Debut talk?</b><p class="muted">Chill is friendly and fun. Corporate keeps it formal for clients and agencies.</p>
+<form method="post" action="{{ url_for('deb.set_tone') }}" class="st-row">{% for t, l in [('chill','😎 Chill'),('normal','🙂 Normal'),('corporate','👔 Corporate')] %}<button class="st-chip {{ 'on' if tone_now() == t }}" name="tone" value="{{ t }}">{{ l }}</button>{% endfor %}</form></div>
+<div class="card"><b>✉ Daily digest</b><p class="muted">One email a day, only when something needs you: overdue or upcoming tasks, content publishing soon, approvals waiting.</p>
+<form method="post" action="{{ url_for('ws.account_digest') }}"><input type="hidden" name="on" value="{{ 0 if user['digest'] else 1 }}"><button class="btn ghost">{{ 'Turn off' if user['digest'] else 'Turn on' }}</button> <span class="muted">Currently {{ 'on' if user['digest'] else 'off' }}</span></form></div>
+{% if role in ('owner','admin') %}<div class="card"><b>🔌 Connected accounts</b><p class="muted">Instagram, Facebook/Meta Ads, Google Ads, LinkedIn Ads &mdash; see what's needed to connect each one and bring real numbers into Marketing Health.</p><a class="btn ghost sm" href="{{ url_for('ws.connected_accounts') }}">Manage connected accounts</a></div>
+<div class="card"><b>📁 Brand deck scan</b><p class="muted">Already have a brand deck or guidelines from a designer? Upload it as a PowerPoint (.pptx) or PDF and Debut will automatically pull out your logo, colours and font and apply them below — no need to type in hex codes by hand. This reads the file directly (no AI, no extra cost); anything it finds but doesn't use as the main pick is still saved to your Brand Kit for reference.</p>
+<form method="post" action="{{ url_for('ws.account_brand_deck') }}" enctype="multipart/form-data" class="filters" style="max-width:none"><input type="file" name="file" aria-label="Brand deck file" accept=".pptx,.pdf" required><button class="btn sm">Scan deck</button></form></div>
+<div class="card"><b>🖼 Company logo</b><p class="muted">Shown at the top of your workspace instead of the plain Debut mark, and in the client portal and reports.</p>
+{% if ws['logo_url'] %}<img src="{{ media(ws['logo_url']) }}" alt="" style="height:48px;border-radius:8px;display:block;margin-bottom:8px">{% endif %}
+<form method="post" action="{{ url_for('ws.account_logo') }}" enctype="multipart/form-data" class="filters" style="max-width:none"><input type="file" name="file" aria-label="Logo image" accept="image/png,image/jpeg,image/gif,image/webp" required><button class="btn sm">Upload</button></form>
+{% if ws['logo_url'] %}<form method="post" action="{{ url_for('ws.account_logo_remove') }}" style="margin-top:6px"><button class="btn ghost sm">Remove logo</button></form>{% endif %}</div>
+{% if role in ('owner','admin') %}<div class="card" id="vibe"><b>✨ Pick your vibe</b><p class="muted">One tap and the whole app recolours. You can fine-tune below or reset any time.</p>
+<div class="vibes" id="vibeGrid">{% for pk, nm, c1, c2, _c3, tone in PALS %}<form method="post" action="{{ url_for('ws.account_theme') }}"><input type="hidden" name="color" value="{{ c1 }}"><input type="hidden" name="secondary" value="{{ c2 }}"><button class="vibe" title="{{ nm }} ({{ tone }})" style="background:linear-gradient(135deg,{{ c1 }},{{ c2 }})"><span>{{ nm }}{% if tone == 'soft' %} · soft{% endif %}</span></button></form>{% endfor %}</div><button type="button" class="btn ghost sm" id="vibeMore" hidden></button></div>{% endif %}
+<div class="card"><b>🎨 Brand colours</b>
+{% if False %}<p class="muted">Personal-brand workspaces always use the Debut lavender theme, so your dashboard looks consistent with the guides and community. This is not customisable for this industry.</p>
+{% else %}<p class="muted">Recolour your workspace, client portal and reports.</p><details class="muted" style="margin:-4px 0 10px"><summary style="cursor:pointer">How the colours are used</summary><p>Match Debut to your company's brand colours. The <b>primary</b> colour recolours the sidebar, buttons and highlights across your workspace, the client portal and printable reports. The <b>secondary</b> colour adds a second tone to gradients and accents (the logo wordmark, headings) &mdash; useful if clients see this workspace. Pick a secondary colour, or leave it blank and Debut will choose a lighter shade of your primary automatically.</p></details>
+<form method="post" action="{{ url_for('ws.account_theme') }}" style="max-width:none">
+<div style="display:flex;flex-wrap:wrap;gap:22px;margin-bottom:10px">
+<div><label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px">Primary</label>
+<div style="display:flex;align-items:center;gap:8px">
+<input type="color" name="color" aria-label="Brand colour" id="pri-input" value="{{ ws['brand_color'] or '#6a3df0' }}" style="width:48px;height:38px;padding:2px" oninput="document.getElementById('pri-swatch').style.background=this.value;updatePreview()">
+<span id="pri-swatch" style="display:inline-block;width:60px;height:38px;border-radius:8px;background:{{ ws['brand_color'] or '#6a3df0' }};border:1px solid var(--line)"></span>
+</div></div>
+<div><label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px">Secondary <span class="muted" style="font-weight:400">(optional)</span></label>
+<div style="display:flex;align-items:center;gap:8px">
+<input type="color" aria-label="Secondary colour" id="sec-input" value="{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }}" style="width:48px;height:38px;padding:2px" oninput="document.getElementById('sec-field').value=this.value;document.getElementById('sec-swatch').style.background=this.value;document.getElementById('auto-btn').disabled=false;document.getElementById('sec-note').textContent='Your own colour';updatePreview()">
+<span id="sec-swatch" style="display:inline-block;width:60px;height:38px;border-radius:8px;background:{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }};border:1px solid var(--line)"></span>
+<input type="hidden" name="secondary" id="sec-field" value="{{ ws['secondary_color'] or '' }}">
+<button type="button" class="btn ghost sm" id="auto-btn" onclick="setAutoSecondary()" title="Let Debut pick a lighter shade of your primary colour" {% if not ws['secondary_color'] %}disabled{% endif %}>Use auto</button>
+<button type="button" class="btn ghost sm" id="custom-btn" onclick="setCustomSecondary()" style="display:none">Custom</button>
+<span class="muted" id="sec-note" style="font-size:12px">{{ 'Your own colour' if ws['secondary_color'] else 'Auto — pick any colour to set your own' }}</span>
+</div></div>
+<div><label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px">Preview</label>
+<div id="combo-preview" style="width:140px;height:38px;border-radius:8px;border:1px solid var(--line);background:linear-gradient(90deg,{{ ws['brand_color'] or '#6a3df0' }},{{ ws['secondary_color'] or ws['brand_color'] or '#a48be6' }})"></div></div>
+</div>
+<button class="btn">Apply</button></form>
+<script>
+function mixWhite(hex,amt){
+ hex=(hex||'#6a3df0').replace('#','');
+ if(hex.length!==6)return '#'+hex;
+ var r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
+ r=Math.round(r+(255-r)*amt);g=Math.round(g+(255-g)*amt);b=Math.round(b+(255-b)*amt);
+ return '#'+[r,g,b].map(function(v){return v.toString(16).padStart(2,'0')}).join('');
+}
+function currentSecondary(){
+ var field=document.getElementById('sec-field');
+ if(field.value)return field.value;
+ return mixWhite(document.getElementById('pri-input').value,0.35);
+}
+function updatePreview(){
+ var pri=document.getElementById('pri-input').value;
+ var sec=currentSecondary();
+ document.getElementById('sec-swatch').style.background=sec;
+ document.getElementById('combo-preview').style.background='linear-gradient(90deg,'+pri+','+sec+')';
+}
+function setAutoSecondary(){
+ document.getElementById('sec-field').value='';
+ document.getElementById('auto-btn').disabled=true;
+ document.getElementById('sec-note').textContent='Auto — pick any colour to set your own';
+ updatePreview();
+}
+function setCustomSecondary(){
+ var input=document.getElementById('sec-input');
+ input.disabled=false;
+ if(!document.getElementById('sec-field').value){input.value=document.getElementById('pri-input').value;document.getElementById('sec-field').value=input.value;}
+ document.getElementById('auto-btn').disabled=false;
+ document.getElementById('custom-btn').disabled=true;
+ updatePreview();
+}
+document.getElementById('pri-input').addEventListener('input',function(){
+ document.getElementById('pri-swatch').style.background=this.value;
+ updatePreview();
+});
+</script>
+{% if ws['brand_color'] %}<form method="post" action="{{ url_for('ws.account_theme_reset') }}" style="margin-top:8px"><button class="btn ghost sm">Reset to Debut lavender</button></form>{% endif %}{% endif %}</div>
+<div class="card" id="menu"><b>Customise your menu</b><p class="muted">Tick the sections you want in the left sidebar. Unticked ones are hidden, not deleted: you can still find them with search (Ctrl+K) and bring them back here any time.</p>
+<form method="post" action="{{ url_for('set_focus') }}" id="menuForm"><div class="fp-row">{% for k, i, l in HUBS_ALL %}{% set always = k in ('content', 'tasks') %}<label class="fp"><input type="checkbox" name="hub" value="{{ k }}" {% if k in MENU_SEL or always %}checked{% endif %} {% if always %}disabled{% endif %}><span>{{ i }} {{ l }}</span><em class="fp-st"></em></label>{% if always %}<input type="hidden" name="hub" value="{{ k }}">{% endif %}{% endfor %}
+<label class="fp"><input type="checkbox" name="more" value="1" {% if MENU_MORE %}checked{% endif %}><span>🧰 More tools <small class="muted">a page that lists every tool</small></span><em class="fp-st"></em></label></div>
+<p class="muted" id="menuCount"></p><button class="btn sm">Save menu</button> <button class="btn ghost sm" name="all" value="1">Show every section</button></form>
+<script>(function(){var f=document.getElementById("menuForm");if(!f)return;function up(){var n=0,t=0;f.querySelectorAll('input[type=checkbox][name=hub]').forEach(function(c){t++;if(c.checked)n++;c.parentNode.classList.toggle("off",!c.checked);var e=c.parentNode.querySelector(".fp-st");if(e)e.textContent=c.checked?"Showing":"Hidden";});var m=f.querySelector('input[name=more]');if(m){var e=m.parentNode.querySelector(".fp-st");m.parentNode.classList.toggle("off",!m.checked);if(e)e.textContent=m.checked?"Showing":"Hidden";}document.getElementById("menuCount").textContent=n+" of "+t+" sections showing in your sidebar.";}f.addEventListener("change",up);up();})();</script></div>
+<div class="card" id="industry"><b>Industry</b><p class="muted">Makes your Idea Bank, AI Studio and starter kit sound like your world. Currently: <b>{{ industry['icon'] }} {{ industry['label'] }}</b>.</p>
+<form method="post" action="{{ url_for('ws.industry_update') }}" class="filters" style="max-width:none"><select name="industry" aria-label="Industry" style="max-width:340px">{% for k, l in industries %}<option value="{{ k }}" {% if k == ws['industry'] %}selected{% endif %}>{{ l }}</option>{% endfor %}</select><button class="btn ghost">Save</button><button class="btn" name="kit" value="1">Save &amp; load starter kit</button></form></div>
+<div class="card"><b>Workspace</b><form method="post" action="{{ url_for('ws.rename') }}" class="filters"><input name="name" aria-label="Workspace name" value="{{ ws['name'] }}" maxlength="80" required><button class="btn ghost">Rename</button></form>
+<p class="muted">Up to 80 characters. This is the name shown at the top of the app and (once you invite teammates) on their sign-in screen too.</p>
+<p class="muted">URL name: <code>{{ ws['slug'] }}</code> · Plan: {{ plan['name'] }}</p><a class="btn ghost" href="{{ url_for('ws.export_zip') }}">⬇ Export all data (ZIP of CSVs)</a></div>{% endif %}
+{% if role == 'owner' and candidates %}<div class="card"><b>Transfer ownership</b><p class="muted">Pass this workspace and its billing to a teammate (for example if you sell the agency or step back). You become an Admin. Choose someone who is already an Admin, Lead or Manager.</p>
+<form method="post" action="{{ url_for('ws.transfer_ownership') }}" onsubmit="return confirm('Transfer ownership? You will lose owner-only powers.')"><label>New owner<select name="mid">{% for c in candidates %}<option value="{{ c['mid'] }}">{{ c['name'] or c['email'] }} ({{ c['role'] }})</option>{% endfor %}</select></label>
+<label>Your password<input type="password" name="password" autocomplete="current-password" required></label>{% if user['totp_on'] %}<label>Current two-factor code<input name="code" inputmode="numeric" required></label>{% endif %}
+<label>Type <code>TRANSFER</code> to confirm<input name="confirm" required></label><button class="btn danger">Transfer ownership</button></form></div>{% endif %}
+<div class="card" id="danger" style="border-color:var(--bad)"><b>Start over or delete everything 🚨</b><p class="muted">Want to run the app from the very beginning? Pick one of these. Neither can be undone, so export your data first if you want a copy.</p>
+{% if role == 'owner' %}<form method="post" action="{{ url_for('ws.reset_workspace') }}" onsubmit="return confirm('Clear everything in this workspace and start fresh?')" style="margin-bottom:14px"><b>🔄 Start over (keep my account)</b><p class="muted" style="margin:4px 0">Clears every record in this workspace and brings back the starter checklist and welcome tour. Your login, team and plan stay.</p><label>Type <code>START OVER</code> to confirm<input name="confirm" autocomplete="off"></label><button class="btn danger">Start over</button></form>{% endif %}
+<form method="post" action="{{ url_for('ws.delete_account') }}" onsubmit="return confirm('Permanently delete your account and everything you own?')"><b>🗑️ Delete my account completely</b><p class="muted" style="margin:4px 0">Removes your login and {% if role == 'owner' %}every workspace you own, with all its data{% else %}your access to the workspaces you joined{% endif %}. You can sign up again afterwards.</p>
+<label>Your password<input type="password" name="password" autocomplete="current-password" required></label>{% if user['totp_on'] %}<label>Current two-factor code<input name="code" inputmode="numeric" required></label>{% endif %}<label>Type <code>DELETE</code> to confirm<input name="confirm" autocomplete="off" required></label><button class="btn danger">Delete my account</button></form></div>
+{% if role == 'owner' %}<div class="card" style="border-color:var(--bad)"><b>Danger zone 🚨</b><p class="muted">Delete this workspace and everything in it for good. There's no undo. Cancel your subscription first.</p>
+<form method="post" action="{{ url_for('ws.delete_workspace') }}" onsubmit="return confirm('Permanently delete everything in this workspace?')"><label>Type <code>{{ ws['slug'] }}</code> to confirm<input name="confirm"></label><button class="btn danger">Delete workspace</button></form></div>{% endif %}
+<div class="card" id="language"><b>🌐 {{ tr("Language") }}</b>
+<p class="muted">The menu, the bottom bar and the main buttons. Hindi covers the screens you use every day; the rest is still English.</p>
+<form method="post" action="{{ url_for('ws.account_language') }}" class="st-row">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label class="sr-only" for="lang-sel">{{ tr("Language") }}</label>
+<select id="lang-sel" name="lang">{% for code, label in LANGUAGES %}<option value="{{ code }}"{{ ' selected' if LANG == code }}>{{ label }}</option>{% endfor %}</select>
+<button class="btn">{{ tr("Save") }}</button></form></div>
+<div class="card" id="comfort"><b>👀 Comfort</b><p class="muted">Makes the app easier on your eyes. Saved on this device only.</p>
+<p class="cmf-h">Text size</p><div class="chips" role="group" aria-label="Text size"><button type="button" class="chip" data-size="normal">Normal</button><button type="button" class="chip" data-size="large">Large</button><button type="button" class="chip" data-size="xl">Extra large</button></div>
+<div class="cmf-rows"><label><span><b>Calmer screens</b><small class="muted">Turns off animations and movement</small></span><input type="checkbox" id="rmot"></label>
+<label><span><b>More contrast</b><small class="muted">Makes small grey text easier to read</small></span><input type="checkbox" id="hic"></label>
+<label><span><b>Show the Deb chat bubble</b><small class="muted">The round helper in the bottom corner</small></span><input type="checkbox" id="debon"></label></div></div>
+<script>(function(){var d=document.documentElement,box=document.getElementById("comfort");if(!box)return;
+function mark(){var s=d.getAttribute("data-text")||"normal";box.querySelectorAll("[data-size]").forEach(function(b){b.classList.toggle("on",b.dataset.size===s);b.setAttribute("aria-pressed",b.dataset.size===s);});document.getElementById("rmot").checked=d.getAttribute("data-motion")==="reduce";document.getElementById("hic").checked=d.getAttribute("data-contrast")==="high";}
+box.querySelectorAll("[data-size]").forEach(function(b){b.onclick=function(){var s=b.dataset.size;if(s==="normal")d.removeAttribute("data-text");else d.setAttribute("data-text",s);try{localStorage.setItem("textSize",s);}catch(e){}mark();};});
+document.getElementById("rmot").onchange=function(){if(this.checked)d.setAttribute("data-motion","reduce");else d.removeAttribute("data-motion");try{localStorage.setItem("reduceMotion",this.checked?"1":"0");}catch(e){}};var dbx=document.getElementById("debon");try{dbx.checked=localStorage.getItem("debOff")!=="1";}catch(e){dbx.checked=true;}dbx.onchange=function(){try{if(this.checked)localStorage.removeItem("debOff");else localStorage.setItem("debOff","1");}catch(e){}};document.getElementById("hic").onchange=function(){if(this.checked)d.setAttribute("data-contrast","high");else d.removeAttribute("data-contrast");try{localStorage.setItem("dContrast",this.checked?"high":"");}catch(e){}};mark();})();</script>
+<script>(function(){var m=document.querySelector("main");if(!m)return;var kids=[].slice.call(m.children).filter(function(k){return k.matches(".two,.card,details,form");});if(kids.length<6)return;
+var G={you:"You and sign-in",look:"Look and feel",menu:"Menu",ws:"Workspace",danger:"Danger zone"};
+function grp(k){var t=((k.querySelector("b")||{}).textContent||"")+" "+(k.id||"");if(k.id==="menu")return "menu";if(/Start over|Danger|danger/.test(t))return "danger";if(/vibe|Brand colours|Comfort|comfort|logo|Brand deck|How should Debut talk/i.test(t))return "look";if(/Connected|Industry|Workspace|Transfer|industry/.test(t))return "ws";return "you";}
+kids.forEach(function(k){k.dataset.g=grp(k);});
+var RANK=[/vibe/i,/Brand colours/,/logo/i,/Brand deck/,/talk/i,/Comfort/];kids.filter(function(k){return k.dataset.g==='look';}).sort(function(a,b){function r(k){var t=((k.querySelector('b')||{}).textContent||'')+' '+k.id;for(var i=0;i<RANK.length;i++)if(RANK[i].test(t))return i;return 9;}return r(a)-r(b);}).forEach(function(k){k.parentNode.appendChild(k);});
+var bar=document.createElement("div");bar.className="acct-tabs";bar.setAttribute("role","tablist");
+Object.keys(G).forEach(function(g){var b=document.createElement("button");b.type="button";b.className="acct-tab";b.dataset.g=g;b.textContent=G[g];b.setAttribute("role","tab");b.onclick=function(){show(g);};bar.appendChild(b);});
+kids[0].parentNode.insertBefore(bar,kids[0]);
+function show(g){kids.forEach(function(k){k.hidden=k.dataset.g!==g;});bar.querySelectorAll(".acct-tab").forEach(function(b){b.setAttribute("aria-selected",b.dataset.g===g?"true":"false");});try{sessionStorage.setItem("acctTab",g);}catch(e){}}
+var h=(location.hash||"").slice(1),start="you";try{start=sessionStorage.getItem("acctTab")||"you";}catch(e){}
+if(h){var el=document.getElementById(h);var host=el&&kids.filter(function(k){return k===el||k.contains(el);})[0];if(host)start=host.dataset.g;}
+show(start);if(h){var e2=document.getElementById(h);if(e2)setTimeout(function(){e2.scrollIntoView({block:"start"});},50);}})();</script>
+{% if request.args.get('cleared') %}<script>try{localStorage.removeItem('pal');document.documentElement.removeAttribute('data-pal');}catch(e){}</script>{% endif %}
+{% endblock %}

@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block body %}<div class="head"><h1>🔑 API key created</h1></div>
+<div class="card" style="max-width:720px"><p><b>Copy it now.</b> For security only a hash is stored, so it cannot be shown again. Scope: <span class="pill">{{ scope }}</span></p>
+<input readonly value="{{ key }}" onclick="this.select()" style="font-family:monospace">
+<p class="muted" style="margin-top:12px">Try it:</p><pre style="background:var(--pri2);padding:12px;border-radius:10px;overflow:auto">curl -H "Authorization: Bearer {{ key }}" {{ base }}/api/v1/leads</pre>
+<a class="btn" href="{{ url_for('ws.integrations') }}">Done</a></div>{% endblock %}

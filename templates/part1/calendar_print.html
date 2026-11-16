@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}{{ month }} plan — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="prt">
+<div class="prt-head noprint"><a class="btn ghost sm" href="{{ url_for('calendar_view', y=y, m=m) }}">← Back to the calendar</a>
+<button class="btn" onclick="window.print()">🖨️ Print this</button></div>
+<h1>{{ ws['name'] }} · {{ month }}</h1>
+<p class="muted">{{ n }} post{{ '' if n == 1 else 's' }} planned. Tick them off as they go out.</p>
+{% if not n and not tasks %}<p class="muted">Nothing planned this month yet. Open Ideas and press “Fill my calendar”.</p>{% endif %}
+<table class="prt-tbl"><tbody>
+{% for d in dates %}{% if days.get(d.isoformat()) or kd.get(d.isoformat()) %}
+<tr><th>{{ d.strftime('%a %d') }}</th>
+<td>{% for n2 in kd.get(d.isoformat(), []) %}<div class="prt-key">★ {{ n2 }}</div>{% endfor %}
+{% for it in days.get(d.isoformat(), []) %}<div class="prt-row"><span class="prt-box">☐</span> <b>{{ it['title'] }}</b>
+<span class="muted">{{ it['channel'] }}{% if it['format'] %} · {{ it['format'] }}{% endif %}{% if it['status'] %} · {{ it['status'] }}{% endif %}</span></div>{% endfor %}</td></tr>
+{% endif %}{% endfor %}
+</tbody></table>
+{% if tasks %}<h2>To do this month</h2>
+<ul class="prt-tasks">{% for t in tasks %}<li><span class="prt-box">☐</span> {{ t['title'] }} <span class="muted">· {{ t['due_date'] }}{% if t['assignee'] %} · {{ t['assignee'] }}{% endif %}</span></li>{% endfor %}</ul>{% endif %}
+<p class="prt-foot muted">Made with {{ C.APP_NAME }}</p>
+</div>
+{% endblock %}

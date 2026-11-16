@@ -20,6 +20,19 @@ def now_ist():
     return dt.datetime.now(IST)
 
 
+
+def day_start_utc():
+    """Midnight of today-in-India, written as the UTC timestamp the database stores.
+
+    created_at is CURRENT_TIMESTAMP, which SQLite and Postgres both write in UTC. Comparing it against
+    an Indian calendar date is wrong for the five and a half hours between IST midnight and UTC
+    midnight: between 00:00 and 05:30 IST every "once a day" check thinks it has never run today, and
+    sends again. This returns the right boundary to compare against.
+    """
+    start_ist = dt.datetime.combine(today(), dt.time.min, tzinfo=IST)
+    return start_ist.astimezone(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def today():
     """Today's date in India. The server runs in UTC, so a plain date.today() is still "yesterday" until 5:30 am IST."""
     return now_ist().date()
@@ -762,7 +775,7 @@ def morning_push():
 def client_approval_nudges():
     """Once a day: tell each client how many posts are waiting for their OK (in-app + push). Silent when none."""
     sent = 0
-    day = today().isoformat()
+    day = day_start_utc()
     for m in q("SELECT workspace_id, user_id, client_name FROM memberships WHERE role='client'"):
         cn = (m["client_name"] or "").strip()
         if not cn:

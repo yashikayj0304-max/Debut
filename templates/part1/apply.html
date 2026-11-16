@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% set bare = True %}{% block title %}Join {{ ws['name'] }}'s creator network{% endblock %}{% block body %}
+<div style="max-width:640px;margin:0 auto"><h1>✍️ Join {{ ws['name'] }}'s creator network</h1>
+{% if done %}<div class="flash">Thanks! Your application is in. We'll reach out if there's a fit.</div>
+{% else %}<p class="muted">Writers, designers, video editors, social managers: tell us about you.</p>
+<form method="post" class="card"><label>Full name<input name="name" required></label><label>Email<input type="email" name="email" required></label><label>Phone / WhatsApp<input name="phone"></label>
+<label>Skills (comma separated)<input name="skills" placeholder="{{ skills_hint }}" required></label><label>Niches / industries<input name="niches"></label><label>Languages<input name="languages"></label>
+<label>City<input name="city"></label><label>Portfolio link<input name="portfolio_url"></label><label>Expected rate (e.g. ₹1.5/word or ₹3000/piece)<input name="rate"></label>
+<label>Anything else<textarea name="notes" rows="3"></textarea></label><div style="position:absolute;left:-9999px" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
+<button class="btn">Apply</button></form>{% endif %}</div>
+{% endblock %}

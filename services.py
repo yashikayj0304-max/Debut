@@ -7,7 +7,7 @@ from flask import g, request, abort
 import config as C
 import db as D
 from db import q, ex, ins
-from modules import MODULES, CHECKLIST, FEEDS, KEY_DATES, OUTREACH, SEED_TABLES
+from modules import MODULES, CHECKLIST, KEY_DATES, OUTREACH, SEED_TABLES
 import industries as IND
 
 log = logging.getLogger("gtm")
@@ -77,6 +77,30 @@ def trial_days_left(ws):
 
 
 # ------------------------------------------------------------------ audit / email
+def rec_label(row, m=None):
+    """A short human name for a record: its first field (title, name, metric...)."""
+    try:
+        first = m["fields"][0][0] if m else None
+        for k in ([first] if first else []) + ["title", "name", "metric", "item", "handle", "text"]:
+            if k and k in row.keys() and row[k]:
+                return str(row[k])[:60]
+    except Exception:
+        pass
+    return ""
+
+
+def change_summary(m, old, data, limit=5):
+    """['Status: Planned → Scheduled', ...] for the fields that really changed."""
+    out = []
+    if not old:
+        return out
+    for n, label, _typ, _opts in m["fields"]:
+        if n in data and str(old[n] if old[n] is not None else "").strip() != str(data[n] if data[n] is not None else "").strip():
+            a, b = str(old[n] or "empty")[:30], str(data[n] or "empty")[:30]
+            out.append(f"{label}: {a} → {b}")
+    return out[:limit]
+
+
 def audit(action, detail="", wid=None, uid=None):
     try:
         ins("audit_log", dict(workspace_id=wid if wid is not None else (g.ws["id"] if g.get("ws") else None),
@@ -284,9 +308,9 @@ def client_members(wid, client_name):
 
 
 def apply_industry(wid, industry, personas=False, full=True):
-    """Add an industry's checklist items, key dates and news feeds (skipping ones already present). Optionally personas. Returns counts."""
+    """Add an industry's checklist items and key dates (skipping ones already present). Optionally personas. Returns counts."""
     ind = IND.get(industry)
-    n = dict(checklist=0, dates=0, feeds=0, personas=0)
+    n = dict(checklist=0, dates=0, personas=0)
     have = {r["item"] for r in q("SELECT item FROM launch_checklist WHERE workspace_id=?", (wid,))}
     for ph, items in ind["checklist"].items():
         for it in (items if full else items[:2]):      # new accounts get the two key steps per phase; the full list is one click away
@@ -294,20 +318,16 @@ def apply_industry(wid, industry, personas=False, full=True):
                 ins("launch_checklist", dict(workspace_id=wid, item=it, phase=ph, status="To do"))
                 n["checklist"] += 1
     y = today().year
-    have = {(r["name"], r["date"]) for r in q("SELECT name, date FROM key_dates WHERE workspace_id=?", (wid,))}
+    have = [(date_name_key(r["name"]), r["date"]) for r in q("SELECT name, date FROM key_dates WHERE workspace_id=?", (wid,))]
     horizon = (today() + dt.timedelta(days=400)).isoformat()
     for name, md, kind in ind["key_dates"]:
         for yy in (y, y + 1):
             if f"{yy}-{md}" < today().isoformat() or f"{yy}-{md}" > horizon:
                 continue      # only what is still ahead: a fresh account should not start with a year of past dates
-            if (name, f"{yy}-{md}") not in have:
+            if not date_seen(have, name, f"{yy}-{md}"):      # "Christmas" and "Christmas Day" are one date
                 ins("key_dates", dict(workspace_id=wid, name=name, date=f"{yy}-{md}", kind=kind))
+                have.append((date_name_key(name), f"{yy}-{md}"))
                 n["dates"] += 1
-    have = {r["url"] for r in q("SELECT url FROM feeds WHERE workspace_id=?", (wid,))}
-    for name, url, cat in ind["feeds"]:
-        if url not in have:
-            ins("feeds", dict(workspace_id=wid, name=name, url=url, category=cat))
-            n["feeds"] += 1
     if personas:
         have = {r["name"] for r in q("SELECT name FROM personas WHERE workspace_id=?", (wid,))}
         for p in ind["personas"]:
@@ -328,13 +348,36 @@ def seed_watch(wid, industry):
     return n
 
 
+def date_name_key(name):
+    """'Christmas Day', "Christmas" and 'christmas' all become 'christmas', so one date is not listed twice."""
+    n = re.sub(r"[^a-z0-9 ]", "", (name or "").lower().replace("'", ""))
+    n = re.sub(r"\b(day|eve|festival|public holiday|india)\b", " ", n)
+    return re.sub(r"\s+", " ", n).strip()
+
+
+def date_seen(have, name, date):
+    k = date_name_key(name)
+    return any(d == date and (n == k or (n and k and (n.startswith(k) or k.startswith(n)))) for n, d in have)
+
+
+def dedupe_key_dates(wid):
+    """Drops repeats of the same date under near-identical names, keeping the first one added."""
+    rows = q("SELECT id, name, date FROM key_dates WHERE workspace_id=? ORDER BY id", (wid,))
+    kept, gone = [], 0
+    for r in rows:
+        if date_seen(kept, r["name"], r["date"]):
+            ex("DELETE FROM key_dates WHERE id=? AND workspace_id=?", (r["id"], wid))
+            gone += 1
+        else:
+            kept.append((date_name_key(r["name"]), r["date"]))
+    return gone
+
+
 def seed_workspace(wid, industry="general", kit=False):
     if not (kit and (IND.get(industry) or {}).get("checklist")):      # an industry kit brings its own checklist; do not stack two
         for ph, items in CHECKLIST.items():
             for it in items[:2]:
                 ins("launch_checklist", dict(workspace_id=wid, item=it, phase=ph, status="To do"))
-    for n, u, c in FEEDS:
-        ins("feeds", dict(workspace_id=wid, name=n, url=u, category=c))
     y = today().year
     horizon = (today() + dt.timedelta(days=400)).isoformat()
     for name, md, kind in KEY_DATES:
@@ -559,9 +602,19 @@ def run_due_jobs():
     """What the built-in scheduler runs every minute: due reminders always; the morning round from 9:00 IST and the evening streak saver from 20:00 IST, once a day each."""
     now = now_ist()
     out = {"reminders": fire_due_reminders()}
+    try:
+        import social as _social
+        out["published"] = _social.publish_due()          # send anything whose scheduled time has come
+    except Exception:
+        log.exception("publish_due failed")
     day = now.strftime("%Y-%m-%d")
     if now.hour >= 9 and claim_job("morning", day):
         out["digests"], out["pushes"], out["nudges"] = send_digests(), morning_push(), client_approval_nudges()
+        try:
+            import social as _soc
+            out["insights"] = _soc.refresh_all()          # yesterday's numbers, brought in once a day
+        except Exception:
+            log.exception("insights refresh failed")
     if now.hour >= 20 and claim_job("evening", day):
         out["evening"] = evening_push()
     return out

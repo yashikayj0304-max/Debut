@@ -82,7 +82,7 @@ def locked(key):
 def landing():
     if g.user:
         return redirect(url_for("dashboard"))
-    return render_template("landing.html", plans=C.PLANS, mods=MODULES, inds=[IND.INDUSTRIES[k] for k in IND.ORDER if k != "general"])
+    return render_template("landing.html", plans=C.PLANS, mods=MODULES, inds=[IND.INDUSTRIES[k] for k in IND.ORDER if k != "general"], demo_inds=[(k, IND.INDUSTRIES[k]) for k in IND.ORDER if k != "general"])
 
 
 @route("/demo")
@@ -108,24 +108,91 @@ def pricing():
     return render_template("pricing.html", plans=C.PLANS)
 
 
-TEMPLATES_GALLERY = [
-    ("🪔", "Diwali campaign plan", "Gifting, offers and countdown posts across 3 weeks.", "Festive"),
-    ("🚀", "Product launch in 30 days", "Teasers, launch day, follow-ups and a results check.", "Launch"),
-    ("🤝", "Creator collab brief", "Deliverables, dates, usage rights and a posting schedule.", "Creators"),
-    ("🛍️", "Sale weekend sprint", "Offer, creatives, email, ads and a last-call push.", "Sales"),
-    ("🎬", "Reels batch week", "Plan, shoot and schedule 10 reels in one go.", "Content"),
-    ("📬", "Newsletter launch", "Name, first 4 issues and a sign-up push.", "Email"),
-]
 CHANGELOG = [
-    ("November 2026", ["Shortcuts: N new post, T today, G then C calendar", "New About and Channels pages", "Marketing pages stay in the public layout when you are signed in", "Phone agenda shows full channel names", "Late posts: move or park them in one tap", "Auto top-up when your calendar runs low", "AI follows your brand voice, in English, Hinglish or Hindi", "Plainer names: Launch plans, Tracking links, Team cheers"]),
-    ("This week", ["Plans: compare dialog, yearly toggle and a Spark plan", "Agency enquiries go through a short form", "Add your calendar to Google Calendar in one tap", "Pick your vibe: palettes now follow your account"]),
-    ("Earlier", ["Idea Bank, Team hub and Content ops dashboards", "Bold headline bands and big-number tiles", "Undo and duplicate on every list"]),
+    ("This week", [
+        "Post straight to Instagram, Facebook and LinkedIn — schedule it, and Debut sends it",
+        "Your Instagram numbers come back on their own: followers, reach, and how each post did",
+        "“How did it do?” — three taps after a post, and Debut learns what works for your business",
+        "Templates build the whole plan: pick the date and the posts and tasks land on your calendar",
+        "Reels get a shoot sheet: every shot, its seconds, what to film and what to say",
+        "“Before you post” checks the caption hook, the hashtags, the ask and the file",
+        "Use a post again elsewhere: carousel, story, LinkedIn or newsletter in one tap",
+        "Ask for reviews: a short link, a QR code for the counter and a count of who you asked",
+        "Print the month: one page for the wall, with tick boxes",
+        "हिन्दी: the menu, the bottom bar and the main buttons",
+        "Drafts survive a bad connection, and are offered back rather than lost",
+    ]),
+    ("Earlier this month", [
+        "Plan my month in one tap, from the Idea Bank",
+        "Do this again: repeat any post next week, next month or next year",
+        "A suggested time to post, by industry, then by what you actually do",
+        "A menu you can cut down to only what you use",
+        "Link page for your Instagram bio, with visits and taps counted into Leads",
+        "Instagram grid planner, and a full activity log of every change",
+    ]),
+    ("Earlier", ["Idea Bank, Team hub and Content ops dashboards", "Bold headline bands and big-number tiles",
+                 "Undo and duplicate on every list"]),
 ]
 
 
 @route("/templates")
 def templates_gallery():
-    return render_template("templates_gallery.html", items=TEMPLATES_GALLERY)
+    """Signed in, these are real: one tap puts the whole campaign on the calendar. Signed out, it is
+    still the shop window, but what it promises now exists."""
+    import playbooks as P
+    return render_template("templates_gallery.html", books=P.PLAYBOOKS,
+                           summary=P.summary, today=S.today().isoformat())
+
+
+@route("/templates/use/<key>", methods=["POST"])
+def templates_use(key):
+    """Build a template's campaign, posts and tasks around the date the person picked."""
+    import playbooks as P
+    p = P.BY_KEY.get(key)
+    if not p:
+        abort(404)
+    if g.role not in ("owner", "admin", "lead", "manager"):
+        abort(403)
+    try:
+        day = dt.date.fromisoformat((request.form.get("date") or "")[:10])
+    except ValueError:
+        flash("Pick the date first, then press Use this.")
+        return redirect(url_for("templates_gallery"))
+    m = mod("content_items")
+    opts = {x[0]: x[3] for x in m["fields"] if x[2] == "select" and len(x) > 3}
+    camp_name = f"{p['title']} · {day.strftime('%b %Y')}"
+    made_posts = made_tasks = 0
+    room = g.plan["records"] - S.record_count(W())
+    if room <= 0:
+        flash("You're at your plan's record limit, so I can't add this template.")
+        return redirect(url_for("templates_gallery"))
+    try:
+        ins("campaigns", dict(workspace_id=W(), name=camp_name, status="Planning",
+                              start_date=(day + dt.timedelta(days=min(i[0] for i in p["items"]))).isoformat(),
+                              end_date=(day + dt.timedelta(days=max(i[0] for i in p["items"]))).isoformat(),
+                              brief=p["desc"]))
+    except Exception:
+        camp_name = ""
+    for offset, kind, title, channel, fmt in p["items"]:
+        if made_posts + made_tasks >= room - 1:
+            flash("You hit your plan's record limit part-way, so only some of the template was added.")
+            break
+        when = (day + dt.timedelta(days=offset)).isoformat()
+        if kind == "task":
+            ins("tasks", dict(workspace_id=W(), title=title[:200], status="To do", due_date=when,
+                              assignee=g.user["name"] or "", priority="Medium",
+                              description=f"From the {p['title']} template"[:200]))
+            made_tasks += 1
+        else:
+            ins("content_items", dict(workspace_id=W(), title=title[:200], status="Planned", publish_date=when,
+                                      channel=channel if channel in (opts.get("channel") or []) else "Other",
+                                      format=fmt if fmt in (opts.get("format") or []) else "Post",
+                                      campaign=camp_name, notes=f"From the {p['title']} template"[:200]))
+            made_posts += 1
+    S.audit("template_use", f"{p['title']} around {day.isoformat()}: {made_posts} posts, {made_tasks} tasks")
+    flash(f"{p['title']} is on your calendar: {made_posts} posts and {made_tasks} tasks, "
+          f"from {(day + dt.timedelta(days=min(i[0] for i in p['items']))).strftime('%d %b')}. \U0001f4c5")
+    return redirect(url_for("calendar_view", d=day.isoformat()))
 
 
 @route("/cron/morning")
@@ -202,12 +269,14 @@ def reminder_snooze(rid):
 
 @route("/reminders/<int:rid>/delete", methods=["POST"])
 def reminder_delete(rid):
+    S.audit("reminder_delete", f"reminder#{rid}")
     ex("DELETE FROM reminders WHERE id=? AND user_id=? AND workspace_id=?", (rid, g.user["id"], W()))
     return redirect(request.referrer or url_for("reminders_page"))
 
 
 @route("/reminders/<int:rid>/done", methods=["POST"])
 def reminder_done(rid):
+    S.audit("reminder_done", f"reminder#{rid}")
     ex("UPDATE reminders SET done=1 WHERE id=? AND user_id=? AND workspace_id=?", (rid, g.user["id"], W()))
     return redirect(request.referrer or url_for("dashboard"))
 
@@ -331,12 +400,13 @@ def health():
 
 @route("/glossary")
 def glossary():
-    return render_template("glossary.html", terms=GLOSSARY)
+    """The jargon buster lives inside Help now - one place to look things up, not two."""
+    return redirect(url_for("help_centre") + "#glossary")
 
 
 @route("/help")
 def help_centre():
-    return render_template("help.html")
+    return render_template("help.html", terms=GLOSSARY)
 
 
 @route("/contact")
@@ -610,6 +680,8 @@ LIST_LAYOUT = {"leads": "people", "influencers": "people", "personas": "people",
 @route("/m/<key>")
 def m_list(key):
     m = mod(key)
+    if key == "key_dates" and g.role not in ("viewer", "client"):
+        S.dedupe_key_dates(W())      # "Christmas" and "Christmas Day" are one date
     hidden = HIDDEN_FOR_CREATOR.get(key, set()) if g.role == "creator" else set()
     gap_banner = None
     if key in GAP_BANNER_KEYS:
@@ -823,7 +895,9 @@ def m_save(key):
         data["status"] = gate_status(key, data["status"], old["status"] if old else "")
     if rid:
         ex(f"UPDATE {key} SET " + ",".join(f"{qi(n)}=?" for n in data) + " WHERE id=? AND workspace_id=?", list(data.values()) + [rid, W()])
-        S.audit("update", f"{key}#{rid}")
+        chg = S.change_summary(m, old, data)
+        moved = any(c.split(":")[0] in ("Status", "Stage", "Publish date", "Due date", "Date") for c in chg)
+        S.audit("move" if moved else "update", f"{key}#{rid} “{S.rec_label(data or old, m) or S.rec_label(old, m)}”" + (": " + "; ".join(chg) if chg else ""))
     else:
         if S.record_count(W()) >= g.plan["records"]:
             flash(f"You've reached the {g.plan['name']} plan limit of {g.plan['records']} items." + C.upsell(g.plan_key, "records", "records", "items") + " You can still edit, delete or export.")
@@ -835,7 +909,7 @@ def m_save(key):
         if g.role == "creator" and CREATOR_OWN.get(key) and not (data.get(CREATOR_OWN[key]) or "").strip():
             data[CREATOR_OWN[key]] = g.user["name"] or g.user["email"]
         rid = ins(key, data)
-        S.audit("create", f"{key}#{rid}")
+        S.audit("create", f"{key}#{rid} “{S.rec_label(data, m)}”")
         first_win = FIRST_WINS.get(key) if q(f"SELECT COUNT(*) c FROM {key} WHERE workspace_id=?", (W(),), one=True)["c"] == 1 else None
     changed_hooks(key, rid, m, data, old)
     if first_win:
@@ -851,12 +925,192 @@ def m_delete(key, rid):
     mod(key)
     row = row_or_404(key, rid)
     ex(f"DELETE FROM {key} WHERE id=? AND workspace_id=?", (rid, W()))
-    S.audit("delete", f"{key}#{rid}")
+    S.audit("delete", f"{key}#{rid} “{S.rec_label(row, mod(key))}”")
     snap = {k: row[k] for k in row.keys() if k not in ("id", "workspace_id") and row[k] is not None}
     if len(json.dumps(snap, default=str)) < 2500:      # keep the cookie small; bigger records just can't be undone
         session["undo"] = {"key": key, "row": snap, "w": W()}
     flash("Deleted. 🗑️")
     return redirect(safe_next(url_for("m_list", key=key)))
+
+
+# Dates a copied record should move on to, so "repeat this" needs no typing for the usual cases.
+REPEAT_WHEN = {"week": 7, "month": 30, "year": 365}
+
+
+@route("/m/<key>/<int:rid>/repeat", methods=["POST"])
+def m_repeat(key, rid):
+    """Copy a record onto a later date. Small businesses post the same things every year - the Diwali
+    offer, the Monday reminder - and retyping them is the most common bit of pointless work in the app."""
+    m = mod(key)
+    if g.role in ("viewer", "client"):
+        abort(403)
+    row = row_or_404(key, rid)
+    date_field = next((f[0] for f in m["fields"] if f[2] == "date"), None)
+    when = (request.form.get("when") or "week").strip()
+    data = {f[0]: (row[f[0]] or "") for f in m["fields"] if f[0] in row.keys()}
+    label = S.rec_label(row, m)
+    if date_field:
+        try:
+            base = dt.date.fromisoformat((row[date_field] or "")[:10])
+        except ValueError:
+            base = S.today()
+        if when in REPEAT_WHEN:
+            new_date = base + dt.timedelta(days=REPEAT_WHEN[when])
+            while new_date <= S.today():                 # a copy of something old still lands in the future
+                new_date += dt.timedelta(days=REPEAT_WHEN[when])
+        else:
+            try:
+                new_date = dt.date.fromisoformat(when[:10])
+            except ValueError:
+                new_date = S.today() + dt.timedelta(days=7)
+        data[date_field] = new_date.isoformat()
+    if "status" in data:
+        data["status"] = "Idea" if key == "content_items" else data["status"]
+    data["workspace_id"] = W()
+    new_id = ins(key, data)
+    S.audit("repeat", f"{key}#{rid} \u2192 #{new_id} \u201c{label}\u201d")
+    flash(f"Copied. The new one is on {data.get(date_field, 'your list') if date_field else 'your list'} \u2014 edit it below. \U0001f501")
+    return redirect(url_for("m_edit", key=key, rid=new_id))
+
+
+# Posting rhythms people actually keep. Used to spread a batch of ideas across the coming weeks
+# instead of dropping them all on one day.
+
+# Posts that work for any business, whatever it sells. Used to top up "Plan my month" when an
+# industry's own idea list is short - asking for 8 posts and getting 3 is a broken promise.
+EVERGREEN_IDEAS = [
+    ("Trust", "Behind the scenes: how we actually make this", "Instagram", "Reel / Short"),
+    ("Trust", "Meet the team: one person, one question", "Instagram", "Post"),
+    ("Proof", "A customer in their own words", "Instagram", "Post"),
+    ("Proof", "Before and after, with the honest details", "Instagram", "Carousel"),
+    ("Teach", "The one mistake people make, and what to do instead", "Instagram", "Reel / Short"),
+    ("Teach", "Answering the question we get asked every week", "Instagram", "Carousel"),
+    ("Teach", "Three things worth knowing before you buy", "Instagram", "Carousel"),
+    ("Offer", "What's new this month", "Instagram", "Post"),
+    ("Offer", "A reason to come in this week", "WhatsApp", "Post"),
+    ("Story", "Why we started, and what we refuse to change", "Instagram", "Post"),
+    ("Story", "A day in the life here", "Instagram", "Story"),
+    ("Ask", "Ask the audience: which of these two should we do next?", "Instagram", "Story"),
+]
+
+FILL_RHYTHM = {"2": 3, "3": 2, "5": 1}            # posts per week -> days between posts
+
+
+@route("/m/content_items/<int:rid>/rate", methods=["POST"])
+def content_rate(rid):
+    """Three taps, three days after a post goes out. Over a month this is better evidence about what
+    works for this business than anything its industry average can tell it."""
+    if g.role in ("viewer", "client"):
+        abort(403)
+    import learn as L
+    row_or_404("content_items", rid)
+    if not L.rate(W(), rid, (request.form.get("rating") or "").strip(), g.user["id"]):
+        abort(400)
+    w = L.what_works(W())
+    flash("Noted. " + (L.headline(W()) if w["n"] else "") or "Noted.")
+    return redirect(_next_or(url_for("m_edit", key="content_items", rid=rid)))
+
+
+def _next_or(default):
+    return safe_next(default)
+
+
+@route("/m/content_items/<int:rid>/repurpose", methods=["POST"])
+def content_repurpose(rid):
+    """One piece of work, placed again somewhere else. The idea was the hard part; the reformatting
+    should not cost another evening."""
+    if g.role in ("viewer", "client"):
+        abort(403)
+    import reels as R
+    row = row_or_404("content_items", rid)
+    to = (request.form.get("to") or "").strip()
+    if to not in R.REPURPOSE:
+        abort(400)
+    fmt, channel, how = R.REPURPOSE[to]
+    if S.record_count(W()) >= g.plan["records"]:
+        flash("You're at your plan's record limit, so I can't add this.")
+        return redirect(url_for("m_edit", key="content_items", rid=rid))
+    m = mod("content_items")
+    opts = {x[0]: x[3] for x in m["fields"] if x[2] == "select" and len(x) > 3}
+    try:
+        when = (dt.date.fromisoformat((row["publish_date"] or "")[:10]) + dt.timedelta(days=3)).isoformat()
+    except ValueError:
+        when = (S.today() + dt.timedelta(days=3)).isoformat()
+    nid = ins("content_items", dict(
+        workspace_id=W(), title=f"{row['title']} ({to.lower()})"[:200], status="Idea", publish_date=when,
+        channel=channel if channel in (opts.get("channel") or []) else "Other",
+        format=fmt if fmt in (opts.get("format") or []) else "Post",
+        campaign=row["campaign"] or "", client=row["client"] or "", persona=row["persona"] or "",
+        copy=row["copy"] or "", cta=row["cta"] or "", hashtags=row["hashtags"] or "",
+        notes=f"Repurposed from “{S.rec_label(row, m)}”. {how}"[:300]))
+    S.audit("repurpose", f"content_items#{rid} \u2192 #{nid} as {to}")
+    flash(f"Made a {to.lower()} from it. {how} \u267b")
+    return redirect(url_for("m_edit", key="content_items", rid=nid))
+
+
+@route("/m/content_items/<int:rid>/shotlist", methods=["POST"])
+def content_shotlist(rid):
+    """Put the shoot sheet into the post's own notes, so it is there on the day without re-opening Debut."""
+    if g.role in ("viewer", "client"):
+        abort(403)
+    import reels as R
+    row = row_or_404("content_items", rid)
+    secs = request.form.get("secs", type=int) or 30
+    plan = R.shot_list(row["title"], row["copy"] or "", secs)
+    text = R.as_text(row["title"], plan)
+    notes = (row["notes"] or "").strip()
+    ex("UPDATE content_items SET notes=? WHERE id=? AND workspace_id=?",
+       ((notes + "\n\n" + text).strip()[:4000], rid, W()))
+    S.audit("shotlist", f"content_items#{rid} {plan['seconds']}s")
+    flash("Shoot sheet saved into this post's notes. 🎬")
+    return redirect(url_for("m_edit", key="content_items", rid=rid))
+
+
+@route("/ideas/fill", methods=["POST"])
+def ideas_fill():
+    """Turn a pile of ideas into a planned month in one tap. The Idea Bank was already producing good
+    ideas; what was missing was a way to get them onto the calendar without doing it one at a time."""
+    if g.role not in ("owner", "admin", "lead", "manager"):
+        abort(403)
+    ind = IND.get(g.ws["industry"]) or {}
+    per_week = request.form.get("per_week", "3")
+    gap = FILL_RHYTHM.get(per_week, 2)
+    want = max(1, min(request.form.get("n", type=int) or 8, 20))
+    m = mod("content_items")
+    opts = {x[0]: x[3] for x in m["fields"] if x[2] == "select" and len(x) > 3}
+    have = {(r["title"] or "").strip().lower() for r in q("SELECT title FROM content_items WHERE workspace_id=?", (W(),))}
+    day = S.today() + dt.timedelta(days=1)
+    made = 0
+    pool = list(ind.get("ideas") or [])
+    try:                                           # then what is actually coming up: festivals, sales, key dates
+        import studio as _st
+        for s in _st.suggestions(W(), g.ws["industry"], S.today()):
+            ch = (s.get("channels") or [{}])[0].get("channel") or "Instagram"
+            pool.append(("What's coming up", s.get("title") or "", ch, "Post"))
+    except Exception:
+        pass
+    pool += EVERGREEN_IDEAS                        # last resort, so you always get the number you asked for
+    for pillar, title, ch, fmt in pool:
+        if made >= want:
+            break
+        if S.record_count(W()) >= g.plan["records"]:
+            flash("You're at your plan's record limit, so I stopped there.")
+            break
+        if (title or "").strip().lower() in have:                 # never plan the same idea twice
+            continue
+        while day.weekday() == 6:                                 # keep Sundays free
+            day += dt.timedelta(days=1)
+        ins("content_items", dict(workspace_id=W(), title=title[:200], status="Planned", publish_date=day.isoformat(),
+                                  channel=ch if ch in (opts.get("channel") or []) else "Other",
+                                  format=fmt if fmt in (opts.get("format") or []) else "Post",
+                                  notes=f"Idea pillar: {pillar}"[:200]))
+        have.add((title or "").strip().lower())
+        made += 1
+        day += dt.timedelta(days=gap)
+    S.audit("ideas_fill", f"{made} posts planned")
+    flash(f"{made} posts planned, {per_week} a week. Open any one to write the caption. \U0001f4c5" if made
+          else "Every idea here is already on your calendar. \U0001f389")
+    return redirect(safe_next(url_for("calendar_view")))
 
 
 @route("/ideas/schedule", methods=["POST"])
@@ -906,13 +1160,15 @@ def set_palette():
 
 @route("/account/focus", methods=["POST"])
 def set_focus():
-    """Choose which sections the sidebar shows first. Empty means show everything."""
+    """Profile > Menu: which sections the sidebar shows. Everything stays one search away, nothing is deleted."""
     from hubs import clean_focus
-    pick = request.form.getlist("focus") if not request.is_json else (request.get_json(silent=True) or {}).get("focus", [])
-    val = "" if request.form.get("all") else clean_focus(pick)
+    if request.form.get("all"):
+        val = ""
+    else:
+        val = clean_focus(request.form.getlist("hub"), more=bool(request.form.get("more")))
     ex("UPDATE users SET focus=? WHERE id=?", (val, g.user["id"]))
-    flash("Menu updated. Hidden sections are under More tools." if val else "Showing every section.")
-    return redirect(request.referrer or url_for("ws.account"))
+    flash("Menu saved. Anything you hid is still one search away (Ctrl+K)." if val else "Menu reset: every section is showing.")
+    return redirect(url_for("ws.account") + "#menu")
 
 
 @route("/m/undo", methods=["POST"])
@@ -1215,6 +1471,7 @@ def m_status(key, rid):
     if field == "status":
         v = gate_status(key, v, row["status"])
     ex(f"UPDATE {key} SET {qi(field)}=? WHERE id=? AND workspace_id=?", (v, rid, W()))
+    S.audit("move", f"{key}#{rid} “{S.rec_label(row, m)}”: {field} {row[field] or 'empty'} → {v}")
     if field == "status":
         changed_hooks(key, rid, m, {"status": v}, row)
         if key == "content_items" and v == "Published" and row["status"] != "Published":
@@ -1411,7 +1668,7 @@ GLOSSARY = [
 # Plain-English words people actually type when they are looking for a tool (not the tool's own name).
 TOOL_WORDS = {
     "content_items": "post posts reel reels caption blog video instagram schedule publish write", "tasks": "todo to-do task work checklist deadline",
-    "campaigns": "campaign ads ad budget promote", "leads": "lead customers enquiries inquiry sales prospects crm", "kpis": "results numbers metrics performance kpi stats",
+    "reviews": "review google maps rating stars word of mouth qr", "templates": "template playbook plan campaign diwali launch sale starter", "publishing": "instagram post publish auto schedule insta facebook", "campaigns": "campaign ads ad budget promote", "leads": "lead customers enquiries inquiry sales prospects crm", "kpis": "results numbers metrics performance kpi stats",
     "gtm_plans": "launch plan strategy gtm go to market", "personas": "audience customer icp persona who buys", "competitors": "rivals competition competitor battlecard",
     "brand_kit": "logo colours colors fonts voice brand tone", "launch_checklist": "launch checklist steps", "influencers": "influencer creator collab outreach dm",
     "payments": "invoice invoices payout pay money payment", "utm_links": "utm tracking link links track clicks", "keywords": "seo keyword search google rank",
@@ -1466,9 +1723,40 @@ def search():
 
 
 # ----------------------------------------------------------------- calendar
+@route("/calendar/print")
+def calendar_print():
+    """One page you can stick near the till. Plenty of small businesses still work off paper, and a
+    plan on the wall is seen by everyone in the shop, not just whoever has the app."""
+    w, today = W(), S.today()
+    try:
+        y = int(request.args.get("y") or today.year)
+        mth = int(request.args.get("m") or today.month)
+        first = dt.date(y, mth, 1)
+    except (ValueError, OverflowError):
+        abort(400)
+    last = (first + dt.timedelta(days=32)).replace(day=1) - dt.timedelta(days=1)
+    _c, _ca = cscope("content_items")
+    rows = q(f"""SELECT * FROM content_items WHERE workspace_id=? AND {_c} AND publish_date BETWEEN ? AND ?
+                 ORDER BY publish_date, id""", [w, *_ca, first.isoformat(), last.isoformat()])
+    days = {}
+    for r in rows:
+        days.setdefault(r["publish_date"], []).append(r)
+    dates = [first + dt.timedelta(days=i) for i in range((last - first).days + 1)]
+    kd = {}
+    for r in q("SELECT * FROM key_dates WHERE workspace_id=? AND date BETWEEN ? AND ?",
+               (w, first.isoformat(), last.isoformat())):
+        kd.setdefault(r["date"], []).append(r["name"])
+    tasks = q("""SELECT * FROM tasks WHERE workspace_id=? AND due_date BETWEEN ? AND ? AND status<>'Done'
+                 ORDER BY due_date""", (w, first.isoformat(), last.isoformat()))
+    return render_template("calendar_print.html", dates=dates, days=days, kd=kd, tasks=tasks,
+                           month=first.strftime("%B %Y"), y=y, m=mth, n=len(rows), bare=True)
+
+
 @route("/calendar")
 def calendar_view():
     w, today = W(), S.today()
+    if g.role not in ("viewer", "client"):
+        S.dedupe_key_dates(w)
     sel = today
     try:
         if request.args.get("d"):
@@ -1537,6 +1825,14 @@ def ics_feed(token):
         lines += ["BEGIN:VEVENT", f"UID:content-{r['id']}@{C.APP_NAME.replace(' ', '').lower()}", f"DTSTAMP:{dt.datetime.now(dt.timezone.utc):%Y%m%dT%H%M%SZ}",
                   f"DTSTART;VALUE=DATE:{d:%Y%m%d}", f"DTEND;VALUE=DATE:{d + dt.timedelta(days=1):%Y%m%d}",
                   f"SUMMARY:{esc((r['channel'] or '') + ' - ' + (r['title'] or ''))}", f"DESCRIPTION:{esc((r['status'] or '') + ' | ' + (r['copy'] or '')[:300])}", "END:VEVENT"]
+    for r in q("SELECT * FROM tasks WHERE workspace_id=? AND due_date!='' AND status NOT IN ('Done','Cancelled') ORDER BY due_date LIMIT 1000", (w,)):      # deadlines that still need someone
+        try:
+            d = dt.date.fromisoformat(r["due_date"])
+        except ValueError:
+            continue
+        lines += ["BEGIN:VEVENT", f"UID:task-{r['id']}@{C.APP_NAME.replace(' ', '').lower()}", f"DTSTAMP:{dt.datetime.now(dt.timezone.utc):%Y%m%dT%H%M%SZ}",
+                  f"DTSTART;VALUE=DATE:{d:%Y%m%d}", f"DTEND;VALUE=DATE:{d + dt.timedelta(days=1):%Y%m%d}",
+                  f"SUMMARY:{esc('Task - ' + (r['title'] or ''))}", f"DESCRIPTION:{esc((r['assignee'] or '') + ' | ' + (r['status'] or ''))}", "END:VEVENT"]
     lines.append("END:VCALENDAR")
     return Response("\r\n".join(lines), mimetype="text/calendar")
 
@@ -1558,8 +1854,9 @@ def api_reschedule():
     except ValueError:
         return jsonify(error="bad date"), 400
     rid = S.to_int(d.get("id")) or abort(400)
-    row_or_404("content_items", rid)
+    row = row_or_404("content_items", rid)
     ex("UPDATE content_items SET publish_date=? WHERE id=? AND workspace_id=?", (date, rid, W()))
+    S.audit("move", f"content_items#{rid} “{S.rec_label(row)}”: publish date {row['publish_date'] or 'empty'} → {date}")
     return jsonify(ok=True)
 
 
@@ -1940,68 +2237,6 @@ def media(wid, name):
 
 
 # ----------------------------------------------------------------- latest updates (RSS/Atom)
-_cache = {}
-
-
-def _txt(d, *names):
-    for n in names:
-        e = d.get(n)
-        if e is not None and (e.text or "").strip():
-            return e.text.strip()
-    return ""
-
-
-def parse_feed(xml, source, cat):
-    out = []
-    try:
-        root = ET.fromstring(xml)
-    except ET.ParseError:
-        return out
-    for it in root.iter():
-        if it.tag.split("}")[-1] not in ("item", "entry"):
-            continue
-        d = {c.tag.split("}")[-1]: c for c in it}
-        link = ""
-        if d.get("link") is not None:
-            link = d["link"].get("href") or (d["link"].text or "")
-        link = S.clean_url(link.strip())
-        raw, ts = _txt(d, "pubDate", "published", "updated", "date"), 0.0
-        try:
-            ts = parsedate_to_datetime(raw).timestamp()
-        except Exception:
-            try:
-                ts = dt.datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp()
-            except Exception:
-                pass
-        desc = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", _txt(d, "description", "summary", "content"))).strip()[:280]
-        out.append(dict(title=_txt(d, "title")[:200], url=link, source=source, category=cat, ts=ts,
-                        date=dt.datetime.fromtimestamp(ts).strftime("%d %b %Y") if ts else "", summary=desc))
-    return out[:15]
-
-
-def fetch_all(wid, force=False):
-    c = _cache.get(wid)
-    if c and not force and dt.datetime.now().timestamp() - c["t"] < 900:
-        return c
-    feeds = [dict(r) for r in q("SELECT * FROM feeds WHERE workspace_id=? ORDER BY id LIMIT 25", (wid,))]
-    items, errors = [], []
-
-    def one(fd):
-        try:
-            return parse_feed(S.safe_get(fd["url"]), fd["name"], fd["category"]), None
-        except Exception as e:
-            return [], f"{fd['name']}: {type(e).__name__}"
-
-    with ThreadPoolExecutor(8) as pool:
-        for res, err in pool.map(one, feeds):
-            items += res
-            if err:
-                errors.append(err)
-    items.sort(key=lambda i: i["ts"], reverse=True)
-    c = _cache[wid] = dict(t=dt.datetime.now().timestamp(), items=items, errors=errors)
-    return c
-
-
 @route("/updates/save", methods=["POST"])
 def updates_save():
     url = S.clean_url(request.form.get("url", ""))
@@ -2175,7 +2410,9 @@ def analytics():
         hit = [c["name"] for c in cards if c["pct"] is not None and c["pct"] > 100]
         if hit:
             working.append("Over target: " + ", ".join(hit[:3]) + ".")
-    return render_template("analytics.html", cards=cards, camps=camps, funnel=funnel, working=working, **_health_ctx())
+    import learn as _L
+    return render_template("analytics.html", works=_L.what_works(W()), works_line=_L.headline(W()),
+                           cards=cards, camps=camps, funnel=funnel, working=working, **_health_ctx())
 
 
 # ----------------------------------------------------------------- Marketing Health (KPIs + a single gap checklist, for a one-person marketing team)
@@ -2833,7 +3070,7 @@ def lead_form(slug):
             if not f.get("consent") or not (f.get("email") or f.get("phone")):
                 flash("Add an email or phone number and tick the consent box, then we are good.")
                 return render_template("lead_form.html", ws=ws, done=False, bare=True, hide_chrome=True, form=f), 400
-            _add_lead(ws, f, "Website form", consent=True)
+            _add_lead(ws, f, "Link in bio" if request.args.get("src") == "bio" else "Website form", consent=True)
         done = True
     return render_template("lead_form.html", ws=ws, done=done, bare=True, hide_chrome=True, form={})
 
@@ -3147,12 +3384,13 @@ def pulse_holidays():
     except Exception:
         flash("Could not fetch holidays right now. That country might not be covered, or try again in a bit.")
         return redirect(url_for("pulse_page"))
-    have = {(r["name"], r["date"]) for r in q("SELECT name, date FROM key_dates WHERE workspace_id=?", (W(),))}
+    have = [(S.date_name_key(r["name"]), r["date"]) for r in q("SELECT name, date FROM key_dates WHERE workspace_id=?", (W(),))]
     n = 0
     for h in days[:60]:
         nm, dte = S.clean_text(h["name"], 120), S.clean_text(h["date"], 10)
-        if nm and re.match(r"^\d{4}-\d{2}-\d{2}$", dte) and (nm, dte) not in have:
+        if nm and re.match(r"^\d{4}-\d{2}-\d{2}$", dte) and not S.date_seen(have, nm, dte):      # "Christmas" and "Christmas Day" are one date
             ins("key_dates", dict(workspace_id=W(), name=nm, date=dte, kind="Festival"))
+            have.append((S.date_name_key(nm), dte))
             n += 1
     S.audit("holidays_import", f"{country} {year} x{n}")
     flash(f"Added {n} public holiday(s) for {dict(HOLIDAY_COUNTRIES)[country]} {year} to your Key Dates." if n else "Those holidays are already in your Key Dates.")

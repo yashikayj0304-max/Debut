@@ -141,8 +141,8 @@ def signup():
         user = q("SELECT * FROM users WHERE id=?", (uid,), one=True)
         wid = accept_invite(token, user) if inv else S.create_workspace(uid, wsname, industry, kit=bool(f.get("kit")))
         if not inv:
-            from hubs import clean_focus
-            ex("UPDATE users SET focus=? WHERE id=?", (clean_focus(request.form.getlist("focus")) or "content", uid))      # a new person starts with the short menu; "More tools" and "Edit menu" bring back the rest
+            from hubs import goals_to_focus
+            ex("UPDATE users SET focus=? WHERE id=?", (goals_to_focus(request.form.getlist("focus")) or "h:content", uid))      # a new person starts with the short menu; Profile > Menu brings back the rest
             if f.get("starter_posts"):
                 S.seed_suggested_posts(wid, industry)
         start_session(uid, wid)

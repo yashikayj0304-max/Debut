@@ -17,7 +17,6 @@ TAGS = {
  "kpis": ("Numbers that <b>matter</b>", "Log results and spot what is working."),
  "tasks": ("Small wins <b>add up</b>", "Tick it off and keep the streak alive."),
  "key_dates": ("Never miss a <b>moment</b>", "Festivals, launches and deadlines in one list."),
- "feeds": ("News on <b>your</b> terms", "Pick the sources you trust."),
  "clients": ("The people who <b>pay you</b>", "Every client and every detail."),
  "creators": ("Your creator <b>crew</b>", "Who is posting what, and when it is due."),
  "content_orders": ("Orders in, content <b>out</b>", "Track each brief through to delivery."),

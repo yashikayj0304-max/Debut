@@ -240,10 +240,36 @@ def _seed_riya(wid, viewer):
 SEEDERS = {"chai": _seed_chai, "neon": _seed_neon, "riya": _seed_riya}
 
 
+def industry_variant(key):
+    """A live sample workspace for any industry, so the landing page can show the visitor their own kind of business."""
+    import industries as IND
+    d = IND.INDUSTRIES.get(key)
+    if not d or key == "general":
+        return None
+    label = d["label"].split(" (")[0].split(" / ")[0]
+    return dict(slug=f"{key}-demo", name=f"Sample {label} (demo)", industry=key, label=f"Sample {label}", blurb=d.get("blurb", ""))
+
+
+def _seed_industry(wid, viewer, key):
+    import industries as IND
+    t = S.today()
+    d = lambda n: (t + dt.timedelta(days=n)).isoformat()
+    ideas = (IND.INDUSTRIES[key].get("ideas") or [])[:9]
+    sts = ["Published", "Published", "Scheduled", "In review", "Planned", "Planned", "Planned", "Draft", "Planned"]
+    for i, idea in enumerate(ideas):
+        _kind, title, ch, fmt = (list(idea) + ["", "", "Instagram", "Post"])[:4] if len(idea) < 4 else idea[:4]
+        ins("content_items", dict(workspace_id=wid, title=str(title)[:120], channel=ch, format=fmt, status=sts[i], publish_date=d(i * 2 - 4), owner="You", copy="Hook first, then the story.", cta="Learn more"))
+    for i, (title, off, pr, st) in enumerate([("Approve this week's posts", 0, "High", "To do"), ("Brief the designer", 1, "Medium", "In progress"), ("Check last week's numbers", 2, "Medium", "To do"), ("Reply to comments", -1, "Low", "Done")]):
+        ins("tasks", dict(workspace_id=wid, title=title, assignee="You", due_date=d(off), priority=pr, status=st))
+    _kpi_series(wid, [("Reach", 20000, 1100, 36000), ("Leads", 40, 4, 90), ("Engagement %", 3.1, .15, 5)], t)
+    _activity(wid, viewer, t, {"content_items": 8, "tasks": 10, "leads": 3})
+
+
 def ensure_demo(variant="chai"):
     """Returns (demo_user_id, workspace_id), creating or refreshing the chosen sample brand when it is missing or from an earlier day."""
-    v = VARIANTS.get(variant) or VARIANTS["chai"]
-    key = variant if variant in VARIANTS else "chai"
+    v = VARIANTS.get(variant) or industry_variant(variant) or VARIANTS["chai"]
+    key = variant if (variant in VARIANTS or v is not VARIANTS["chai"]) else "chai"
+    seed = SEEDERS.get(key) or (lambda wid, viewer, _k=key: _seed_industry(wid, viewer, _k))
     owner = _user(OWNER_EMAIL, v["label"])
     viewer = _user(DEMO_EMAIL, "Demo visitor")
     ws = q("SELECT * FROM workspaces WHERE slug=?", (v["slug"],), one=True)
@@ -253,13 +279,13 @@ def ensure_demo(variant="chai"):
         ins("memberships", dict(workspace_id=wid, user_id=owner, role="owner"))
         ins("memberships", dict(workspace_id=wid, user_id=viewer, role="viewer"))
         S.seed_workspace(wid, v["industry"], False)
-        SEEDERS[key](wid, viewer)
+        seed(wid, viewer)
     else:
         wid = ws["id"]
         if (ws["period_end"] or "") != today:
             S.wipe_workspace_data(wid, keep_members=True)
             S.seed_workspace(wid, v["industry"], False)
-            SEEDERS[key](wid, viewer)
+            seed(wid, viewer)
             ex("UPDATE workspaces SET period_end=?, plan='team', plan_status='active' WHERE id=?", (today, wid))
         if not q("SELECT id FROM memberships WHERE workspace_id=? AND user_id=?", (wid, viewer), one=True):
             ins("memberships", dict(workspace_id=wid, user_id=viewer, role="viewer"))

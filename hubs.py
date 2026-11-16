@@ -8,31 +8,30 @@ already in the user's own navigation (role, industry and plan are decided there,
 HUBS = [
     dict(key="content", icon="✍️", label="Content & Calendar", lv=1, tabs=[
         ("📅 Posts", "calendar_view", {}, ["/m/content_items", "/kanban/content_items"], None),
-        ("🎬 Create", "studio.studio", {}, [], None),
-        ("🧩 Grid", "studio.grid", {}, [], None),
-        ("💡 Ideas", "ideas", {}, [], None),
+        ("🎬 Create", "studio.studio", {}, ["/grid"], None),
+        ("📲 Publishing", "social.publishing", {}, [], "mgr"),
         ("🗓️ Key dates", "m_list", {"key": "key_dates"}, [], None),
         ("📚 Library", "m_list", {"key": "assets"}, [], None)]),
     dict(key="brand", icon="🎨", label="Brand & Ideas", lv=1, tabs=[
         ("🖼️ Mood boards", "moodboards", {}, [], None),
-        ("🎨 Brand kit", "m_list", {"key": "brand_kit"}, [], None),
-        ("🔗 Link in bio", "bio.edit", {}, [], None)]),
-    dict(key="tasks", icon="✅", label="Tasks", lv=1, tabs=[
-        ("✅ Tasks", "m_list", {"key": "tasks"}, [], None)]),
+        ("🎨 Brand kit", "m_list", {"key": "brand_kit"}, [], None)]),
+    dict(key="tasks", icon="✅", label="Tasks & Campaigns", lv=1, tabs=[
+        ("✅ Tasks", "m_list", {"key": "tasks"}, [], None),
+        ("📣 Campaigns", "campaigns_all", {}, ["/m/campaigns", "/kanban/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans"], "camp")]),
     dict(key="news", icon="🤖", label="AI & Market News", lv=1, tabs=[
         ("🤖 AI Studio", "ai_studio", {}, [], None),
-        ("📡 Live news", "pulse_page", {}, [], None),
-        ("📰 News sources", "m_list", {"key": "feeds"}, [], None)]),
+        ("💡 Ideas", "ideas", {}, [], None),
+        ("🧩 Templates", "templates_gallery", {}, [], "mgr"),
+        ("📡 Live news", "pulse_page", {}, [], None)]),
     dict(key="plan", icon="🧭", label="Launch playbook", lv=1, tabs=[
         ("🎁 Launch deck", "studio.launch_deck", {}, ["/launch-deck"], None),
         ("🚀 Launch plans", "m_list", {"key": "gtm_plans"}, [], None),
         ("🎯 Ideal customers", "m_list", {"key": "personas"}, [], None),
         ("🕵️ Competitors", "m_list", {"key": "competitors"}, [], None),
         ("✅ Launch checklist", "m_list", {"key": "launch_checklist"}, [], None)]),
-    dict(key="campaigns", icon="📣", label="Campaigns", lv=2, tabs=[
-        ("📣 Campaigns", "campaigns_all", {}, ["/m/campaigns", "/kanban/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans"], "camp")]),
     dict(key="sales", icon="🧲", label="Leads & Clients", lv=2, tabs=[
-        ("🧲 Leads", "m_list", {"key": "leads"}, [], None),
+        ("🧲 Leads", "m_list", {"key": "leads"}, ["/bio"], None),
+        ("⭐ Reviews", "bio.reviews", {}, [], "mgr"),
         ("🤝 Clients", "m_list", {"key": "clients"}, [], None)]),
     dict(key="results", icon="📈", label="Results & Insights", lv=2, tabs=[
         ("📈 Numbers", "analytics", {}, ["/m/kpis"], None),
@@ -46,16 +45,16 @@ HUBS = [
         ("🔭 Find influencers", "discover", {}, [], None),
         ("📰 PR & media", "m_list", {"key": "pr_contacts"}, [], None),
         ("✉️ Outreach templates", "m_list", {"key": "outreach_templates"}, [], None)]),
-    dict(key="money", icon="💸", label="Creators & Payments", lv=3, tabs=[
+    dict(key="money", icon="💸", label="Freelancers & Payments", lv=3, tabs=[
         ("📊 Creator overview", "content_ops", {}, [], None),
-        ("✍️ Creators", "m_list", {"key": "creators"}, [], None),
+        ("✍️ Freelance creators", "m_list", {"key": "creators"}, [], None),
         ("🧾 Invoices & payouts", "m_list", {"key": "payments"}, [], None),
         ("📦 Content orders", "m_list", {"key": "content_orders"}, [], None),
         ("💳 Rate card", "m_list", {"key": "rate_card"}, [], None)]),
     dict(key="team", icon="👥", label="Team", lv=3, tabs=[
         ("✅ Approvals", "tm.approvals", {}, [], None),
         ("💬 Chat", "tm.chat", {}, ["/chat"], None),
-        ("👑 Team hub", "team_hub", {}, [], "mgr"),
+        ("👑 Team hub", "team_hub", {}, ["/kudos"], "mgr"),
         ("🔒 Page access", "tm.access", {}, [], "mgr"),
         ("👥 Team & roles", "ws.team", {}, [], "mgr"),
         ("🕘 Activity", "ws.activity", {}, [], "mgr"),
@@ -63,7 +62,7 @@ HUBS = [
 ]
 
 # Default sidebar order: a day's work first, then planning and launching, then growing, then people.
-ORDER = ["content", "tasks", "brand", "plan", "campaigns", "people", "sales", "money", "results", "news", "team"]
+ORDER = ["content", "tasks", "brand", "plan", "people", "sales", "money", "results", "team", "news"]      # AI help and market news come last: useful, not daily
 HUBS.sort(key=lambda x: ORDER.index(x["key"]))
 
 
@@ -71,7 +70,7 @@ HUBS.sort(key=lambda x: ORDER.index(x["key"]))
 # Hubs left out are not removed: they sit under "More tools" and the person can add them any time.
 FOCUS = [
     ("content", "✍️", "Plan and post content", ["content", "brand", "tasks"]),
-    ("launch", "🧭", "Launch a product or campaign", ["plan", "campaigns"]),
+    ("launch", "🧭", "Launch a product or campaign", ["plan", "tasks"]),
     ("results", "📈", "See what is working", ["results"]),
     ("sales", "🧲", "Track leads and clients", ["sales"]),
     ("reach", "🤳", "Work with influencers and PR", ["people", "money"]),
@@ -82,20 +81,36 @@ ALWAYS = {"content", "tasks", "plan"}
 
 
 def focus_keys(csv):
-    """The hub keys to show first for a saved focus string ("" = show everything)."""
-    pick = [x for x in (csv or "").split(",") if x]
-    if not pick:
-        return None
+    """(hub keys to show, show "More tools") for a saved menu string. Empty = every hub, no "More tools".
+    Tokens: "h:<hub>" a hub the person ticked, "more" the All tools entry; older saves hold the goal names above."""
+    toks = [x for x in (csv or "").split(",") if x]
+    if not toks:
+        return None, False
     out = set(ALWAYS)
+    for t in toks:
+        if t.startswith("h:"):
+            out.add(t[2:])
     for k, _i, _l, hubs in FOCUS:
-        if k in pick:
+        if k in toks:
             out.update(hubs)
-    return out
+    return out, "more" in toks
 
 
-def clean_focus(vals):
-    ok = {k for k, *_ in FOCUS}
-    return ",".join(k for k, *_ in FOCUS if k in set(vals) and k in ok)
+def goals_to_focus(goals):
+    """Signup goals ("Plan and post content", ...) -> the hubs those goals need, as a saved menu string."""
+    keys = set(ALWAYS)
+    for k, _i, _l, hubs in FOCUS:
+        if k in set(goals):
+            keys.update(hubs)
+    return clean_focus(keys)
+
+
+def clean_focus(hub_keys, more=False):
+    ok = {h["key"] for h in HUBS}
+    out = ["h:" + k for k in ORDER if k in set(hub_keys) and k in ok]
+    if more:
+        out.append("more")
+    return ",".join(out)
 
 
 # Niche tools: not shown in any hub. They stay under "More tools" (same URLs, roles and plan locks) so a new person sees only what a typical marketer uses.
@@ -103,7 +118,7 @@ PRO_TABS = {("m_list", "pr_contacts")}
 
 # Tabs shown under a quiet "More" chip so every hub opens with 2 to 4 clear choices. Nothing is removed: these pages keep their URLs, search entries and role rules.
 MORE_TABS = {("m_list", "launch_checklist"), ("utm", None), ("m_list", "keywords"), ("m_list", "outreach_templates"),
-             ("m_list", "content_orders"), ("m_list", "rate_card"), ("m_list", "feeds"),
+             ("m_list", "content_orders"), ("m_list", "rate_card"),
              ("m_list", "key_dates"), ("m_list", "assets"),
              ("m_list", "events"), ("m_list", "pr_contacts"),
              ("m_list", "creators"),
@@ -115,19 +130,21 @@ MORE_TABS = {("m_list", "launch_checklist"), ("utm", None), ("m_list", "keywords
 # Nothing is merged in the data: every page keeps its URL, search entry, role rule and plan lock.
 GROUPS = [
     ("📅 Calendar", [("calendar_view", None), ("m_list", "key_dates")]),
-    ("🎬 Create", [("studio.studio", None), ("studio.grid", None)]),
-    ("💡 Ideas & library", [("ideas", None), ("m_list", "assets")]),
-    ("🎨 Brand", [("moodboards", None), ("m_list", "brand_kit"), ("bio.edit", None)]),
-    ("📈 Results", [("analytics", None), ("report", None), ("deb.wrapped", None)]),
+    ("🤖 AI & ideas", [("ai_studio", None), ("ideas", None)]),
+    ("🎨 Brand", [("moodboards", None), ("m_list", "brand_kit")]),
+    ("📈 Results", [("analytics", None), ("m_list", "kpis"), ("report", None), ("deb.wrapped", None)]),
+    ("🔗 Tracking & SEO", [("utm", None), ("m_list", "keywords")]),
     ("📡 News", [("pulse_page", None)]),
-    ("🧭 Strategy", [("m_list", "gtm_plans"), ("m_list", "personas"), ("m_list", "competitors")]),
+    ("🧭 Strategy", [("m_list", "gtm_plans"), ("m_list", "personas"), ("m_list", "competitors"), ("m_list", "launch_checklist")]),
     ("📣 Campaigns", [("campaigns_all", None)]),
     ("🧲 Leads & clients", [("m_list", "leads"), ("m_list", "clients")]),
-    ("🤳 Influencers & PR", [("m_list", "influencers"), ("discover", None), ("m_list", "pr_contacts")]),
-    ("💸 Creators & pay", [("content_ops", None), ("m_list", "creators"), ("m_list", "payments")]),
-    ("👥 Team", [("tm.approvals", None), ("tm.chat", None), ("team_hub", None), ("tm.access", None), ("ws.team", None), ("ws.activity", None), ("kudos", None)]),
+    ("🤳 Influencers & PR", [("m_list", "influencers"), ("discover", None), ("m_list", "pr_contacts"), ("m_list", "outreach_templates")]),
+    ("💸 Creators & pay", [("content_ops", None), ("m_list", "creators"), ("m_list", "payments"), ("m_list", "content_orders"), ("m_list", "rate_card")]),
+    ("💬 Chat & approvals", [("tm.chat", None), ("tm.approvals", None)]),
+    ("👑 Team hub", [("team_hub", None)]),
+    ("👥 People & activity", [("ws.team", None), ("tm.access", None), ("ws.activity", None)]),
 ]
 
 # Pages that no longer have a menu entry of their own: they are one button away from the page they belong to, and stay in search.
 FOLDED = [("m_list", "promotions"), ("m_list", "events"), ("m_list", "gtm_plans"),
-          ("ws.activity", None), ("kudos", None), ("discover", None)]
+          ("ws.activity", None), ("kudos", None), ("discover", None), ("studio.grid", None)]

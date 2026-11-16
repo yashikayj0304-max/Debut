@@ -240,3 +240,11 @@ def upsell(plan_key, what, key, label):
     if nk in HIDDEN_PRICE:
         return f" {n['name']} raises it to {_fmt(n[key], key)} {label}. Ask us for a quote."
     return f" {n['name']} (₹{n['price']:,}/mo) raises it to {_fmt(n[key], key)} {label}."
+
+
+# --- posting straight to Instagram / Facebook Pages (Meta Graph API: free to use).
+# Create a Meta app at developers.facebook.com, then put its ID and secret here. Without them the
+# Publishing page explains what is missing and every scheduled post falls back to the post helper.
+META_APP_ID = env("META_APP_ID", "")
+META_APP_SECRET = env("META_APP_SECRET", "")
+META_API_VER = env("META_API_VER", "v21.0")

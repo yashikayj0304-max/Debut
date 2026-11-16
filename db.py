@@ -81,6 +81,7 @@ EXTRA_COLUMNS = {
     **{k: [("sort_order", "INTEGER DEFAULT 0")] for k in MANUAL_ORDER},
 }
 EXTRA_COLUMNS["chat_messages"] = [("channel_id", "INTEGER DEFAULT 0"), ("reply_to", "INTEGER DEFAULT 0"), ("ref", "TEXT DEFAULT ''"), ("file", "TEXT DEFAULT ''"), ("file_name", "TEXT DEFAULT ''"), ("pinned", "INTEGER DEFAULT 0")]
+EXTRA_COLUMNS["workspaces"] = EXTRA_COLUMNS["workspaces"] + [("review_url", "TEXT DEFAULT ''"), ("lang", "TEXT DEFAULT 'en'")]
 EXTRA_COLUMNS["users"] = EXTRA_COLUMNS["users"] + [("tone", "TEXT DEFAULT 'chill'")]      # tone of voice: chill / normal / corporate
 EXTRA_COLUMNS["workspaces"] = EXTRA_COLUMNS["workspaces"] + [("bio", "TEXT DEFAULT ''")]      # link-in-bio page settings (JSON)
 EXTRA_COLUMNS["reminders"] = [("repeat", "TEXT DEFAULT ''"), ("by_user", "INTEGER DEFAULT 0")]      # '', daily, weekly
@@ -117,6 +118,10 @@ def init_schema(modules):
         f"CREATE TABLE IF NOT EXISTS page_locks (id {pk}, workspace_id INTEGER NOT NULL, page_key TEXT NOT NULL)",
         f"CREATE TABLE IF NOT EXISTS page_access (id {pk}, workspace_id INTEGER NOT NULL, page_key TEXT NOT NULL, user_id INTEGER NOT NULL, status TEXT DEFAULT 'pending', decided_by INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS pulse_runs (id {pk}, workspace_id INTEGER NOT NULL, payload TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS social_accounts (id {pk}, workspace_id INTEGER NOT NULL, platform TEXT DEFAULT 'instagram', account_id TEXT DEFAULT '', page_id TEXT DEFAULT '', name TEXT DEFAULT '', token TEXT DEFAULT '', status TEXT DEFAULT 'ok', last_error TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS post_feedback (id {pk}, workspace_id INTEGER NOT NULL, content_id INTEGER NOT NULL, user_id INTEGER DEFAULT 0, rating TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS post_stats (id {pk}, workspace_id INTEGER NOT NULL, content_id INTEGER DEFAULT 0, platform TEXT DEFAULT 'instagram', media_id TEXT DEFAULT '', reach INTEGER DEFAULT 0, likes INTEGER DEFAULT 0, comments INTEGER DEFAULT 0, saves INTEGER DEFAULT 0, shares INTEGER DEFAULT 0, views INTEGER DEFAULT 0, permalink TEXT DEFAULT '', fetched_at TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS publish_jobs (id {pk}, workspace_id INTEGER NOT NULL, content_id INTEGER NOT NULL, platform TEXT DEFAULT 'instagram', publish_at TEXT DEFAULT '', status TEXT DEFAULT 'queued', media_id TEXT DEFAULT '', error TEXT DEFAULT '', created_by INTEGER DEFAULT 0, sent_at TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS boards (id {pk}, workspace_id INTEGER NOT NULL DEFAULT 0, name TEXT, description TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS board_items (id {pk}, workspace_id INTEGER NOT NULL DEFAULT 0, board_id INTEGER, kind TEXT, content TEXT, caption TEXT DEFAULT '', x INTEGER DEFAULT -1, y INTEGER DEFAULT -1, w INTEGER DEFAULT 240, h INTEGER DEFAULT 170, z INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
     ]
@@ -143,7 +148,9 @@ def init_schema(modules):
         if "reference_links" in insp.get_table_names():     # Reference Links became part of the Library: copy every row across once, then remove the old table
             c.exec_driver_sql("INSERT INTO assets (workspace_id, title, type, url, tags, favorite, body, status, created_at) SELECT workspace_id, title, CASE WHEN COALESCE(category,'')='' THEN 'Link' ELSE category END, url, tags, favorite, notes, 'Approved', created_at FROM reference_links")
             c.exec_driver_sql("DROP TABLE reference_links")
-        for t in list(modules) + ["boards", "board_items", "memberships", "ai_usage", "audit_log", "comments", "notifications", "api_keys", "pulse_runs"]:
+        if "feeds" in insp.get_table_names():     # News Sources fed nothing (Live news uses the topics you track), so the table is removed
+            c.exec_driver_sql("DROP TABLE feeds")
+        for t in list(modules) + ["boards", "board_items", "memberships", "ai_usage", "audit_log", "comments", "notifications", "api_keys", "pulse_runs", "social_accounts", "publish_jobs", "post_stats", "post_feedback"]:
             col = "workspace_id"
             c.exec_driver_sql(f"CREATE INDEX IF NOT EXISTS ix_{t}_ws ON {t} ({col})")
         c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_members_user ON memberships (user_id)")

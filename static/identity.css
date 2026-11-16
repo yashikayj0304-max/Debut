@@ -502,31 +502,6 @@ html[data-theme=dark] .sizesw button.on{background:var(--pri);color:var(--on,#ff
 .filters>button.btn{display:inline-flex;align-items:center;padding-top:0;padding-bottom:0}
 
 /* v28: Edit menu dialog */
-.menudlg{border:2px solid var(--out,#1b1433);border-radius:20px;padding:0;width:min(560px,calc(100vw - 24px));max-height:min(86vh,760px);background:var(--card);color:var(--ink);box-shadow:6px 6px 0 var(--out,#1b1433);overflow:hidden}
-.menudlg[open]{display:flex;flex-direction:column}
-.menudlg::backdrop{background:rgba(20,12,45,.55)}
-.md-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 4px;font-size:17px}
-.md-x{font:inherit;cursor:pointer;border:0;background:transparent;color:inherit;font-size:18px;line-height:1;padding:6px 8px;border-radius:10px}
-.md-x:hover{background:var(--pri2)}
-.md-help{margin:0;padding:0 18px 10px;font-size:13px}
-.md-body{overflow:auto;padding:4px 14px 12px;flex:1}
-.md-hub{border:1.5px solid var(--pri3);border-radius:16px;padding:8px 10px;margin:8px 0;background:var(--bg,transparent)}
-.md-hrow{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.md-ic{font-size:18px;width:26px;text-align:center}
-.md-name{flex:1;min-width:0;height:36px;box-sizing:border-box;font:inherit;font-weight:700;padding:0 10px;border:1.5px solid var(--pri3);border-radius:10px;background:var(--card);color:inherit;margin:0}
-.md-btns{display:inline-flex;align-items:center;gap:4px;flex:none}
-.md-btns button{font:inherit;font-size:12px;width:30px;height:30px;padding:0;cursor:pointer;border:1.5px solid var(--pri3);background:transparent;color:var(--pri-d);border-radius:8px;line-height:1}
-.md-btns button:hover:not(:disabled){background:var(--pri2)}
-.md-btns button:disabled{opacity:.3;cursor:default}
-.md-tabs{list-style:none;margin:0;padding:0}
-.md-tabs li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:3px 0 3px 34px;border-top:1px dashed var(--pri3)}
-.md-tabs li:first-child{border-top:0}
-.md-t{flex:1;min-width:0;font-size:14px;overflow-wrap:anywhere}
-.md-mv{height:30px;box-sizing:border-box;font:inherit;font-size:12px;padding:0 6px;margin:0;border:1.5px solid var(--pri3);border-radius:8px;background:var(--card);color:inherit;max-width:118px;width:auto}
-.md-empty{color:var(--muted);font-size:13px;padding-left:34px!important}
-.md-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 18px 14px;border-top:1.5px solid var(--pri3)}
-html[data-theme=dark] .md-btns button,html[data-theme=dark] .md-x{color:#cfc6f5}
-@media(max-width:520px){.md-tabs li{padding-left:6px;flex-wrap:wrap}.md-mv{max-width:100px}}
 .hubedit{display:flex;gap:6px;margin:6px 0 2px}
 
 /* v29: Recent = a tidy two-line list, nothing cut off */
@@ -542,18 +517,10 @@ html[data-theme=dark] .menu-btn{background:rgba(255,255,255,.06)!important;color
 @media(min-width:801px){html.side-off aside{display:none!important}}
 
 /* v31: reorder tabs on the tab bar */
-.ht-edit{font:inherit;font-size:12px;font-weight:700;height:30px;box-sizing:border-box;padding:0 12px;cursor:pointer;border:1.5px dashed var(--pri3);background:transparent;color:var(--pri-d);border-radius:999px;white-space:nowrap}
-.ht-edit:hover{background:var(--pri2)}
-.ht-edit[aria-pressed=true]{background:var(--pri);color:var(--on,#fff);border-style:solid}
 .hubtabs a.ht{cursor:grab}
 .hubtabs a.ht.dragging{opacity:.45}
 .hubtabs a.ht.dropat{box-shadow:inset 3px 0 0 var(--pri)}
 .hubtabs.reorder a.ht{padding-right:6px;gap:6px;display:inline-flex;align-items:center}
-.ht-mv{display:inline-flex;gap:3px;margin-left:6px}
-.ht-mv button{font:inherit;font-size:10px;width:22px;height:22px;padding:0;cursor:pointer;border:1.5px solid var(--pri3);background:var(--card);color:var(--pri-d);border-radius:7px;line-height:1}
-.ht-mv button:disabled{opacity:.3;cursor:default}
-html[data-theme=dark] .ht-edit,html[data-theme=dark] .ht-mv button{color:#cfc6f5;border-color:rgba(255,255,255,.22)}
-html[data-theme=dark] .ht-mv button{background:rgba(255,255,255,.06)}
 
 /* v32: comfortable tap targets on phones (at least ~40px high) */
 @media(max-width:800px){

@@ -471,12 +471,12 @@
     V.push(["WhatsApp", "*" + hook + "*\n" + (body.split(/\n/)[0] || "") + "\n\nReply to this message to order 👇"]);
     V.push(["Email", "Subject: " + hook.slice(0, 60) + "\nPreview: " + (body.split(/\n/)[0] || hook).slice(0, 90) + "\n\n" + cap]);
     box.innerHTML = V.map(function (v, i) { return '<details><summary>' + esc(v[0]) + '</summary><textarea rows="5" readonly id="ver' + i + '">' + esc(v[1]) + '</textarea><button type="button" class="btn ghost sm" data-copy="ver' + i + '">Copy</button></details>'; }).join("");
-    box.querySelectorAll("[data-copy]").forEach(function (b) { b.onclick = function () { var t = $(b.dataset.copy); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand("copy"); } b.textContent = "Copied ✓"; setTimeout(function () { b.textContent = "Copy"; }, 1500); }; });
+    box.querySelectorAll("[data-copy]").forEach(function (b) { b.onclick = function () { var t = $(b.dataset.copy); t.select(); if (window.copyTxt) return copyTxt(t.value, b); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand("copy"); } b.textContent = "Copied ✓"; setTimeout(function () { b.textContent = "Copy"; }, 1500); }; });
   }
 
   /* ---------- post it now ---------- */
   var LINKS = { Instagram: "https://www.instagram.com/", LinkedIn: "https://www.linkedin.com/feed/", "X / Twitter": "https://x.com/compose/post", Facebook: "https://www.facebook.com/", YouTube: "https://studio.youtube.com/", WhatsApp: "https://web.whatsapp.com/" };
-  function copyText(t, btn) { try { navigator.clipboard.writeText(t); } catch (e) {} if (btn) { var o = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(function () { btn.textContent = o; }, 1500); } }
+  function copyText(t, btn) { if (window.copyTxt) return copyTxt(t, btn); try { navigator.clipboard.writeText(t); } catch (e) {} if (btn) { var o = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(function () { btn.textContent = o; }, 1500); } }
   function postMode() {
     var box = $("st-post"); if (!box || !C.post) return; box.hidden = false; var ch = C.channel || $("st-chan").value;
     $("pm-img").onclick = function () { exportAll(false); }; $("pm-cap").onclick = function () { copyText($("st-cap").value, this); }; $("pm-tags").onclick = function () { copyText($("st-tags").value, this); };

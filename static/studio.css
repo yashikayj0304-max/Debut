@@ -44,3 +44,6 @@
 .st-chips .on,.st-chips [aria-pressed=true]{background:var(--pri);color:var(--on,#fff);border-color:var(--pri);box-shadow:0 0 0 3px color-mix(in srgb,var(--pri) 30%,transparent);font-weight:800}
 .st-chips .on::after,.st-chips [aria-pressed=true]::after{content:"✓";font-size:12px;margin-left:2px}
 .st-mid .st-row{justify-content:center}
+.igwrap{max-width:560px;margin:8px auto}.igprof{display:flex;gap:12px;align-items:center;margin:0 0 10px}.igav{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:linear-gradient(135deg,var(--pri),var(--pri2,#c4b5fd));color:var(--on,#fff)}.igprof small{display:block;opacity:.7}
+.igrid{max-width:none!important;margin:0!important;gap:3px!important}.itile{cursor:pointer;text-decoration:none;color:inherit}.itile.nod .ino{display:grid;place-items:center;height:100%;gap:6px;align-content:center}.itile .ino em{font-style:normal;font-size:11px;opacity:.7;font-weight:700}
+.itile .ig-k{position:absolute;top:6px;right:8px;font-style:normal;font-size:14px;color:#fff;text-shadow:0 1px 3px #000a}.itile.dragging{opacity:.4}.itile.dropat{outline:3px solid var(--pri);outline-offset:-3px}.itile[draggable=true]{cursor:grab}

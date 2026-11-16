@@ -201,9 +201,9 @@ def test_free_ai_credits_and_seats(app, monkeypatch, mails):
 
 def test_landing_and_pricing_show_free_plan(app):
     land = app.test_client().get("/").data.decode()
-    assert "Start free" in land and "Pick a plan" in land
+    assert "Sign up free" in land and "Pick a plan" in land
     html = app.test_client().get("/pricing").data.decode()
-    assert "Start free" in html and "Starter" in html and "Agency" in html
+    assert "Sign up free" in html and "Starter" in html and "Agency" in html
 
 
 def test_record_limit(app, monkeypatch):
@@ -272,7 +272,6 @@ def test_ssrf_and_url_hygiene(app):
     o = signup(app, "o@x.com")
     o.post("/m/assets/save", data=dict(title="t", url="javascript:alert(1)", type="Other"))
     assert dbq(app, "SELECT url FROM assets WHERE title='t'", one=True)["url"] == ""
-    o.post("/m/feeds/save", data=dict(name="evil", url="http://127.0.0.1:1/feed", category="Other"))
     assert o.get("/updates").status_code == 404                       # the duplicate Updates page is gone; Live news covers it
 
 
@@ -418,8 +417,6 @@ def test_industry_data_is_valid():
         for name, md, kind in ind["key_dates"]:
             dt.date(2024, int(md[:2]), int(md[3:]))            # valid calendar date (2024 is a leap year)
             assert kind in opt("key_dates", "kind"), (k, name)
-        for name, url, cat in ind["feeds"]:
-            assert cat in opt("feeds", "category") and S.clean_url(url) == url, (k, name)
         assert all(len(x) == 3 for x in ind["kpis"]), k
         for p in ind["personas"]:
             assert set(p) <= persona_fields, (k, set(p) - persona_fields)
@@ -442,7 +439,6 @@ def test_industry_signup_kit_and_switch(app, monkeypatch):
     assert dbq(app, "SELECT industry FROM workspaces WHERE id=?", (w,), one=True)["industry"] == "hospitality"
     assert dbq(app, "SELECT COUNT(*) c FROM launch_checklist WHERE item LIKE 'Audit your Google Business%'", one=True)["c"] == 1
     assert dbq(app, "SELECT COUNT(*) c FROM key_dates WHERE name='World Tourism Day'", one=True)["c"] == 1   # only the occurrence still ahead
-    assert dbq(app, "SELECT COUNT(*) c FROM feeds WHERE name='Hospitality industry news'", one=True)["c"] == 1
     assert dbq(app, "SELECT COUNT(*) c FROM personas WHERE name='Weekend leisure couple'", one=True)["c"] == 1
     body = c.get("/ideas").data.decode()
     assert "Hospitality" in body and "Golden-hour tour" in body and "Direct booking drive" in body and "RevPAR" in body
@@ -1917,69 +1913,6 @@ def test_cancel_real_razorpay_mode_api_failure_does_not_mark_cancelled(app, monk
 
 
 # =====================================================================  views.parse_feed: RSS/Atom parsing for "Latest Updates" (never directly tested before)
-def test_parse_feed_handles_real_rss_and_atom_xml():
-    rss = """<?xml version="1.0"?>
-<rss version="2.0"><channel><title>Example Feed</title>
-<item>
-  <title>Hotel bookings rise 12% this festive season</title>
-  <link>https://example.com/articles/festive-bookings</link>
-  <pubDate>Wed, 23 Sep 2026 08:15:00 GMT</pubDate>
-  <description><![CDATA[<p>A <b>surge</b> in <i>direct bookings</i> was reported across the industry.</p>]]></description>
-</item>
-<item>
-  <title>Second story with no date</title>
-  <link>https://example.com/articles/second</link>
-  <description>Plain text, no HTML here.</description>
-</item>
-</channel></rss>"""
-    out = views.parse_feed(rss, "Example Source", "News")
-    assert len(out) == 2
-    first = out[0]
-    assert first["title"] == "Hotel bookings rise 12% this festive season"
-    assert first["url"] == "https://example.com/articles/festive-bookings"
-    assert first["source"] == "Example Source" and first["category"] == "News"
-    assert "<" not in first["summary"] and "surge" in first["summary"] and "direct bookings" in first["summary"]
-    assert first["ts"] > 0 and first["date"]  # a real pubDate parses to a real timestamp
-    second = out[1]
-    assert second["ts"] == 0.0 and second["date"] == ""  # missing date degrades gracefully, doesn't crash
-
-    atom = """<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <title>Example Atom Feed</title>
-  <entry>
-    <title>Atom-format entry title</title>
-    <link href="https://example.com/atom/entry-1" rel="alternate"/>
-    <updated>2026-09-20T10:00:00Z</updated>
-    <summary>An atom-format summary with &amp; an entity.</summary>
-  </entry>
-</feed>"""
-    out2 = views.parse_feed(atom, "Atom Source", "Blog")
-    assert len(out2) == 1
-    assert out2[0]["url"] == "https://example.com/atom/entry-1"
-    assert out2[0]["ts"] > 0
-    assert "&" in out2[0]["summary"]  # entity correctly decoded, not double-escaped or dropped
-
-    # malformed XML must not raise - it should degrade to an empty list
-    assert views.parse_feed("<rss><channel><item><title>unterminated", "Broken", "News") == []
-    assert views.parse_feed("", "Empty", "News") == []
-
-    # a very long title/description must be truncated to the documented limits, not overflow the page
-    long_rss = "<rss><channel><item><title>" + ("x" * 500) + "</title><description>" + ("y" * 1000) + "</description></item></channel></rss>"
-    out3 = views.parse_feed(long_rss, "Long", "News")
-    assert len(out3[0]["title"]) <= 200 and len(out3[0]["summary"]) <= 280
-
-    # more than 15 items in one feed must be capped
-    many = "<rss><channel>" + "".join(f"<item><title>Item {i}</title><link>https://x.test/{i}</link></item>" for i in range(30)) + "</channel></rss>"
-    out4 = views.parse_feed(many, "Many", "News")
-    assert len(out4) == 15
-
-    # javascript: and other unsafe link schemes must be stripped by the existing URL hygiene, not passed through
-    unsafe = '<rss><channel><item><title>Bad link</title><link>javascript:alert(1)</link></item></channel></rss>'
-    out5 = views.parse_feed(unsafe, "Unsafe", "News")
-    assert out5[0]["url"] == ""
-
-
-# =====================================================================  three more targeted gaps found via coverage: client-seat limit, content-ops leaderboard math, the raw Razorpay HTTP wrapper
 def test_subscribe_client_seat_limit_enforced_in_real_mode(app, monkeypatch, mails):
     import billing
     monkeypatch.setattr(C, "BILLING_MODE", "razorpay")
@@ -3264,7 +3197,7 @@ def test_notes_list_batch_features(app, mails):
     assert "payment-gateway" in o.get("/billing").data.decode()
     r = o.get("/activity/export.csv")
     assert r.status_code == 200 and r.data.startswith(b"When,Who,Action,Detail")
-    assert "Latest 1000" in o.get("/activity").data.decode()
+    assert "Everything that happens in this workspace" in o.get("/activity").data.decode()
 
 
 def test_news_snapshot_and_moodboard_upgrades(app, mails):
@@ -3712,7 +3645,7 @@ def test_comfort_settings_and_page_address(app):
 
 def test_landing_explains_purpose_for_newcomers_and_pros(app):
     html = app.test_client().get("/").data.decode()
-    for t in ("in one place", "See it in action", "How it works", "Quick answers", "60 seconds away"):
+    for t in ("in one place", "Peek inside a workspace like yours", "How it works", "Quick answers", "60 seconds away"):
         assert t in html, t
     assert "Made for professionals too" not in html
     feat = app.test_client().get("/features").data.decode()
@@ -3732,9 +3665,9 @@ def test_find_tools_and_jargon_buster(app):
     html = o.get("/search?q=invoice").data.decode()
     assert "Jump to a tool" in html and "Invoices" in html
     assert "/glossary" in o.get("/search").data.decode()
-    g = o.get("/glossary").data.decode()
+    g = o.get("/glossary", follow_redirects=True).data.decode()   # the jargon buster lives inside Help now
     assert "UTM link" in g and "ICP" in g and "Jargon buster" in g
-    assert "/glossary" in o.get("/help").data.decode()
+    assert "glossary" in o.get("/help").data.decode()
     assert "Jump to a tool" in o.get("/search?q=stuck").data.decode()
 
 
@@ -3746,16 +3679,16 @@ def test_whatnow_page_actually_renders_and_sidebar_sizes_are_wired(app):
     assert "<h2>" in html.split('class="card whatnow"')[1]  # a real pick is shown, not a blank page
     assert o.get("/whatnow?n=3").status_code == 200
     app_html = o.get("/app").data.decode()
-    assert app_html.count('class="hub') >= 8 and "recentTools" in app_html and "hubPrefs" in app_html
+    assert app_html.count('class="hub') >= 4 and "recentTools" in app_html and "hubPrefs" not in app_html
     assert 'data-ns="' not in app_html and "Daily" not in app_html.split("<aside>", 1)[1].split("</aside>", 1)[0]  # old three-way switch is gone; only Basics / Team remain
 
 
 def test_all_tools_live_in_the_search_finder_not_the_sidebar(app):
     o = signup(app, "finder2@x.com")
     h = o.get("/app").data.decode()
-    assert 'id="finder"' in h and "openFinder" in h and "🔎 Search" in h
-    assert '"/m/leads"' in h and "Trackable links (UTM)" in h  # every tool is in the finder data
-    assert 'id="allBtn"' in h and 'toggleAll' not in h  # old accordion toggle is gone
+    assert 'id="finder"' in h and "openFinder" in h
+    assert '"/m/leads"' in h and "Trackable links (UTM)" in h  # every tool is in the finder data, even sections hidden from the sidebar
+    assert 'id="allBtn"' not in h and 'toggleAll' not in h  # no second Search button at the bottom of the sidebar
 
 
 def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
@@ -3763,13 +3696,16 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     o = signup(app, "hubs@x.com")
     h = o.get("/app").data.decode()
     aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
-    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) >= 11  # eleven hubs plus "More tools" (niche pages: same URLs, one place)
-    for name in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Launch playbook", "Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
+    o.post("/account/focus", data=dict(all="1"))                       # one tap shows every section
+    h = o.get("/app").data.decode()
+    aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    assert len(re.findall(r'<a class="hub[ "][^>]*data-hub', aside)) >= 10  # ten hubs; "More tools" only when asked for
+    for name in ("Content &amp; Calendar", "Brand &amp; Ideas", "Launch playbook", "Tasks &amp; Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Freelancers &amp; Payments", "Results &amp; Insights", "AI &amp; Market News", "Team"):
         assert name in aside, name
     # the sidebar order is the intended day-to-day order
-    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks", "Brand &amp; Ideas", "Launch playbook", "Campaigns", "Influencers &amp; PR", "Leads &amp; Clients", "Creators &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
+    pos = [aside.index(n) for n in ("Content &amp; Calendar", "Tasks &amp; Campaigns", "Brand &amp; Ideas", "Launch playbook", "Influencers &amp; PR", "Leads &amp; Clients", "Freelancers &amp; Payments", "Results &amp; Insights", "AI &amp; Market News")]
     assert pos == sorted(pos)
-    assert "More tools" in h  # the niche pages live in one place
+    assert "More tools" not in aside  # only shown when the person switches it on in Profile > Menu
     # team pages live in the Team hub, not in the Workspace block
     ws = aside.split('data-g="Workspace"', 1)[1]
     for gone in ("Kudos", "Team hub", "Team &amp; roles", "Activity", "Client report"):
@@ -3777,23 +3713,23 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     tools = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     in_hubs = {href for g in tools for _, href in g["items"]}
     allnav = set(re.findall(r'<a href="(/[^"]*)"', h.split('id="allTools" hidden>', 1)[1].split('<details class="ngrp side-foot"', 1)[0]))
-    assert allnav and allnav <= in_hubs | {"/m/utm_links", "/m/kpis", "/m/content_items", "/m/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans", "/m/feeds", "/analytics"}, sorted(allnav - in_hubs)
+    assert allnav and allnav <= in_hubs | {"/m/utm_links", "/m/kpis", "/m/content_items", "/m/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans", "/analytics"}, sorted(allnav - in_hubs)
     p = o.get("/calendar").data.decode()
     assert 'class="hubtabs"' in p and 'class="ht on"' in p and "Board" in p and "List" in p and "Key dates" in p
     sales = o.get("/m/leads").data.decode()
     assert 'class="subtabs"' in sales and "Clients" in sales
     assert 'class="sbt on"' in o.get("/m/kpis").data.decode()  # the logged-results list still lights up its tab
     team = o.get("/team-hub").data.decode()
-    for t in ("Team hub", "Team &amp; roles", "Activity", "Team cheers"):
+    for t in ("Team hub", "People &amp; activity", "Team cheers"):
         assert t in team, t
-    assert 'class="hubtabs"' not in o.get("/m/tasks").data.decode()
+    assert "Campaigns" in o.get("/m/tasks").data.decode()
     for u in ("/kanban/content_items", "/m/content_items", "/m/key_dates", "/m/assets", "/moodboards", "/ideas", "/ai", "/pulse", "/analytics", "/m/personas", "/m/campaigns", "/utm", "/content-ops", "/discover", "/report", "/kudos", "/team", "/activity", "/team-hub"):
         assert o.get(u).status_code == 200, u
 
 
 def test_hubs_respect_roles(app, mails):
     o = signup(app, "hubrole@x.com")
-    for role, gone, here in (("creator", ("Sales", "Campaigns", "Plan", "Rate card", "Invoices"), ("Content",)), ("viewer", (), ("Content",)), ("manager", (), ("Content", "Campaigns"))):
+    for role, gone, here in (("creator", ("Sales", "Plan", "Rate card", "Invoices"), ("Content",)), ("viewer", (), ("Content",)), ("manager", (), ("Content", "Campaigns"))):
         u = _join(app, o, mails, f"hub{role}@x.com", role)
         h = u.get("/app").data.decode()
         aside = h.split("<aside>", 1)[1].split("</aside>", 1)[0]
@@ -3830,8 +3766,8 @@ def test_menu_editor_hooks_and_current_tab_exposed(app):
     o = signup(app, "edit@x.com")
     h = o.get("/ideas").data.decode()
     assert 'window.HUBNOW="/ideas"' in h or 'window.HUBNOW="/m/' in h or "window.HUBNOW=" in h
-    assert 'id="hubSlot"' in h and 'id="hubEdit"' in h and "menuDlg" in h and "tabOrder" in h and "moves" in h
-    assert 'id="hubReset"' not in h
+    assert 'id="hubSlot"' not in h and 'id="hubEdit"' not in h and "menuDlg" not in h      # the browser-side menu editor is gone; Profile > Menu replaces it
+    assert 'Customise menu' in h or 'hidden · add back' in h
     assert 'window.HUBNOW=""' in o.get("/account").data.decode()
 
 
@@ -4026,7 +3962,7 @@ def test_idea_bank_is_a_tab_right_after_calendar(app):
     groups = json.loads(re.search(r"window\.TOOLS=(\[.*?\]);window\.HUBNOW", h, re.S).group(1))
     content = next(g for g in groups if g["k"] == "content")
     labels = [it[0] for it in content["items"]]
-    pi = labels.index(next(l for l in labels if "Posts" in l)); assert any("Create" in l for l in labels) and not any("Promo" in l for l in labels) and any("Grid" in l for l in labels) and any("Ideas" in l for l in labels)    # Create and Promo ideas now sit between Posts and the Idea bank
+    pi = labels.index(next(l for l in labels if "Posts" in l)); assert any("Create" in l for l in labels) and not any("Promo" in l for l in labels) and not any("Ideas" in l for l in labels)    # Create and Promo ideas now sit between Posts and the Idea bank
     assert 'data-hub="ideas"' not in h                                                    # not a separate hub
     cal = o.get("/calendar?y=2026&m=11").data.decode()
     assert 'class="dd-ideas"' in cal and 'class="dd-idea"' in cal
@@ -4040,7 +3976,7 @@ def test_css_links_are_versioned_and_old_saved_menus_are_dropped(app):
     o = signup(app, "cache@x.com")
     h = o.get("/app").data.decode()
     assert re.search(r"identity\.css\?v=\d+", h) and re.search(r"style\.css\?v=\d+", h)    # a redeploy is never hidden by a cached stylesheet
-    assert "MENU_VER=3" in h and "prefs.ver!==MENU_VER" in h                                 # menus saved by older versions are reset once
+    assert "prefs.ver!==MENU_VER" not in h and "hubPrefs" not in h                          # the old browser-side menu layouts are gone for good
 
 
 def test_bold_design_layer(app):
@@ -4052,7 +3988,7 @@ def test_bold_design_layer(app):
     for k in ("sunset", "lagoon", "meadow", "candy", "neon", "citrus"):
         assert f"html[data-pal={k}]" in css and f"html[data-theme=dark][data-pal={k}]" in css
     assert "aside{" in css and ".news:hover" in css
-    for path in ("/pulse", "/ideas", "/calendar", "/analytics", "/team-hub"):
+    for path in ("/ideas", "/calendar", "/analytics", "/team-hub"):
         r = o.get(path, follow_redirects=True)
         assert r.status_code == 200 and "bigline" in r.data.decode(), path
 
@@ -4090,7 +4026,7 @@ def test_compare_plans_agency_form_and_founding(app, mails):
         page = o.get(url).data.decode()
         assert 'id="cmpDlg"' in page and "Compare plans" in page and "cmp-i" in page, url
         assert "9,999" not in page, url                                  # Agency price is hidden everywhere
-        assert "Talk to us" in page, url
+        assert "Book a demo" in page, url
     assert "9,999" not in o.get("/upgrade/group").data.decode() if o.get("/upgrade/group").status_code == 200 else True
     # the Agency enquiry form stores the lead for the team and rejects junk
     anon = app.test_client()
@@ -4110,7 +4046,7 @@ def test_compare_plans_agency_form_and_founding(app, mails):
 def test_templates_and_changelog_public(app):
     c = app.test_client()
     t = c.get("/templates"); l = c.get("/changelog")
-    assert t.status_code == 200 and b"Diwali campaign plan" in t.data
+    assert t.status_code == 200 and b"Diwali campaign" in t.data and b"8 posts" in t.data
     assert l.status_code == 200 and b"What's new" in l.data or b"What&#39;s new" in l.data
 
 
@@ -4181,7 +4117,7 @@ def test_task_snooze_and_vibe_collapse(app):
     assert r.status_code == 200 and r.get_json()["ok"] and r.get_json()["due"] > "2026-11-14"[:4]
     assert o.post("/m/tasks/999/snooze").status_code == 404
     acc = o.get("/account").data.decode()
-    assert 'id="vibeGrid"' in acc and "Show all 32 vibes" in acc
+    assert 'id="vibeGrid"' in acc and "Midnight Grape" in acc
 
 
 def test_try_the_demo_is_read_only_and_resets(app):
@@ -4243,7 +4179,7 @@ def test_pages_are_gzipped_and_static_is_cached(app):
     c = app.test_client()
     r = c.get("/", headers={"Accept-Encoding": "gzip"})
     import gzip
-    assert r.headers.get("Content-Encoding") == "gzip" and b"Start free" in gzip.decompress(r.data)
+    assert r.headers.get("Content-Encoding") == "gzip" and b"Sign up free" in gzip.decompress(r.data)
     assert c.get("/").headers.get("Content-Encoding") is None
     s = c.get("/static/pop.css")
     assert "max-age=604800" in s.headers.get("Cache-Control", "")
@@ -4252,7 +4188,7 @@ def test_pages_are_gzipped_and_static_is_cached(app):
 def test_features_page_and_landing_trim(app):
     c = app.test_client()
     land = c.get("/").data.decode()
-    assert "Try the demo" in land and "See pricing" not in land and "60 seconds away" in land and 'id="prices"' in land and 'class="plans"' in land and "Compare plans" in land   # full plans on the home page itself
+    assert "Explore a live demo" in land and "See pricing" not in land and "60 seconds away" in land and 'id="prices"' in land and 'class="plans"' in land and "Compare plans" in land   # full plans on the home page itself
     assert land.count("<section") <= 9 and land.index("Quick answers") < land.index('id="prices"')   # pricing sits at the bottom
     assert land.count('class="card fcard"') == 0
     feat = c.get("/features").data.decode()
@@ -4401,15 +4337,17 @@ def test_signup_focus_shortens_menu_and_nothing_is_lost(app):
     r = c.get("/signup")
     assert 'name="focus"' in r.get_data(as_text=True)
     c.post("/signup", data=dict(name="F", email="f@x.com", workspace="Foc", industry="d2c", password="Sup3rSecret!", agree="1", focus=["content"]))
-    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "content"
+    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "h:content,h:tasks,h:brand,h:plan"
     h = c.get("/app").get_data(as_text=True)
-    assert 'data-hub="content"' in h and 'data-hub="sales"' not in h and 'data-hub="more"' in h
-    assert "/m/leads" in h                                   # still reachable via More tools
+    assert 'data-hub="content"' in h and 'data-hub="sales"' not in h and 'data-hub="more"' not in h
+    assert "/m/leads" in h                                   # hidden from the sidebar, still reachable through search
     c.post("/account/focus", data=dict(all="1"))
     h = c.get("/app").get_data(as_text=True)
     assert 'data-hub="sales"' in h
-    c.post("/account/focus", data=dict(focus=["sales", "bogus"]))
-    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "sales"
+    c.post("/account/focus", data=dict(hub=["sales", "bogus"], more="1"))
+    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "h:sales,more"
+    h = c.get("/app").get_data(as_text=True)
+    assert 'data-hub="sales"' in h and 'data-hub="more"' in h and 'data-hub="results"' not in h
 
 
 def test_tagline_is_a_kicker_not_a_second_headline():
@@ -4615,9 +4553,9 @@ def test_new_accounts_start_on_the_short_menu_and_can_open_the_rest(app):
     c = app.test_client()
     assert c.post("/signup", data=dict(name="Short", email="short@x.com", workspace="Short Co", password="Sup3rSecret!", agree="1")).status_code == 302
     html = c.get("/app").data.decode()
-    assert "Content &amp; Calendar" in html and "More tools" in html
-    assert "Influencers &amp; PR" not in html.split("More tools")[0].split("hub")[-1] or html.count('class="hub') <= 5
-    assert dbq(app, "SELECT focus FROM users WHERE email=?", ("short@x.com",), one=True)["focus"] == "content"
+    assert "Content &amp; Calendar" in html and "add back" in html and "More tools" not in html.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    assert html.count('class="hub') <= 6
+    assert dbq(app, "SELECT focus FROM users WHERE email=?", ("short@x.com",), one=True)["focus"].startswith("h:content")
     c.post("/account/focus", data=dict(all="1"))                  # one tap brings the full menu back
     assert "Influencers &amp; PR" in c.get("/app").data.decode()
 

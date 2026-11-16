@@ -44,7 +44,12 @@ def fallback_board(goal, kind, offer, ind, brand_name):
     if kind == "post":
         slides = [slides[0], slides[-1]]
     caption = f"{goal}.\n\n" + (f"{offer}. " if offer else "") + "Save this so you can come back to it, and tell us what you think in the comments."
-    return dict(slides=slides[:8], caption=caption[:900], hashtags=_default_tags(ind), cta="Message us", source="template")
+    out = dict(slides=slides[:8], caption=caption[:900], hashtags=_default_tags(ind), cta="Message us", source="template")
+    if kind == "reel":                      # a reel is shots and seconds, not slides
+        import reels as R
+        out["shots"] = R.shot_list(goal, caption, 30)
+        out["hooks"] = R.hooks(goal)
+    return out
 
 
 def _default_tags(ind):
@@ -136,6 +141,10 @@ def draft():
                 note = "The smart draft did not come back clean, so this is the built-in template. No credits were used."
     if not out:
         out = fallback_board(goal, kind, offer, ind, brand)
+    if kind == "reel" and "shots" not in out:          # the AI writes the words; the timings are ours
+        import reels as R
+        out["shots"] = R.shot_list(goal, out.get("caption") or "", 30)
+        out["hooks"] = R.hooks(goal)
     out["note"] = note
     return jsonify(out)
 
@@ -178,7 +187,7 @@ def save():
         d0 = dt.date.fromisoformat(date)
         for n in range(1, reps + 1):     # repeat weekly: same design, later dates, so a series is one save
             ins("content_items", dict(workspace_id=W(), status="Planned", **dict(rec, publish_date=(d0 + dt.timedelta(days=7 * n)).isoformat())))
-    S.audit("studio_save", f"{kind} {rid}")
+    S.audit("studio_save", f"content_items#{rid} “{title}” ({kind}, {chan}, {date})")
     return jsonify(ok=True, id=rid, url=url_for("calendar_view"))
 
 
@@ -325,9 +334,29 @@ def sets():
 
 @bp.route("/grid")
 def grid():
-    """Instagram-style 3-column preview of what the profile will look like, newest first."""
-    rows = q("SELECT id, title, publish_date, status, thumb, channel FROM content_items WHERE workspace_id=? AND channel='Instagram' AND status!='On hold' ORDER BY publish_date DESC, id DESC LIMIT 30", (W(),))
-    return render_template("grid.html", rows=rows, today=S.today().isoformat())
+    """Instagram profile preview: what the grid will look like, planned posts on top, then what is already posted. Drag a planned tile onto another to swap their dates."""
+    rows = q("SELECT id, title, publish_date, status, thumb, channel, format FROM content_items WHERE workspace_id=? AND channel='Instagram' AND status!='On hold' AND format NOT IN ('Story') ORDER BY publish_date DESC, id DESC LIMIT 36", (W(),))
+    posted = sum(1 for r in rows if r["status"] == "Published")
+    return render_template("grid.html", rows=rows, today=S.today().isoformat(), posted=posted, planned=len(rows) - posted, canwrite=g.role not in ("viewer", "client"))
+
+
+@bp.route("/grid/swap", methods=["POST"])
+def grid_swap():
+    """Swap the publish dates of two planned Instagram posts, so the grid can be re-ordered by dragging."""
+    if g.role in ("viewer", "client"):
+        abort(403)
+    d = S.jbody()
+    a, b = S.to_int(d.get("a"), 0), S.to_int(d.get("b"), 0)
+    ra = q("SELECT id, publish_date, status FROM content_items WHERE id=? AND workspace_id=?", (a, W()), one=True)
+    rb = q("SELECT id, publish_date, status FROM content_items WHERE id=? AND workspace_id=?", (b, W()), one=True)
+    if not ra or not rb or a == b:
+        return jsonify(error="Pick two posts from your grid."), 400
+    if "Published" in (ra["status"], rb["status"]):
+        return jsonify(error="Posts that are already published cannot move."), 400
+    ex("UPDATE content_items SET publish_date=? WHERE id=? AND workspace_id=?", (rb["publish_date"], a, W()))
+    ex("UPDATE content_items SET publish_date=? WHERE id=? AND workspace_id=?", (ra["publish_date"], b, W()))
+    S.audit("move", f"content_items#{a} {ra['publish_date']} -> {rb['publish_date']}; #{b} {rb['publish_date']} -> {ra['publish_date']} (grid swap)")
+    return jsonify(ok=True)
 
 
 @bp.route("/studio/pack.json")
@@ -396,5 +425,5 @@ def launch_deck_create():
         rid = ins("content_items", dict(workspace_id=W(), status="Planned", title=title, channel=chan, format=FORMAT_OF[kind], publish_date=date, copy=str(it.get("caption") or "")[:2200],
                                         cta=_trim(it.get("cta"), 80), hashtags=tags, studio=blob, thumb=thumb, campaign=camp))
         out.append(dict(id=rid, title=title, date=date, kind=kind, url=url_for("studio.studio", item=rid)))
-    S.audit("launch_deck", f"{len(out)} items")
+    S.audit("launch_deck", f"Launch deck “{camp}”: {len(out)} posts added to the calendar")
     return jsonify(ok=True, items=out, calendar=url_for("calendar_view"))

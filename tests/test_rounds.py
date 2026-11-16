@@ -232,11 +232,11 @@ def test_round_ideas_prefill_a_schedule_date_so_one_tap_schedules(app):
 def test_feedback_round_clearer_first_impression_and_shorter_signup(app):
     c = app.test_client()
     land = c.get("/").data.decode()
-    assert "Plan your marketing." in land and "Start free" in land and "Main character energy" not in land
+    assert "Plan your marketing." in land and "Sign up free" in land and "Main character energy" not in land
     s = c.get("/signup").data.decode()
     head, more = s.split('<details class="signup-more">', 1)
     assert 'name="industry"' in head and 'name="workspace"' not in head and 'name="workspace"' in more.split('</details>')[0]
-    assert "Talk to a real person" in s
+    assert "Connect with us" in s
     c2 = app.test_client()      # signing up with only the short form still works and names the workspace sensibly
     r = c2.post("/signup", data=dict(name="Asha", email="short@x.com", password="Sup3rSecret!", agree="1", industry="d2c"), follow_redirects=True)
     assert r.status_code == 200 and dbq(app, "SELECT name FROM workspaces ORDER BY id DESC LIMIT 1", one=True)["name"]
@@ -267,9 +267,11 @@ def test_roadmap_round(app):
 
 def test_marketing_pages_public_layout_when_signed_in(app):
     c = signup(app, "mk@x.com")
-    for p in ("/features", "/templates", "/pricing"):
+    for p in ("/features", "/pricing", "/about", "/changelog"):
         h = c.get(p).data.decode()
         assert 'class="pub' in h and "Open app" in h, p
+    tpl = c.get("/templates").data.decode()          # Templates is a real tool once signed in, so it keeps the app chrome
+    assert 'class="app' in tpl and "Use this" in tpl
     c.get("/logout")                       # a GET must NOT log a real account out
     assert c.get("/app").status_code == 200
 
@@ -494,7 +496,7 @@ def test_campaigns_one_list(app):
     only = c.get("/campaigns?type=events").data.decode()
     assert "Open day" in only and "Flash sale" not in only
     side = c.get("/app").data.decode()
-    assert 'data-hub="campaigns"' in side and 'href="/campaigns"' in side
+    assert 'data-hub="tasks"' in side and 'href="/campaigns"' in c.get("/m/tasks").data.decode()
     assert "Promotions" not in side.split('id="allTools"')[0].split("<aside")[1] if "<aside" in side else True
 
 
@@ -546,3 +548,538 @@ def test_deb_layer_wrapped_radar_quick_tone_and_bento(app):
     st = o.get("/studio").data.decode()
     assert "st-rizz" in st
     assert "Midnight Grape" in o.get("/app").data.decode()
+
+
+# ---- regression: round of fixes (menu, bio, grid, chatbot, news, dedupe) ----
+def test_news_page_single_heading_and_language(app):
+    o = signup(app, "news1@x.com")
+    p = o.get("/pulse").data.decode()
+    assert p.count("<h1") == 1 and 'id="pl-lang"' in p and "Topics I follow" in p and "What we track" not in p
+
+
+def test_demo_every_industry(app):
+    import industries
+    c = app.test_client()
+    for k in list(industries.INDUSTRIES)[:30]:
+        r = c.get(f"/demo?v={k}", follow_redirects=True)
+        assert r.status_code == 200, k
+
+
+def test_inr_filter_and_key_dates_dedupe(app):
+    f = app.jinja_env.filters["inr"]
+    assert "1,23,456" in str(f(123456))
+    import services as S
+    assert hasattr(S, "dedupe_key_dates")
+
+
+def test_chat_fetch_send_returns_204(app):
+    o = signup(app, "chat9@x.com")
+    r = o.get("/chat", follow_redirects=True)
+    assert r.status_code == 200
+
+
+def test_bio_activity_grid_deb_pages(app):
+    o = signup(app, "reg9@x.com")
+    for path in ("/activity", "/grid", "/account", "/deb/quick?k=due", "/deb/quick?k=share", "/deb/quick?k=sync", "/bio-edit", "/link-in-bio"):
+        r = o.get(path, follow_redirects=True)
+        assert r.status_code in (200, 404), path
+        assert r.status_code < 500, path
+
+
+def test_link_page_lives_in_leads_and_is_industry_flavoured(app):
+    o = signup(app, "lp@x.com")
+    assert "Get leads from Instagram" in o.get("/m/leads").data.decode()
+    assert "link page" not in o.get("/app").data.decode().lower().split("<main")[0]
+    import bio
+    assert set(bio.FLAVOUR) >= {"d2c", "saas", "hospitality", "general"}
+    e = o.get("/bio").data.decode()
+    assert "What is this?" in e and "Get leads from Instagram" in e
+
+
+# ---- posting straight to Instagram (Meta Graph API) ----
+def _fake_graph(calls):
+    def fake(method, path, **p):
+        calls.append((method, path, p))
+        if "oauth" in path:
+            return {"access_token": "LONG"}
+        if path == "me/accounts":
+            return {"data": [{"id": "PAGE1", "name": "Asha Cafe", "access_token": "PTOK",
+                              "instagram_business_account": {"id": "IG1", "username": "ashacafe"}}]}
+        if path.endswith("/media"):
+            return {"id": "BOX1"}
+        if path.endswith("/media_publish"):
+            return {"id": "MEDIA99"}
+        return {}
+    return fake
+
+
+def _content(app, o, **kw):
+    d = dict(title="Diwali post", copy="Happy Diwali", hashtags="#diwali", asset_url="https://ex.com/a.jpg")
+    d.update(kw)
+    o.post("/m/content_items/save", data=d, follow_redirects=True)
+    with app.app_context():
+        from db import q
+        return q("SELECT id FROM content_items ORDER BY id DESC LIMIT 1")[0]["id"]
+
+
+def test_instagram_connect_and_publish(app, monkeypatch):
+    import social, config as C
+    monkeypatch.setattr(C, "META_APP_ID", "1", raising=False)
+    monkeypatch.setattr(C, "META_APP_SECRET", "x", raising=False)
+    calls = []
+    monkeypatch.setattr(social, "_call", _fake_graph(calls))
+    o = signup(app, "ig1@x.com")
+    r = o.post("/publishing/connect", data=dict(token="SHORT"), follow_redirects=True)
+    assert r.status_code == 200 and "ashacafe" in r.data.decode()
+    cid = _content(app, o)
+    r = o.post(f"/publishing/now/{cid}", follow_redirects=True)
+    assert "Posted to Instagram" in r.data.decode()
+    with app.app_context():
+        from db import q
+        j = q("SELECT * FROM publish_jobs ORDER BY id DESC LIMIT 1")[0]
+        assert j["status"] == "sent" and j["media_id"] == "MEDIA99"
+        assert q("SELECT status FROM content_items WHERE id=?", (cid,))[0]["status"] == "Published"
+    # two-step publish: container first, then publish
+    assert [c[1] for c in calls][-2:] == ["IG1/media", "IG1/media_publish"]
+
+
+def test_scheduled_post_without_account_becomes_a_reminder(app):
+    import social, datetime as dt
+    o = signup(app, "ig2@x.com")
+    cid = _content(app, o)
+    r = o.post(f"/publishing/schedule/{cid}", data=dict(when="2026-11-17T09:00"), follow_redirects=True)
+    assert r.status_code == 200
+    assert "2026-11-17 09:00" in o.get("/publishing").data.decode()
+    with app.app_context():
+        out = social.publish_due(dt.datetime(2026, 11, 18))
+    assert out["helper"] == 1 and out["sent"] == 0          # nothing connected: it still reminds you on time
+    assert "You posted it" in o.get("/publishing").data.decode()
+
+
+def test_publish_errors_are_said_in_plain_words(app, monkeypatch):
+    import social
+    o = signup(app, "ig3@x.com")
+    acct = dict(platform="instagram", account_id="IG1", page_id="P1", token="T")
+    # a picture only this computer can see
+    try:
+        social.publish(acct, "http://127.0.0.1:8200/x.jpg", "hi")
+        assert False
+    except social.SocialError as e:
+        assert "APP_URL" in str(e)
+    # no picture at all
+    try:
+        social.publish(acct, "", "hi")
+        assert False
+    except social.SocialError as e:
+        assert "picture" in str(e)
+    # Meta's developer-speak becomes an instruction
+    assert "signed Debut out" in social._friendly({"code": 190, "message": "Invalid OAuth token"}, 400)
+    assert "Business or Creator" in social._friendly({"code": 10, "message": "nope"}, 403)
+
+
+def test_publishing_page_warns_when_server_is_not_set_up(app):
+    o = signup(app, "ig4@x.com")
+    p = o.get("/publishing").data.decode()
+    assert "META_APP_ID" in p or "not online yet" in p
+    assert "Business" in p                                   # tells you the account type Instagram requires
+
+
+def test_repeat_a_post_moves_it_forward(app):
+    o = signup(app, "rep1@x.com")
+    o.post("/m/content_items/save", data=dict(title="Diwali offer", copy="x", publish_date="2026-11-10"),
+           follow_redirects=True)
+    with app.app_context():
+        from db import q
+        cid = q("SELECT id FROM content_items WHERE title='Diwali offer'")[0]["id"]
+    assert "Do this again" in o.get(f"/m/content_items/{cid}/edit").data.decode()
+    r = o.post(f"/m/content_items/{cid}/repeat", data=dict(when="year"), follow_redirects=True)
+    assert "Copied" in r.data.decode()
+    with app.app_context():
+        from db import q
+        rows = q("SELECT publish_date, status FROM content_items WHERE title='Diwali offer' ORDER BY id")
+    assert len(rows) == 2 and rows[1]["publish_date"] == "2027-11-10" and rows[1]["status"] == "Idea"
+
+
+def test_fill_gives_the_number_asked_for_even_on_a_thin_industry(app):
+    """Industries like "general" ship only three ideas. Asking for eight and getting three is a
+    broken promise, so the pool is topped up from what is coming up and then evergreen posts."""
+    o = signup(app, "fill2@x.com")
+    dbx(app, "UPDATE workspaces SET industry='general'")
+    r = o.post("/ideas/fill", data=dict(n="8", per_week="3"), follow_redirects=True)
+    assert "8 posts planned" in r.data.decode()
+    with app.app_context():
+        from db import q
+        rows = q("SELECT title FROM content_items WHERE notes LIKE 'Idea pillar%'")
+    assert len(rows) == 8 and len({r["title"] for r in rows}) == 8
+
+
+def test_fill_my_calendar_spreads_ideas_and_never_repeats_one(app):
+    o = signup(app, "fill1@x.com")
+    dbx(app, "UPDATE workspaces SET industry='d2c'")
+    r = o.post("/ideas/fill", data=dict(n="8", per_week="3"), follow_redirects=True)
+    assert "posts planned" in r.data.decode()
+    with app.app_context():
+        from db import q
+        rows = q("SELECT title, publish_date FROM content_items WHERE notes LIKE 'Idea pillar%' ORDER BY publish_date")
+    assert len(rows) == 8
+    assert len({r["title"] for r in rows}) == 8                      # no duplicates
+    assert len({r["publish_date"] for r in rows}) == 8               # spread out, not all on one day
+    import datetime as dt
+    assert all(dt.date.fromisoformat(r["publish_date"]).weekday() != 6 for r in rows)   # Sundays left free
+    o.post("/ideas/fill", data=dict(n="20", per_week="3"), follow_redirects=True)      # use up the rest
+    again = o.post("/ideas/fill", data=dict(n="20", per_week="3"), follow_redirects=True)
+    assert "already on your calendar" in again.data.decode()
+    with app.app_context():
+        from db import q
+        titles = [r["title"] for r in q("SELECT title FROM content_items WHERE notes LIKE 'Idea pillar%'")]
+    assert len(titles) == len(set(titles))                            # still no duplicates after refilling
+
+
+def test_best_time_follows_the_industry_then_the_habit(app):
+    import social, datetime as dt
+    o = signup(app, "bt1@x.com")
+    dbx(app, "UPDATE workspaces SET industry='hospitality'")
+    with app.app_context():
+        from db import q
+        ws = q("SELECT * FROM workspaces ORDER BY id DESC LIMIT 1")[0]
+        when, why = social.best_time(ws, dt.datetime(2026, 11, 16, 8, 0))
+        assert when == "2026-11-16T12:00" and "eat" in why
+        for _ in range(3):                                           # once they have a habit, follow it
+            from db import ins
+            ins("publish_jobs", dict(workspace_id=ws["id"], content_id=1, platform="instagram",
+                                     publish_at="2026-11-10 07:00", status="sent"))
+        when2, why2 = social.best_time(ws, dt.datetime(2026, 11, 16, 5, 0))
+        assert when2.endswith("T07:00") and "usually" in why2
+
+
+def test_linkedin_connect_and_publish(app, monkeypatch):
+    import social
+
+    class R:
+        status_code, headers = 201, {"x-restli-id": "urn:li:share:99"}
+
+        @staticmethod
+        def json():
+            return {}
+
+    sent = {}
+
+    def fake_post(url, json=None, timeout=None, headers=None):
+        sent.update(url=url, body=json, headers=headers)
+        return R()
+
+    monkeypatch.setattr(social.requests, "post", fake_post)
+    o = signup(app, "li1@x.com")
+    r = o.post("/publishing/connect-linkedin", data=dict(token="T", author="abc123"), follow_redirects=True)
+    assert "LinkedIn connected" in r.data.decode()
+    o.post("/m/content_items/save", data=dict(title="LI post", copy="hello", asset_url="https://ex.com/a.jpg"),
+           follow_redirects=True)
+    with app.app_context():
+        from db import q
+        cid = q("SELECT id FROM content_items ORDER BY id DESC LIMIT 1")[0]["id"]
+    out = o.post(f"/publishing/now/{cid}", data=dict(platform="linkedin"), follow_redirects=True)
+    assert "Posted" in out.data.decode()
+    assert sent["url"].endswith("/ugcPosts") and "urn:li:person:abc123" == sent["body"]["author"]
+
+
+def test_templates_actually_build_the_plan(app):
+    """The Templates page used to be six cards that linked to sign-up and built nothing."""
+    import playbooks as P
+    o = signup(app, "tpl1@x.com")
+    page = o.get("/templates").data.decode()
+    assert "Use this" in page and "See what it adds" in page
+    r = o.post("/templates/use/diwali", data=dict(date="2026-11-08"), follow_redirects=True)
+    assert "on your calendar" in r.data.decode()
+    with app.app_context():
+        from db import q
+        posts = q("SELECT title, publish_date, campaign FROM content_items WHERE notes LIKE 'From the%' ORDER BY publish_date")
+        tasks = q("SELECT title, due_date FROM tasks WHERE description LIKE 'From the%'")
+        camp = q("SELECT name, start_date, end_date FROM campaigns ORDER BY id DESC LIMIT 1")[0]
+    want_posts, want_tasks, _ = P.summary(P.BY_KEY["diwali"])
+    assert len(posts) == want_posts and len(tasks) == want_tasks
+    assert all(p["campaign"] == camp["name"] for p in posts)         # the posts belong to the campaign
+    assert camp["start_date"] < "2026-11-08" < camp["end_date"]      # built around the date that was picked
+    assert posts[0]["publish_date"] < posts[-1]["publish_date"]      # dated in order, not all on one day
+
+
+def test_every_template_builds_without_error(app):
+    import playbooks as P
+    o = signup(app, "tpl2@x.com")
+    for p in P.PLAYBOOKS:
+        r = o.post(f"/templates/use/{p['key']}", data=dict(date="2026-12-01"), follow_redirects=True)
+        assert r.status_code == 200, p["key"]
+        assert "on your calendar" in r.data.decode() or "record limit" in r.data.decode(), p["key"]
+    assert o.post("/templates/use/not-a-template", data=dict(date="2026-12-01")).status_code == 404
+
+
+def test_a_template_needs_a_date_and_a_role(app):
+    o = signup(app, "tpl3@x.com")
+    r = o.post("/templates/use/sale", data=dict(date=""), follow_redirects=True)
+    assert "Pick the date first" in r.data.decode()
+    dbx(app, "UPDATE memberships SET role='viewer'")                 # a viewer must not be able to build one
+    assert o.post("/templates/use/sale", data=dict(date="2026-12-01")).status_code == 403
+
+
+# ---- reels: the parts a slide deck does not give you ----
+def _reel(app, o, **kw):
+    d = dict(title="Diwali gift box unboxing", format="Reel / Short",
+             copy="Our new gift box is here. Hand-packed in Jaipur. Four things inside.", hashtags="#a #b")
+    d.update(kw)
+    o.post("/m/content_items/save", data=d, follow_redirects=True)
+    with app.app_context():
+        from db import q
+        return q("SELECT id FROM content_items ORDER BY id DESC LIMIT 1")[0]["id"]
+
+
+def test_shot_list_has_timings_that_add_up(app):
+    import reels as R
+    for secs in (15, 30, 60):
+        plan = R.shot_list("Diwali gift box unboxing", "One. Two. Three. Four.", secs)
+        assert plan["seconds"] == secs
+        assert sum(s["secs"] for s in plan["shots"]) == secs
+        assert [s["start"] for s in plan["shots"]][0] == 0
+        for a, b in zip(plan["shots"], plan["shots"][1:]):          # no gaps, no overlaps
+            assert a["end"] == b["start"]
+        assert plan["shots"][0]["job"] == "hook" and plan["shots"][-1]["job"] == "cta"
+        assert all(s["film"] and s["say"] for s in plan["shots"])   # every shot says what to film and what to say
+    assert R.cover("The big Diwali gift box unboxing") == "BIG DIWALI GIFT BOX UNBOXING"
+    assert R.cover("How we make/deliver our product") == "HOW WE MAKE/DELIVER PRODUCT"   # slashes survive whole
+    assert len(R.hooks("gift boxes")) >= 4
+
+
+def test_reel_page_shows_sheet_checks_and_length_choice(app):
+    o = signup(app, "reel1@x.com")
+    cid = _reel(app, o)
+    page = o.get(f"/m/content_items/{cid}/edit").data.decode()
+    for bit in ("Before you post", "Shoot sheet", "Cover frame", "Use this again", "Other openings"):
+        assert bit in page, bit
+    assert "24–30s" in page                                          # 30s plan by default
+    assert "50–60s" in o.get(f"/m/content_items/{cid}/edit?secs=60").data.decode()
+    r = o.post(f"/m/content_items/{cid}/shotlist", data=dict(secs="30"), follow_redirects=True)
+    assert "Shoot sheet saved into this post" in r.data.decode()
+    with app.app_context():
+        from db import q
+        assert "Cover frame:" in q("SELECT notes FROM content_items WHERE id=?", (cid,))[0]["notes"]
+
+
+def test_checks_catch_the_reel_mistakes(app):
+    import reels as R
+    o = signup(app, "reel2@x.com")
+    bad = _reel(app, o, copy="x" * 200, hashtags="#a #b #c #d #e #f #g", cta="", asset_url="")
+    with app.app_context():
+        from db import q
+        row = q("SELECT * FROM content_items WHERE id=?", (bad,))[0]
+    failed = {c["title"] for c in R.checks(row) if not c["ok"]}
+    assert "Put the hook in the first 120 characters" in failed
+    assert "Keep it to five hashtags" in failed
+    assert "Add the video or the cover picture" in failed
+    good = _reel(app, o, copy="Short hook here. Message us to order.", hashtags="#a", cta="Message us",
+                 asset_url="https://ex.com/a.mp4")
+    with app.app_context():
+        from db import q
+        row = q("SELECT * FROM content_items WHERE id=?", (good,))[0]
+    assert not [c for c in R.checks(row) if not c["ok"]]
+
+
+def test_repurpose_makes_a_real_second_piece(app):
+    o = signup(app, "reel3@x.com")
+    cid = _reel(app, o, campaign="Diwali 2026")
+    r = o.post(f"/m/content_items/{cid}/repurpose", data=dict(to="Carousel"), follow_redirects=True)
+    assert "Made a carousel" in r.data.decode()
+    with app.app_context():
+        from db import q
+        new = q("SELECT * FROM content_items ORDER BY id DESC LIMIT 1")[0]
+    assert new["format"] == "Carousel" and new["campaign"] == "Diwali 2026"
+    assert new["copy"] and "Repurposed from" in new["notes"]
+    assert o.post(f"/m/content_items/{cid}/repurpose", data=dict(to="Nonsense")).status_code == 400
+
+
+def test_studio_reel_draft_carries_timings_without_an_ai_key(app):
+    o = signup(app, "reeldraft@x.com")
+    j = o.post("/studio/draft", json=dict(kind="reel", goal="Diwali gift box", offer="20% off", ai=False)).get_json()
+    assert j["shots"]["seconds"] == 30 and len(j["shots"]["shots"]) >= 4
+    assert j["shots"]["cover"] and len(j["hooks"]) >= 4
+    carousel = o.post("/studio/draft", json=dict(kind="carousel", goal="Diwali gift box", ai=False)).get_json()
+    assert "shots" not in carousel                                   # only reels get a shoot sheet
+
+
+# ---- numbers back from Instagram, and what they teach ----
+def _graph_with_insights(calls):
+    def fake(method, path, **p):
+        calls.append(path)
+        if "oauth" in path:
+            return {"access_token": "L"}
+        if path == "me/accounts":
+            return {"data": [{"id": "P1", "name": "Cafe", "access_token": "T",
+                              "instagram_business_account": {"id": "IG1", "username": "cafe"}}]}
+        if path.endswith("/media"):
+            return {"id": "BOX"}
+        if path.endswith("/media_publish"):
+            return {"id": "M1"}
+        if path == "IG1":
+            return {"followers_count": 1234, "media_count": 40}
+        if path == "IG1/insights":
+            return {"data": [{"name": "reach", "values": [{"value": 500}, {"value": 300}]}]}
+        if path == "M1":
+            return {"media_product_type": "REELS", "permalink": "https://instagram.com/p/x"}
+        if path == "M1/insights":
+            return {"data": [{"name": "reach", "total_value": {"value": 900}},
+                             {"name": "likes", "total_value": {"value": 75}},
+                             {"name": "saved", "total_value": {"value": 12}}]}
+        return {}
+    return fake
+
+
+def test_instagram_numbers_come_back_into_the_results_log(app, monkeypatch):
+    import social, config as C
+    monkeypatch.setattr(C, "META_APP_ID", "1", raising=False)
+    monkeypatch.setattr(C, "META_APP_SECRET", "x", raising=False)
+    monkeypatch.setattr(social, "_call", _graph_with_insights([]))
+    o = signup(app, "ins1@x.com")
+    o.post("/publishing/connect", data=dict(token="S"), follow_redirects=True)
+    o.post("/m/content_items/save", data=dict(title="Reel one", copy="hi", asset_url="https://ex.com/a.jpg"),
+           follow_redirects=True)
+    with app.app_context():
+        from db import q
+        cid = q("SELECT id FROM content_items ORDER BY id DESC LIMIT 1")[0]["id"]
+    o.post(f"/publishing/now/{cid}", follow_redirects=True)
+    r = o.post("/publishing/refresh", follow_redirects=True)
+    assert "1234 followers" in r.data.decode() and "800 reached" in r.data.decode()
+    with app.app_context():
+        from db import q
+        st = q("SELECT * FROM post_stats")[0]
+        kp = {k["metric"]: k["value"] for k in q("SELECT metric, value FROM kpis WHERE notes LIKE 'Brought in%'")}
+    assert st["reach"] == 900 and st["likes"] == 75 and st["saves"] == 12
+    assert st["permalink"].startswith("https://instagram.com/")
+    assert kp == {"Followers": "1234", "Reach": "800"}
+    assert "Your best posts" in o.get("/publishing").data.decode()
+
+
+def test_no_account_connected_says_so_rather_than_failing(app):
+    import social
+    o = signup(app, "ins2@x.com")
+    with app.app_context():
+        from db import q
+        wid = q("SELECT id FROM workspaces ORDER BY id DESC LIMIT 1")[0]["id"]
+        got = social.fetch_insights(wid)
+    assert got["ok"] is False and "No Instagram account" in got["why"]
+
+
+def test_three_taps_teach_the_app_what_works(app):
+    import learn as L
+    o = signup(app, "learn1@x.com")
+    with app.app_context():
+        from db import q
+        wid = q("SELECT id FROM workspaces ORDER BY id DESC LIMIT 1")[0]["id"]
+    made = []
+    for i, (fmt, rating, day) in enumerate([
+            ("Reel / Short", "good", "2026-11-02"), ("Reel / Short", "good", "2026-11-09"),
+            ("Post", "flop", "2026-11-03"), ("Post", "ok", "2026-11-10"),
+            ("Carousel", "ok", "2026-11-04"), ("Reel / Short", "good", "2026-11-16")]):
+        o.post("/m/content_items/save", data=dict(title=f"P{i}", format=fmt, status="Published",
+                                                  publish_date=day, channel="Instagram"), follow_redirects=True)
+        with app.app_context():
+            from db import q
+            cid = q("SELECT id FROM content_items ORDER BY id DESC LIMIT 1")[0]["id"]
+        made.append(cid)
+        o.post(f"/m/content_items/{cid}/rate", data=dict(rating=rating), follow_redirects=True)
+    with app.app_context():
+        w = L.what_works(wid)
+        line = L.headline(wid)
+    assert w["enough"] and w["n"] == 6
+    assert w["formats"][0][0] == "Reel / Short"              # its own evidence, not an industry average
+    assert w["days"] and "Monday" in [d[0] for d in w["days"]]
+    assert "Reel" in line
+    assert "What works for you" in o.get("/analytics").data.decode()
+
+
+def test_rating_is_one_per_post_and_blocked_for_viewers(app):
+    import learn as L
+    o = signup(app, "learn2@x.com")
+    o.post("/m/content_items/save", data=dict(title="One", status="Published", publish_date="2026-11-01"),
+           follow_redirects=True)
+    with app.app_context():
+        from db import q
+        cid = q("SELECT id FROM content_items ORDER BY id DESC LIMIT 1")[0]["id"]
+        wid = q("SELECT id FROM workspaces ORDER BY id DESC LIMIT 1")[0]["id"]
+    o.post(f"/m/content_items/{cid}/rate", data=dict(rating="flop"), follow_redirects=True)
+    o.post(f"/m/content_items/{cid}/rate", data=dict(rating="good"), follow_redirects=True)
+    with app.app_context():
+        from db import q
+        assert q("SELECT COUNT(*) c FROM post_feedback")[0]["c"] == 1          # changing your mind replaces
+        assert L.rating_of(wid, cid) == "good"
+    assert o.post(f"/m/content_items/{cid}/rate", data=dict(rating="meh")).status_code == 400
+    dbx(app, "UPDATE memberships SET role='viewer'")
+    assert o.post(f"/m/content_items/{cid}/rate", data=dict(rating="good")).status_code == 403
+
+
+def test_review_link_qr_and_counting(app):
+    o = signup(app, "rev1@x.com")
+    assert o.get("/reviews").status_code == 200
+    r = o.post("/reviews", data=dict(review_url="g.page/r/abc"), follow_redirects=True)
+    assert "Share the link" in r.data.decode()
+    with app.app_context():
+        from db import q
+        slug = q("SELECT slug FROM workspaces ORDER BY id DESC LIMIT 1")[0]["slug"]
+    anon = app.test_client()
+    hop = anon.get(f"/review/{slug}")
+    assert hop.status_code == 302 and hop.headers["Location"] == "https://g.page/r/abc"   # https added for them
+    assert anon.get(f"/review/{slug}/qr.svg").status_code == 200
+    assert "1 tap" in o.get("/reviews").data.decode()
+    assert app.test_client().get("/review/nobody").status_code == 404
+    assert "/r/" not in o.get("/reviews").data.decode().split("Your asking link")[-1][:400]   # must not clash with the client report
+
+
+def test_printable_month(app):
+    o = signup(app, "prt@x.com")
+    o.post("/m/content_items/save", data=dict(title="Festive post", publish_date="2026-11-20",
+                                              channel="Instagram"), follow_redirects=True)
+    o.post("/m/tasks/save", data=dict(title="Shoot reel", status="To do", due_date="2026-11-21"),
+           follow_redirects=True)
+    p = o.get("/calendar/print?y=2026&m=11").data.decode()
+    assert "Festive post" in p and "Shoot reel" in p and "To do this month" in p
+    import re
+    link = re.search(r"/calendar/print\?[^\"]*", o.get("/calendar").data.decode()).group(0).replace("&amp;", "&")
+    assert "y=2026" in link and "m=" in link and "m=&" not in link and not link.endswith("m=")
+    assert o.get(link).status_code == 200                      # the link on the calendar must actually work
+    assert o.get("/calendar/print?y=&m=").status_code == 200    # blank params fall back to this month
+    assert o.get("/calendar/print?y=2026&m=77").status_code == 400
+
+
+def test_hindi_covers_the_menu_and_falls_back_to_english(app):
+    import i18n
+    assert i18n.t("Calendar", "hi") == "कैलेंडर"
+    assert i18n.t("Something nobody translated", "hi") == "Something nobody translated"
+    assert i18n.t("Calendar", "en") == "Calendar"
+    o = signup(app, "hi1@x.com")
+    assert 'lang-sel' in o.get("/account").data.decode()
+    r = o.post("/account/language", data=dict(lang="hi"), follow_redirects=True)
+    assert "हिन्दी" in r.data.decode()
+    d = o.get("/app").data.decode()
+    assert '<html lang="hi"' in d
+    for word in ("कंटेंट और कैलेंडर", "होम", "कैलेंडर", "मेन्यू"):
+        assert word in d, word
+    assert o.post("/account/language", data=dict(lang="zz")).status_code == 400
+    o.post("/account/language", data=dict(lang="en"), follow_redirects=True)
+    assert "Content &amp; Calendar" in o.get("/app").data.decode()
+
+
+def test_one_workspace_language_does_not_leak_into_another(app):
+    a = signup(app, "hi2@x.com")
+    a.post("/account/language", data=dict(lang="hi"), follow_redirects=True)
+    b = signup(app, "hi3@x.com")
+    assert "Content &amp; Calendar" in b.get("/app").data.decode()
+    assert "कंटेंट और कैलेंडर" not in b.get("/app").data.decode()
+    assert "कंटेंट और कैलेंडर" in a.get("/app").data.decode()
+
+
+def test_no_two_routes_claim_the_same_url(app):
+    """A review link at /r/<slug> once shadowed the public client report at /r/<token>. Catch the
+    next one automatically: two rules may share a URL only when they differ by HTTP method."""
+    import collections
+    by_rule = collections.defaultdict(set)
+    for r in app.url_map.iter_rules():
+        for m in (r.methods or set()) - {"HEAD", "OPTIONS"}:
+            by_rule[(r.rule, m)].add(r.endpoint)
+    clashes = {k: sorted(v) for k, v in by_rule.items() if len(v) > 1}
+    assert not clashes, clashes

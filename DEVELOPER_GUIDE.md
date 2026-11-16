@@ -628,3 +628,51 @@ Third-party code bundled: Chart.js 4.5.1 (MIT) in `static/vendor/`, licence file
 2. Add both as environment variables on Render (plus optional `VAPID_SUBJECT=mailto:you@yourdomain.com`) and redeploy.
 3. Users open Notifications and tap **Turn on push**. Every in-app notification (assigned, @mention, kudos, approvals) is then also sent as a phone/desktop push.
 Without the keys the button explains push isn't set up and nothing else changes. Dead subscriptions are removed automatically.
+
+## Latest round (menu, bio, grid, chatbot, news)
+- Menu: `users.focus` holds `h:<hub>` tokens plus `more`; customise it in Account → Menu. "More tools" shows only when enabled there.
+- The browser hub editor and the News Sources (feeds) feature were removed; the `feeds` table is dropped.
+- Link in bio logs `bio_view`/`bio_click` to `audit_log`; form leads from the page get source "Link in bio".
+- Instagram grid lives under Create (`/grid`, reorder via `/grid/swap`). Activity log (`/activity`) records every create, edit, status change and reschedule.
+- Deb chatbot (`templates/_chatbot.html`, `deb.py`): deadline cards, add to calendar (`/deb/ics`), WhatsApp share, calendar sync.
+- Team chat sends via fetch (`X-Requested-With: fetch` returns 204); News has language links and view tabs.
+
+## Instagram / Facebook publishing (`social.py`)
+- `social_accounts` holds one row per connected Instagram account or Facebook Page (long-lived Page token).
+- `publish_jobs` is the queue: one row per scheduled post (`queued` → `sent` / `helper` / `failed` / `cancelled`).
+- `social.publish_due()` is called from `services.run_due_jobs()`; it never raises,
+  and a workspace with no connected account gets a "post helper" notification instead of a failure.
+- Publishing is Meta's two-step dance: `POST {ig}/media` (container, with a **public** image_url) then
+  `POST {ig}/media_publish`. `_friendly()` turns Meta's error codes into something a shop owner can act on.
+- Tests stub `social._call`, so nothing in the suite touches the network. See `tests/test_rounds.py`.
+
+## Reels (`reels.py`)
+A reel is shots and seconds, not slides. `shot_list(title, copy, seconds)` returns a shoot sheet whose
+shots tile 0..N with no gaps (15/30/60s plans); `hooks()` gives alternative openings; `cover()` is the
+3–5 words for the grid thumbnail; `checks()` are the pre-publish catches (caption hook under 120 chars,
+≤5 hashtags, a clear ask, a file attached, 9:16); `repurpose_plan()` says what the piece could become next.
+Everything is plain structure — no AI key and no network — so the studio's fallback draft is still
+shoot-ready. The content form renders all of it through the `reel_info()` context helper in `app.py`.
+
+## Numbers from Instagram (`social.fetch_insights`)
+`post_stats` holds per-post reach/likes/comments/saves/shares/views plus the permalink; the headline
+numbers (followers, reach) are also written into `kpis` so the Numbers page fills itself. Runs daily
+from `services.run_due_jobs` via `social.refresh_all()`, and on demand from Publishing. One unreadable
+post never stops the rest, and a workspace with no connected account gets a reason, not an exception.
+
+## What works (`learn.py`)
+`post_feedback` is three taps (flop / ok / good) a few days after a post publishes — deliberately
+separate from Instagram's numbers, because most workspaces will not connect an API for weeks and the
+owner already knows. `what_works()` reports best formats/channels/days from that workspace's own posts
+and says "not enough yet" below five ratings rather than inventing a pattern. Deb asks via `/deb/quick?k=howdid`.
+
+## Reviews (`bio.reviews`)
+`workspaces.review_url` plus `/r/<slug>` (counted in `audit_log` as `review_click`) and `/r/<slug>/qr.svg`.
+Same machinery as the link page, pointed at Google/Zomato/Practo instead.
+
+## Language (`i18n.py`)
+The English string is the key: `t("Calendar")` falls back to English when a translation is missing, so a
+partial dictionary degrades gracefully. `workspaces.lang` picks it; the context processor in `app.py`
+exposes `t`, `LANG` and `LANGUAGES`, and translates hub/tab labels into per-request copies — never the
+shared `hubs.HUBS` dicts, or one workspace's language would leak into another's. Hindi covers the
+navigation, bottom bar and main actions; deeper screens stay English by design.

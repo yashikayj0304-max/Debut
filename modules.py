@@ -60,7 +60,6 @@ REQUIRED = {
     "kpis": {"metric"},
     "tasks": {"title"},
     "key_dates": {"name"},
-    "feeds": {"name"},
     "clients": {"name"},
     "creators": {"name"},
     "content_orders": {"title"},
@@ -156,9 +155,6 @@ MODULES = OrderedDict([
     ("key_dates", dict(title="Key Dates", icon="🗓️", group="Content", desc="Festivals, industry events and launches shown on the calendar. Verify moving dates.",
         fields=[F("name", "Name"), F("date", "Date", "date"), F("kind", "Type", "select", ["Festival", "Industry event", "Sale / shopping", "Internal", "Awareness day"]), F("notes", "Notes / comment", "textarea")],
         cols=["name", "date", "kind", "notes"], filter="kind")),
-    ("feeds", dict(title="News Sources", icon="📡", group="Intelligence", desc="RSS/Atom feeds used on the Latest Updates page. Google News search URLs work too.",
-        fields=[F("name", "Name"), F("url", "Feed URL", "url"), F("category", "Category", "select", ["Marketing", "SEO / Search", "Social", "Industry", "Competitors", "FMCG / Retail", "Tech / AI", "Other"])],
-        cols=["name", "category", "url"], filter="category")),
     ("clients", dict(title="Clients", icon="🏢", group="Content Ops", desc="Brands / accounts you produce content for.",
         fields=[F("name", "Client / brand"), F("industry", "Industry"), F("contact_person", "Contact person"), F("email", "Email"), F("phone", "Phone"),
                 F("plan", "Plan / retainer"), F("monthly_value", "Monthly value (₹)", "number"), F("status", "Status", "select", ["Lead", "Active", "Paused", "Churned"]), F("brand_color", "Portal colour (e.g. #e63946)"), F("logo_url", "Portal logo link", "url"), F("notes", "Notes", "textarea")],
@@ -222,17 +218,6 @@ CHECKLIST = {
     "Launch": ["Internal launch briefing", "Go-live checklist and QA of all links", "Press release and media outreach", "Launch-day social and community plan", "War-room monitoring dashboard"],
     "Post-launch": ["Daily KPI review for first 14 days", "Collect customer feedback and reviews", "Run first A/B experiments", "Launch retrospective and learnings", "Plan scale-up / next phase"],
 }
-FEEDS = [
-    ("Search Engine Land", "https://searchengineland.com/feed", "SEO / Search"),
-    ("Marketing Dive", "https://www.marketingdive.com/feeds/news/", "Marketing"),
-    ("HubSpot Marketing", "https://blog.hubspot.com/marketing/rss.xml", "Marketing"),
-    ("Social Media Today", "https://www.socialmediatoday.com/feeds/news/", "Social"),
-    ("Google News: India marketing", "https://news.google.com/rss/search?q=marketing+india+campaign&hl=en-IN&gl=IN&ceid=IN:en", "Industry"),
-    ("Google News: FMCG launches", "https://news.google.com/rss/search?q=FMCG+product+launch+india&hl=en-IN&gl=IN&ceid=IN:en", "FMCG / Retail"),
-    ("Google News: Instagram / Meta updates", "https://news.google.com/rss/search?q=Instagram+OR+Meta+ads+update&hl=en-IN&gl=IN&ceid=IN:en", "Social"),
-    ("Google News: Google Ads / SEO updates", "https://news.google.com/rss/search?q=Google+algorithm+OR+Google+Ads+update&hl=en-IN&gl=IN&ceid=IN:en", "SEO / Search"),
-    ("Google News: AI in marketing", "https://news.google.com/rss/search?q=AI+marketing+tools&hl=en-IN&gl=IN&ceid=IN:en", "Tech / AI"),
-]
 KEY_DATES = [  # fixed-date events; add moving festivals yourself (Diwali, Holi, Eid...)
     ("Valentine's Day", "02-14", "Awareness day"), ("International Women's Day", "03-08", "Awareness day"),
     ("Earth Day", "04-22", "Awareness day"), ("Mother's Day (verify - moves)", "05-10", "Awareness day"),
@@ -261,7 +246,7 @@ MODULE_FEATURE = {"clients": "content_ops", "creators": "content_ops", "content_
 CREATOR_MODULES = {"content_items", "assets", "content_orders", "tasks"}
 # money fields freelancers (creator role) never see or change: the agency's margin stays private
 HIDDEN_FOR_CREATOR = {"content_orders": {"price_client", "cost_creator"}}
-SEED_TABLES = ("launch_checklist", "feeds", "key_dates", "outreach_templates", "rate_card", "watchlist")
+SEED_TABLES = ("launch_checklist", "key_dates", "outreach_templates", "rate_card", "watchlist")
 
 
 SYSTEM = ("You are a senior Head of Marketing / CMO with 15+ years across FMCG, D2C and B2B, fluent in the Indian market. "

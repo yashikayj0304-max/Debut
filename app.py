@@ -27,7 +27,7 @@ class SafeInt(IntegerConverter):
         super().__init__(map, **kw)
 
 MARKETING = {"features", "templates_gallery", "pricing", "terms", "privacy", "contact", "refunds", "changelog", "about", "channels_page"}
-PUBLIC = {"bio.public", "bio.go", "bio.qr", "cron_morning", "cron_evening", "auth.demo_exit", "about", "channels_page", "healthz", "agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
+PUBLIC = {"bio.public", "bio.go", "bio.qr", "bio.review_go", "bio.review_qr", "cron_morning", "cron_evening", "auth.demo_exit", "about", "channels_page", "healthz", "agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
 VIEWER_WRITE_OK = {"deb.set_tone", "tm.send", "tm.send_channel", "tm.channel", "tm.new_channel", "tm.react", "tm.pin", "tm.delete_msg", "tm.share", "tm.cancel", "tm.access_request", "auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
@@ -99,9 +99,56 @@ def create_app(config=None, init=True, database_url=None):
     from bio import bp as bio_bp
     from team import bp as team_bp
     from deb import bp as deb_bp
-    for b in (auth_bp, billing_bp, ws_bp, admin_bp, api_bp, survey_bp, studio_bp, bio_bp, team_bp, deb_bp):
+    from social import bp as social_bp
+    for b in (auth_bp, billing_bp, ws_bp, admin_bp, api_bp, survey_bp, studio_bp, bio_bp, team_bp, deb_bp, social_bp):
         app.register_blueprint(b)
     views.register(app)
+
+    @app.context_processor
+    def _language():
+        """The interface language for this workspace, and the t() every template uses."""
+        import i18n
+        lang = "en"
+        try:
+            if getattr(g, "ws", None) and "lang" in g.ws.keys():
+                lang = g.ws["lang"] or "en"
+        except Exception:
+            lang = "en"
+        return dict(LANG=lang, LANGUAGES=i18n.LANGUAGES, tr=lambda s: i18n.t(s, lang))   # "tr", not "t": views already pass a "t" of their own
+
+    @app.context_processor
+    def _publishing():
+        """Lets any form ask whether Instagram posting is live for this workspace, and what is queued."""
+        def reel_info(content_id, secs=30):
+            """The shoot sheet, hooks, pre-publish checks and what this could become next."""
+            try:
+                import reels as R
+                from db import q as _q
+                rows = _q("SELECT * FROM content_items WHERE workspace_id=? AND id=?", (g.ws["id"], content_id))
+                if not rows:
+                    return None
+                it = rows[0]
+                import learn as L, social as SOC
+                return dict(plan=R.shot_list(it["title"], it["copy"] or "", secs), hooks=R.hooks(it["title"]),
+                            checks=R.checks(it), nexts=R.repurpose_plan(it),
+                            is_video=(it["format"] or "") in ("Reel / Short", "Story"),
+                            published=(it["status"] or "") == "Published",
+                            rating=L.rating_of(g.ws["id"], content_id), ratings=L.RATINGS,
+                            stats=SOC.stats_for(g.ws["id"], content_id))
+            except Exception:
+                return None
+
+        def pub_info(content_id):
+            try:
+                import social
+                if not getattr(g, "ws", None):
+                    return dict(ready=False, jobs=[], when="", why="", where=[])
+                when, why = social.best_time(g.ws)
+                where = [(r["platform"], social.PLATFORMS.get(r["platform"], r["platform"])) for r in social.accounts(g.ws["id"])] or [("instagram", "Instagram")]
+                return dict(ready=bool(social.account(g.ws["id"])), jobs=social.jobs_for(g.ws["id"], content_id), when=when, why=why, where=where)
+            except Exception:
+                return dict(ready=False, jobs=[], when="", why="", where=[])
+        return dict(pub_info=pub_info, reel_info=reel_info)
 
     @app.before_request
     def guard():
@@ -202,6 +249,8 @@ def create_app(config=None, init=True, database_url=None):
     app.jinja_env.globals["tone_now"] = lambda: _voice.tone_of(g.get("user"))
     from hubs import FOCUS as _FOCUS
     app.jinja_env.globals["FOCUS"] = _FOCUS
+    import palettes as _pal
+    app.jinja_env.globals["PALS"] = _pal.PALS
 
     def _nice_day(iso):
         """'2026-11-15' -> 'tomorrow' / 'Mon 16 Nov': people read days, not ISO dates."""
@@ -212,6 +261,34 @@ def create_app(config=None, init=True, database_url=None):
         n = (d - S.today()).days
         return {0: "today", 1: "tomorrow", -1: "yesterday"}.get(n, d.strftime("%a %d %b").replace(" 0", " "))
     app.jinja_env.filters["nice_day"] = _nice_day
+
+    def _inr(v, short=False):
+        """₹1,20,000 (Indian grouping). short=True gives 1.2L / 3.4Cr for tight tiles."""
+        try:
+            n = float(v or 0)
+        except (TypeError, ValueError):
+            return "₹0"
+        neg, n = n < 0, abs(n)
+        if short and n >= 10000000:
+            t = f"{n / 10000000:.1f}".rstrip("0").rstrip(".") + "Cr"
+        elif short and n >= 100000:
+            t = f"{n / 100000:.1f}".rstrip("0").rstrip(".") + "L"
+        elif short and n >= 10000:
+            t = f"{n / 1000:.1f}".rstrip("0").rstrip(".") + "k"
+        else:
+            s = f"{int(round(n))}"
+            if len(s) > 3:
+                head, tail = s[:-3], s[-3:]
+                parts = []
+                while len(head) > 2:
+                    parts.insert(0, head[-2:])
+                    head = head[:-2]
+                if head:
+                    parts.insert(0, head)
+                s = ",".join(parts + [tail])
+            t = s
+        return ("-" if neg else "") + "₹" + t
+    app.jinja_env.filters["inr"] = _inr
     _PLAIN = {"roas": "Ad return (ROAS)", "cac": "Cost per customer (CAC)", "aov": "Average order value (AOV)", "ltv": "Lifetime value (LTV)", "ctr": "Click rate (CTR)",
               "cpm": "Cost per 1,000 views (CPM)", "cpl": "Cost per lead (CPL)", "cpc": "Cost per click (CPC)", "mrr": "Monthly recurring revenue (MRR)", "arr": "Yearly recurring revenue (ARR)",
               "return / rto rate": "Returns rate (RTO)", "rto rate": "Returns rate (RTO)", "rto": "Returns (RTO)", "nps": "Customer happiness score (NPS)", "churn": "Customers lost (churn)",
@@ -253,7 +330,7 @@ def create_app(config=None, init=True, database_url=None):
             d["on_free"] = g.plan_key == "free"
             d["lapsed"] = g.plan_key == "free" and g.ws["plan"] != "free"
             groups = OrderedDict([("Strategy", []), ("Content", []), ("Campaigns", []), ("Promotions & Events", []), ("Content Ops", []), ("Growth", []), ("Intelligence", [])])
-            special = {"Strategy": [("Launch deck", "studio.launch_deck", "🎁")], "Content": [("Calendar", "calendar_view", "📅"), ("Create studio", "studio.studio", "🎬"), ("Instagram grid", "studio.grid", "🧩"), ("Link in bio", "bio.edit", "🔗"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
+            special = {"Strategy": [("Launch deck", "studio.launch_deck", "🎁")], "Content": [("Calendar", "calendar_view", "📅"), ("Create studio", "studio.studio", "🎬"), ("Instagram grid", "studio.grid", "🧩"), ("Get leads from Instagram", "bio.edit", "🔗"), ("Mood Boards", "moodboards", "🖼️"), ("Idea Bank", "ideas", "💡")],
                        "Campaigns": [("Discover Influencers", "discover", "🔭"), ("Trackable links (UTM)", "utm", "🏷️")],
                        "Content Ops": [("Ops Dashboard", "content_ops", "📊")], "Growth": [("Analytics", "analytics", "📈")],
                        "Intelligence": [("Live news (Market Pulse)", "pulse_page", "📡"), ("AI Studio", "ai_studio", "🤖")]}
@@ -333,24 +410,27 @@ def create_app(config=None, init=True, database_url=None):
                         tabs = [t for t in tabs if t is rep or t not in have]
                 if tabs:
                     _hubs.append(dict(key=hb["key"], icon=hb["icon"], label=hb["label"], lv=hb["lv"], href=tabs[0]["href"], tabs=tabs, on=False))
-            _fk = _hubs_focus(g.user["focus"] if g.user and "focus" in g.user.keys() else "")
+            _fk, _show_more = _hubs_focus(g.user["focus"] if g.user and "focus" in g.user.keys() else "")
+            d["HUBS_ALL"] = [(hb["key"], hb["icon"], hb["label"]) for hb in _hubs]
+            d["MENU_SEL"] = sorted(_fk) if _fk is not None else [hb["key"] for hb in _hubs]
+            d["MENU_MORE"] = _show_more
             _tucked = []
-            if _fk is not None:      # chosen focus: other hubs move under "More tools" (nothing is removed)
+            if _fk is not None:      # the person chose which sections to see: the rest are hidden from the sidebar but stay in search and in "All tools"
                 _keep = []
                 for hb in _hubs:
-                    (_keep if hb["key"] in _fk or hb["tabs"][0]["href"] == request.path else _tucked).append(hb)
+                    (_keep if hb["key"] in _fk or any(pp == request.path or request.path.startswith(pp.rstrip("/") + "/") for t in hb["tabs"] for pp in t["paths"]) else _tucked).append(hb)
                 _hubs = _keep
             _skip = {url_for("m_list", key="content_items")} | {url_for(e, **({"key": k2} if k2 else {})) for e, k2 in FOLDED}      # the raw table of posts: Posts already covers it
-            _groups = [(hb["icon"] + " " + hb["label"], [(s["label"], s["href"]) for t in hb["tabs"] for s in (t.get("subs") or [t])]) for hb in _tucked]
             _other = [(lbl, h) for h, lbl in _label_of.items() if h not in _seen and h not in _skip]
-            if _other:
-                _groups.append(("🧰 Other tools", _other))
-            _rest = [x for _, items in _groups for x in items]
-            d["MORE_GROUPS"] = _groups
+            _rest = [(s["label"], s["href"]) for hb in _tucked for t in hb["tabs"] for s in (t.get("subs") or [t])] + _other
             _card = lambda t: (t["label"], t["href"], [(s["label"], s["href"]) for s in (t.get("subs") or [])])
-            d["AREAS"] = [(hb["icon"] + " " + hb["label"], [_card(t) for t in hb["tabs"]]) for hb in (_hubs + _tucked) if hb["key"] != "more"] + ([("🧰 Other", [(lbl, h, []) for lbl, h in _other])] if _other else [])
-            if True:      # the directory of every page is always one tap away
-                _tools_url = url_for("tools_page")
+            d["AREAS"] = [(hb["icon"] + " " + hb["label"], [_card(t) for t in hb["tabs"]]) for hb in (_hubs + _tucked)] + ([("🧰 Other", [(lbl, h, []) for lbl, h in _other])] if _other else [])
+            d["HUBS_HIDDEN"] = len(_tucked)
+            _tools_url = url_for("tools_page")
+            _search_hubs = list(_hubs) + list(_tucked)
+            if _other:
+                _search_hubs.append(dict(key="other", icon="🧰", label="Other tools", lv=3, href=_other[0][1], tabs=[dict(label=l, href=h, paths=[h.split("?")[0]], on=False) for l, h in _other], on=False))
+            if _show_more:      # only when the person asks for it in Profile > Menu
                 _hubs.append(dict(key="more", icon="🧰", label="More tools", lv=3, href=_tools_url, tabs=[dict(label="🧰 All tools", href=_tools_url, paths=[_tools_url], on=False)] + [dict(label=l, href=h, paths=[h.split("?")[0]], on=False) for l, h in _rest], on=False))
             _p = request.path
             for hb in _hubs:
@@ -364,19 +444,32 @@ def create_app(config=None, init=True, database_url=None):
             d["HUBS"] = _hubs
             d["HUB_CUR"] = _cur
             d["HUB_TABS"] = _cur["tabs"] if _cur and len(_cur["tabs"]) > 1 and _cur["key"] != "more" else []
+            _lang = (g.ws["lang"] or "en") if ("lang" in g.ws.keys()) else "en"
+            if _lang != "en":
+                import i18n as _i                      # menu names are the most-read words in the app
+                _tr = lambda s: _i.t(s, _lang)
+                # copies, never the shared hub definitions: one workspace's language must not leak into another's
+                d["HUBS"] = [dict(h, label=_tr(h["label"])) for h in _hubs]
+                d["HUB_TABS"] = [dict(t, label=_tr(t["label"])) for t in (d.get("HUB_TABS") or [])]
+                if d.get("HUB_CUR"):
+                    d["HUB_CUR"] = dict(d["HUB_CUR"], label=_tr(d["HUB_CUR"]["label"]))
             d["HUB_NOW"] = _curtab["href"] if _cur else ""
             d["SUBTABS"] = []
             if _curtab and _curtab.get("subs"):
                 _sb = max(((len(pp), s) for s in _curtab["subs"] for pp in s["paths"] if _p == pp or _p.startswith(pp.rstrip("/") + "/")), key=lambda x: x[0], default=(0, None))[1]
                 d["SUBTABS"] = [dict(label=s["label"], href=s["href"], on=s is _sb) for s in _curtab["subs"]]
-            d["TOOLS"] = [dict(g=hb["label"], k=hb["key"], i=hb["icon"], items=[[s["label"], s["href"]] for t in hb["tabs"] for s in (t.get("subs") or [t])]) for hb in _hubs] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
+            d["TOOLS"] = [dict(g=hb["label"], k=hb["key"], i=hb["icon"], items=[[s["label"], s["href"]] for t in hb["tabs"] for s in (t.get("subs") or [t])]) for hb in _search_hubs] + ([dict(g="Help", i="🫠", items=[["🫠 Idk what to do", url_for("whatnow")], ["📖 Jargon buster", url_for("glossary")], ["❓ Help & guides", url_for("help_centre")]])] if g.role != "client" else [])
+            for _tg in d["TOOLS"]:      # the Instagram grid lives inside Create; it still turns up when you search for it
+                if _tg.get("k") == "content" and any("/studio" in x[1] for x in _tg["items"]):
+                    _tg["items"].append(["🧩 Instagram grid", url_for("studio.grid")])
+                    _tg["items"].append(["📲 Post to Instagram", url_for("social.publishing")])
             if g.role == "client":
                 d["NAV"] = OrderedDict([("Your workspace", [("🏠 Client portal", url_for("portal"))])])
                 d["ESSENTIALS"] = []
                 d["TOOLS"] = []
                 d["HUBS"], d["HUB_CUR"], d["HUB_TABS"], d["HUB_NOW"] = [], None, [], ""
-        if request.endpoint in MARKETING:
-            d["bare"] = True
+        if request.endpoint in MARKETING and not (request.endpoint == "templates_gallery" and g.get("ws")):
+            d["bare"] = True      # Templates is a real tool once you are signed in, so it keeps the app's own chrome
         return d
 
     @app.after_request

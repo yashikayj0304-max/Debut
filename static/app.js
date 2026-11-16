@@ -71,8 +71,19 @@ function buildUtm(f){var b=(f.querySelector('#u_base_url')||{}).value||'';b=b.tr
  var p=new URLSearchParams();['source','medium','campaign','term','content'].forEach(function(k){var e=f.querySelector('#u_'+k);var v=e&&e.value.trim();if(v)p.set('utm_'+k,v.toLowerCase().replace(/\s+/g,'_'));});
  var q=p.toString();out.value=b+(q?(b.indexOf('?')>-1?'&':'?')+q:'');}
 document.addEventListener('input',function(e){var f=e.target.closest&&e.target.closest('form[data-utm]');if(f)buildUtm(f);});
+
+// One copy button everywhere: works on plain http too (where navigator.clipboard does not exist), and always says what happened.
+function copyTxt(t, btn){
+ t = (t == null ? '' : String(t));
+ var ok = function(){ if(!btn) return; var o = btn.getAttribute('data-lbl') || btn.textContent; btn.setAttribute('data-lbl', o); btn.textContent = 'Copied \u2713'; setTimeout(function(){ btn.textContent = o; }, 1400); };
+ var no = function(){ if(btn){ var o = btn.getAttribute('data-lbl') || btn.textContent; btn.setAttribute('data-lbl', o); btn.textContent = 'Press Ctrl+C'; setTimeout(function(){ btn.textContent = o; }, 2200); } };
+ var old = function(){ var a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.appendChild(a); a.select();
+   var good = false; try { good = document.execCommand('copy'); } catch(e) {} a.remove(); good ? ok() : no(); };
+ if (navigator.clipboard && window.isSecureContext) { try { navigator.clipboard.writeText(t).then(ok, old); return; } catch(e) {} }
+ old();
+}
 function copyText(btn){var t=btn.getAttribute('data-copy')||'';var done=function(){var o=btn.textContent;btn.textContent='Copied ✓';setTimeout(function(){btn.textContent=o;},1400);};
- try{navigator.clipboard.writeText(t).then(done,function(){});}catch(x){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');}catch(y){}a.remove();done();}}
+ copyTxt(t,btn);}
 function copyUtm(btn){var f=btn.closest('form'),v=f.querySelector('#u_full_url').value;if(!v){f.querySelector('#u_base_url').focus();return;}btn.setAttribute('data-copy',v);copyText(btn);}
 // ---------- quick-add overlay: loads a form fragment via fetch and shows it in a pop-up dialog with a close (✕), instead of navigating away ----------
 function _overlaySep(href){ return href.indexOf('?') === -1 ? '?' : '&'; }
@@ -135,7 +146,7 @@ if(window.history && 'scrollRestoration' in history){try{history.scrollRestorati
 
 // ---------- first-time tour: a few spotlighted tips pointing at where things live ----------
 var TOUR_STEPS=[
- {sel:"[data-tour=modules]",title:"Everything lives here",text:"Pick a hub on the left. Tap Search (or press Ctrl+K) to jump anywhere."},
+ {sel:"[data-tour=modules]",title:"Everything lives here",text:"Open the menu (☰) to pick a section. Tap 🔎 to jump to anything."},
  {sel:"[data-tour=create]",title:"Create",text:"Add content, a task, a lead or a campaign from anywhere."},
  {sel:"[data-tour=search]",title:"Search",text:"Find anything you saved. Ctrl+K gets you here fast."},
  {sel:"[data-tour=help]",title:"Stuck?",text:"Guides and the user manual are one tap away."}
@@ -189,89 +200,10 @@ document.addEventListener("keydown",function(e){if(e.key==="?"&&!e.ctrlKey&&!e.m
 if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==="b"&&document.getElementById("sideBtn")){var t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t&&t.isContentEditable)return;e.preventDefault();toggleSide();}});
 (function(){var b=document.getElementById("sideBtn");if(b&&document.documentElement.classList.contains("side-off"))b.setAttribute("aria-expanded","false");})();
 window.TOOLS=__D.tools;window.HUBNOW=__D.hubnow;
-// ---------- your menu: rename and reorder hubs (saved in this browser) + recently used tools ----------
-(function(){var box=document.querySelector(".ess");if(!box)return;
+// ---------- recently used tools ----------
+(function(){var rr=document.getElementById("recentRow");if(!rr)return;
  function get(k,d){try{return localStorage.getItem(k)||d;}catch(e){return d;}}
- function put(k,v){try{localStorage.setItem(k,v);}catch(e){}}
- var prefs={order:[],names:{},moves:{},tabOrder:{}};try{prefs=Object.assign(prefs,JSON.parse(get("hubPrefs","{}")));}catch(e){}
- var MENU_VER=3;if(prefs.ver!==MENU_VER){prefs={order:[],names:{},moves:{},tabOrder:{},ver:MENU_VER};try{put("hubPrefs",JSON.stringify(prefs));}catch(e){}}   // menu layout changed: drop menus saved by older versions once
- prefs.order=prefs.order||[];prefs.names=prefs.names||{};prefs.moves=prefs.moves||{};prefs.tabOrder=prefs.tabOrder||{};
- var NOW=window.HUBNOW||"";
- var hubs=function(){return [].slice.call(box.querySelectorAll("a.hub"));};
- var defaults={};hubs().forEach(function(a){defaults[a.dataset.hub]=a.dataset.label||a.textContent.trim().replace(/^\S+\s*/,"");});
- function labelOf(k){return prefs.names[k]||defaults[k]||k;}
- var BASE={},ORIG={};(window.TOOLS||[]).forEach(function(g){if(g.k){BASE[g.k]={i:g.i,items:g.items.map(function(x){return x.slice();})};g.items.forEach(function(x){ORIG[x[1]]=g.k;});}});
- function esc(v){return String(v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
- function layout(){var L={},ks=Object.keys(BASE);ks.forEach(function(k){L[k]=[];});
-  ks.forEach(function(k){BASE[k].items.forEach(function(x){var t=prefs.moves[x[1]];if(!t||!L[t]||t===k)L[k].push(x);});});
-  ks.forEach(function(k){BASE[k].items.forEach(function(x){var t=prefs.moves[x[1]];if(t&&L[t]&&t!==k)L[t].push(x);});});
-  ks.forEach(function(k){var o=prefs.tabOrder[k]||[];L[k].sort(function(a,b){var ia=o.indexOf(a[1]),ib=o.indexOf(b[1]);if(ia<0&&ib<0)return 0;if(ia<0)return 1;if(ib<0)return -1;return ia-ib;});});
-  return L;}
- function custom(){return Object.keys(prefs.moves).length||Object.keys(prefs.tabOrder).length||Object.keys(prefs.names).length;}
- function buildBar(L){var slot=document.getElementById("hubSlot");if(!slot||!NOW||!custom())return;
-  var k=null;Object.keys(L).forEach(function(h){if(L[h].some(function(x){return x[1]===NOW;}))k=h;});
-  var old=document.querySelector(".hubtabs");if(old)old.remove();if(!k||L[k].length<2)return;
-  var nav=document.createElement("nav");nav.className="hubtabs";nav.dataset.hub=k;nav.setAttribute("aria-label",labelOf(k)+" sections");
-  var ti=document.createElement("span");ti.className="ht-title";ti.appendChild(document.createTextNode((BASE[k].i||"")+" "));var nm=document.createElement("span");nm.className="ht-name";nm.textContent=labelOf(k);ti.appendChild(nm);
-  var row=document.createElement("div");row.className="ht-row";
-  L[k].forEach(function(x){var a=document.createElement("a");a.className="ht"+(x[1]===NOW?" on":"");a.href=x[1];a.textContent=x[0];if(x[1]===NOW)a.setAttribute("aria-current","page");row.appendChild(a);});
-  nav.appendChild(ti);nav.appendChild(row);slot.parentNode.insertBefore(nav,slot);}
- function apply(){var L=layout(),anchor=box.querySelector("#hubEnd"),list=hubs();
-  var ord=prefs.order.filter(function(k){return list.some(function(a){return a.dataset.hub===k;});});
-  list.sort(function(a,b){var ia=ord.indexOf(a.dataset.hub),ib=ord.indexOf(b.dataset.hub);if(ia<0&&ib<0)return 0;if(ia<0)return 1;if(ib<0)return -1;return ia-ib;});
-  list.forEach(function(a){anchor.parentNode.insertBefore(a,anchor);var k=a.dataset.hub,t=a.querySelector(".hl"),it=L[k]||[];if(t)t.textContent=labelOf(k);
-   a.dataset.empty=it.length?"":"1";if(it.length)a.setAttribute("href",it[0][1]);
-   if(NOW)a.classList.toggle("on",it.some(function(x){return x[1]===NOW;}));});
-  (window.TOOLS||[]).forEach(function(g){if(!g.k)return;g.g=labelOf(g.k);g.items=(L[g.k]||[]).map(function(x){return x.slice();});});
-  buildBar(L);enhance();}
- // ---- reorder tabs right on the tab bar: drag a tab, or tap ⇄ and use ◀ ▶ (works on phones too)
- var reorder=false;
- function barOrder(nav){return [].slice.call(nav.querySelectorAll("a.ht")).map(function(a){return a.getAttribute("href");});}
- function moveTab(nav,href,to){var k=nav.dataset.hub,hs=barOrder(nav),i=hs.indexOf(href);if(i<0)return;hs.splice(i,1);hs.splice(Math.max(0,Math.min(hs.length,to)),0,href);prefs.tabOrder[k]=hs;save();apply();applySize();var f=document.querySelector('.hubtabs a.ht[href="'+href+'"] .ht-mv button');if(f&&reorder)try{f.focus();}catch(e){}}
- function enhance(){var nav=document.querySelector(".hubtabs");if(!nav)return;var row=nav.querySelector(".ht-row"),title=nav.querySelector(".ht-title");
-  if(!nav.querySelector(".ht-edit")){var eb=document.createElement("button");eb.type="button";eb.className="ht-edit";eb.title="Change the order of these tabs";eb.setAttribute("aria-label","Reorder tabs");eb.textContent="⇄ Reorder";eb.addEventListener("click",function(){reorder=!reorder;apply();});nav.appendChild(eb);}
-  var eb2=nav.querySelector(".ht-edit");eb2.setAttribute("aria-pressed",reorder?"true":"false");eb2.textContent=reorder?"✓ Done":"⇄ Reorder";nav.classList.toggle("reorder",reorder);
-  var tabs=[].slice.call(nav.querySelectorAll("a.ht"));
-  tabs.forEach(function(a,i){var old=a.querySelector(".ht-mv");if(old)old.remove();
-   if(reorder){var m=document.createElement("span");m.className="ht-mv";[["◀","Move this tab left",-1],["▶","Move this tab right",1]].forEach(function(d){var b=document.createElement("button");b.type="button";b.textContent=d[0];b.setAttribute("aria-label",d[1]);b.title=d[1];if((d[2]<0&&i===0)||(d[2]>0&&i===tabs.length-1))b.disabled=true;
-     b.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();moveTab(nav,a.getAttribute("href"),i+d[2]);});m.appendChild(b);});a.appendChild(m);}
-   if(!a.dataset.dnd){a.dataset.dnd="1";a.draggable=true;
-    a.addEventListener("dragstart",function(e){e.dataTransfer.setData("text/plain",a.getAttribute("href"));e.dataTransfer.effectAllowed="move";a.classList.add("dragging");});
-    a.addEventListener("dragend",function(){a.classList.remove("dragging");[].forEach.call(nav.querySelectorAll(".dropat"),function(x){x.classList.remove("dropat");});});
-    a.addEventListener("dragover",function(e){e.preventDefault();e.dataTransfer.dropEffect="move";a.classList.add("dropat");});
-    a.addEventListener("dragleave",function(){a.classList.remove("dropat");});
-    a.addEventListener("drop",function(e){e.preventDefault();a.classList.remove("dropat");var h=e.dataTransfer.getData("text/plain"),hs=barOrder(nav),to=hs.indexOf(a.getAttribute("href"));if(h&&h!==a.getAttribute("href"))moveTab(nav,h,to);});}});}
- function save(){put("hubPrefs",JSON.stringify(prefs));}
- function applySize(){hubs().forEach(function(a){a.hidden=a.dataset.empty==="1";});}   // every hub is always listed
- // ---- the menu editor: rename hubs, reorder hubs and tabs, move any tab to any hub
- function dlg(){var d=document.getElementById("menuDlg");if(!d){d=document.createElement("dialog");d.id="menuDlg";d.className="menudlg";d.setAttribute("aria-label","Edit menu");document.body.appendChild(d);
-  d.addEventListener("click",function(e){var t=e.target;if(t===d){d.close();return;}var b=t.closest("button[data-a]");if(!b)return;act(b.dataset.a,b);});
-  d.addEventListener("change",function(e){var t=e.target;if(t.classList.contains("md-name")){var k=t.closest(".md-hub").dataset.k,v=t.value.trim();if(!v||v===defaults[k])delete prefs.names[k];else prefs.names[k]=v;commit();}
-   else if(t.classList.contains("md-mv")&&t.value){var h=t.closest("li").dataset.h;if(t.value===ORIG[h])delete prefs.moves[h];else prefs.moves[h]=t.value;var L=layout(),tg=L[t.value].map(function(x){return x[1];}).filter(function(x){return x!==h;});tg.push(h);prefs.tabOrder[t.value]=tg;commit();}});
-  d.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.classList.contains("md-name")){e.preventDefault();e.target.blur();}});}
-  return d;}
- function commit(){save();apply();applySize();render();}
- function render(){var d=dlg(),L=layout(),keys=hubs().map(function(a){return a.dataset.hub;}),sc=d.querySelector(".md-body"),top=sc?sc.scrollTop:0;
-  var h='<div class="md-head"><b>✎ Edit menu</b><button type="button" class="md-x" data-a="done" aria-label="Close">✕</button></div><p class="muted md-help">Rename a hub, put hubs and tabs in your order with ▲ ▼, or move a tab to a different hub. Changes show straight away and are saved in this browser.</p><div class="md-body">';
-  keys.forEach(function(k,hi){var it=L[k]||[];
-   h+='<section class="md-hub" data-k="'+esc(k)+'"><div class="md-hrow"><span class="md-ic" aria-hidden="true">'+esc((BASE[k]||{}).i||"")+'</span><input class="md-name" maxlength="28" value="'+esc(labelOf(k))+'" aria-label="Hub name"><span class="md-btns"><button type="button" data-a="hup" aria-label="Move hub up"'+(hi?'':' disabled')+'>▲</button><button type="button" data-a="hdn" aria-label="Move hub down"'+(hi===keys.length-1?' disabled':'')+'>▼</button></span></div><ul class="md-tabs">';
-   it.forEach(function(x,ti){h+='<li data-h="'+esc(x[1])+'"><span class="md-t">'+esc(x[0])+'</span><span class="md-btns"><button type="button" data-a="tup" aria-label="Move tab up"'+(ti?'':' disabled')+'>▲</button><button type="button" data-a="tdn" aria-label="Move tab down"'+(ti===it.length-1?' disabled':'')+'>▼</button><select class="md-mv" aria-label="Move this tab to another hub"><option value="">Move to…</option>'+keys.filter(function(q){return q!==k;}).map(function(q){return '<option value="'+esc(q)+'">'+esc(labelOf(q))+'</option>';}).join("")+'</select></span></li>';});
-   if(!it.length)h+='<li class="md-empty">Nothing here yet. Move a tab in from another hub.</li>';
-   h+='</ul></section>';});
-  h+='</div><div class="md-foot"><button type="button" class="btn ghost sm" data-a="reset">↺ Reset everything</button><button type="button" class="btn sm" data-a="done">Done</button></div>';
-  d.innerHTML=h;var nb=d.querySelector(".md-body");if(nb)nb.scrollTop=top;}
- function swap(a,i,j){if(j<0||j>=a.length)return;var t=a[i];a[i]=a[j];a[j]=t;}
- function act(a,b){var d=dlg();
-  if(a==="done"){d.close();return;}
-  if(a==="reset"){prefs={order:[],names:{},moves:{},tabOrder:{}};save();location.reload();return;}
-  if(a==="hup"||a==="hdn"){var k=b.closest(".md-hub").dataset.k,ks=hubs().map(function(x){return x.dataset.hub;}),i=ks.indexOf(k);swap(ks,i,a==="hup"?i-1:i+1);prefs.order=ks;commit();return;}
-  if(a==="tup"||a==="tdn"){var hk=b.closest(".md-hub").dataset.k,hr=b.closest("li").dataset.h,hs=layout()[hk].map(function(x){return x[1];}),j=hs.indexOf(hr);swap(hs,j,a==="tup"?j-1:j+1);prefs.tabOrder[hk]=hs;commit();}}
- var btn=document.getElementById("hubEdit");
- if(btn)btn.addEventListener("click",function(){var d=dlg();render();if(d.showModal)d.showModal();else d.setAttribute("open","");var f=d.querySelector(".md-name");if(f)f.focus();});
- apply();applySize();
- // recent: remember the last few tool pages visited and show them as quick chips
- var rr=document.getElementById("recentRow");if(!rr)return;
- var p=location.pathname,isTool=/^\/(m\/[a-z_]+|calendar|moodboards|ideas|ai|analytics|pulse|discover|utm|report)\/?$/.test(p)||/^\/m\/[a-z_]+$/.test(p);
+ var p=location.pathname,isTool=/^\/(m\/[a-z_]+|calendar|moodboards|ideas|ai|analytics|pulse|discover|utm|report)\/?$/.test(p);
  var list=[];try{list=JSON.parse(get("recentTools","[]"))||[];}catch(e){list=[];}
  var h=document.querySelector(".head h1");
  if(isTool&&h){var label=h.textContent.trim().replace(/\s+/g," ").slice(0,28);list=list.filter(function(x){return x.h!==p;});list.unshift({h:p,l:label});list=list.slice(0,4);try{localStorage.setItem("recentTools",JSON.stringify(list));}catch(e){}}
@@ -436,4 +368,60 @@ document.addEventListener("submit",function(e){var f=e.target;
  window.__pins=function(){return pins.slice();};window.__togglePin=toggle;
  aside.querySelectorAll("details.ngrp:not(.side-foot)>a").forEach(function(a){var r=document.createElement("div");r.className="nrow";a.parentNode.insertBefore(r,a);r.appendChild(a);var b=document.createElement("button");b.type="button";b.className="pin-btn";b.textContent="☆";b.setAttribute("aria-label","Pin this page");b.onclick=function(e){e.preventDefault();toggle(a.getAttribute("href"));};r.appendChild(b);});
  draw();
+})();
+
+// ---------- never lose a draft on a bad connection ----------
+// Indian small businesses work on patchy mobile data. If a save fails, or the phone kills the tab
+// mid-caption, the typing must still be there when they come back. Kept per form, cleared on a
+// successful save, and offered back rather than restored silently - nobody likes a form that
+// changes under them.
+(function () {
+  var forms = document.querySelectorAll('form.form[action*="/save"]');
+  if (!forms.length || !window.localStorage) return;
+  forms.forEach(function (f) {
+    var id = "draft:" + location.pathname;
+    var fields = f.querySelectorAll('input[type=text], input[type=url], input:not([type]), textarea, select');
+    var read = function () {
+      var o = {};
+      fields.forEach(function (el) { if (el.name && el.name !== "csrf_token" && el.value) o[el.name] = el.value; });
+      return o;
+    };
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(id) || "null"); } catch (e) { saved = null; }
+    if (saved && saved.when && Date.now() - saved.when < 7 * 864e5) {
+      var differs = Object.keys(saved.data || {}).some(function (k) {
+        var el = f.querySelector('[name="' + k + '"]'); return el && el.value !== saved.data[k];
+      });
+      if (differs) {
+        var bar = document.createElement("div");
+        bar.className = "banner";
+        bar.innerHTML = '<b>You have unsaved typing from last time.</b> ';
+        var yes = document.createElement("button");
+        yes.type = "button"; yes.className = "btn ghost sm"; yes.textContent = "Put it back";
+        yes.onclick = function () {
+          Object.keys(saved.data).forEach(function (k) {
+            var el = f.querySelector('[name="' + k + '"]'); if (el) el.value = saved.data[k];
+          });
+          bar.remove();
+        };
+        var no = document.createElement("button");
+        no.type = "button"; no.className = "btn ghost sm"; no.textContent = "Discard";
+        no.onclick = function () { try { localStorage.removeItem(id); } catch (e) {} bar.remove(); };
+        bar.appendChild(yes); bar.appendChild(document.createTextNode(" ")); bar.appendChild(no);
+        f.parentNode.insertBefore(bar, f);
+      }
+    }
+    var t = null;
+    f.addEventListener("input", function () {
+      clearTimeout(t);
+      t = setTimeout(function () {
+        try { localStorage.setItem(id, JSON.stringify({ when: Date.now(), data: read() })); } catch (e) {}
+      }, 800);
+    });
+    f.addEventListener("submit", function () {
+      try { localStorage.setItem(id, JSON.stringify({ when: Date.now(), data: read(), sent: true })); } catch (e) {}
+      // the page that loads after a good save clears it; if the save never lands, the draft survives
+      setTimeout(function () { try { localStorage.removeItem(id); } catch (e) {} }, 15000);
+    });
+  });
 })();

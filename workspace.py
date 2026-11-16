@@ -179,20 +179,72 @@ def revoke_invite(iid):
     return redirect(url_for("ws.team"))
 
 
+ACT_GROUPS = [("all", "Everything", None), ("create", "Added", ("create", "studio_save", "launch_deck", "import", "restore", "holidays_import", "kudos", "comment", "signup", "invite_accepted")),
+              ("move", "Moved", ("move",)), ("update", "Edited", ("update", "bio_save", "brand_color_set", "ics_link_reset", "board_share_on", "board_share_off", "board_share_reset")),
+              ("delete", "Deleted", ("delete", "reminder_delete", "board_delete")), ("login", "Sign-ins", ("login", "password_reset", "welcome_done")),
+              ("client", "Clients", ("client_approved", "client_changes", "client_comment"))]
+ACT_WORDS = {"create": "added", "update": "edited", "move": "moved", "delete": "deleted", "studio_save": "saved a design", "launch_deck": "built a launch deck", "login": "signed in",
+             "signup": "joined", "import": "imported", "restore": "restored", "bio_save": "updated the link in bio page", "comment": "commented on", "kudos": "sent kudos", "brand_color_set": "changed the brand colours",
+             "reminder_done": "finished a reminder", "reminder_delete": "deleted a reminder", "client_approved": "approved", "client_changes": "asked for changes on", "client_comment": "commented on",
+             "holidays_import": "added public holidays", "invite_accepted": "accepted an invite", "dpdp_consent": "accepted the terms", "bio_click": "tapped a link in bio", "bio_view": "opened the link in bio page"}
+ACT_PAGE = 100
+
+
+def _act_rows(args, limit=None, offset=0):
+    where, ps = ["a.workspace_id=?", "a.action NOT IN ('bio_click','bio_view','dpdp_consent')"], [g.ws["id"]]
+    grp = args.get("a", "all")
+    acts = next((x[2] for x in ACT_GROUPS if x[0] == grp), None)
+    if acts:
+        where.append("a.action IN (%s)" % ",".join("?" * len(acts)))
+        ps += list(acts)
+    who = S.to_int(args.get("who"), 0)
+    if who:
+        where.append("a.user_id=?")
+        ps.append(who)
+    t = (args.get("q") or "").strip()[:60]
+    if t:
+        where.append("(LOWER(a.detail) LIKE ? OR LOWER(a.action) LIKE ?)")
+        ps += ["%" + t.lower() + "%"] * 2
+    sql = "SELECT a.*, u.name AS uname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE " + " AND ".join(where) + " ORDER BY a.id DESC"
+    if limit:
+        sql += " LIMIT %d OFFSET %d" % (limit, offset)
+    return q(sql, ps)
+
+
+def _act_text(r):
+    """'Asha moved Post “Diwali reel”: Status: Planned → Scheduled' as one readable line."""
+    import re as _re
+    d = r["detail"] or ""
+    m = _re.match(r"^(\w+)#(\d+)\s*(.*)$", d)
+    what = ACT_WORDS.get(r["action"], (r["action"] or "").replace("_", " "))
+    if m:
+        from modules import MODULES
+        mod = MODULES.get(m.group(1))
+        SING = {"content_items": "post", "tasks": "task", "leads": "lead", "clients": "client", "campaigns": "campaign", "influencers": "influencer", "kpis": "result", "key_dates": "key date", "gtm_plans": "launch plan", "personas": "ideal customer", "competitors": "competitor", "assets": "library item", "feeds": "news source", "payments": "payment", "creators": "creator", "board": "mood board"}
+        kind = SING.get(m.group(1)) or (mod["title"].lower() if mod else m.group(1).replace("_", " "))
+        rest = m.group(3)
+        if not rest.startswith("“"):
+            rest = ""
+        return what, f"{kind} {rest}".strip()
+    return what, d
+
+
 @bp.route("/activity")
 @S.roles(*C.TEAM_MANAGERS)
 def activity():
-    lim = 1000 if "group" in g.plan["features"] else 150
-    rows = q("SELECT a.*, u.name AS uname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.workspace_id=? ORDER BY a.id DESC LIMIT %d" % lim, (g.ws["id"],))
-    return render_template("activity.html", rows=rows, lim=lim)
+    page = max(1, S.to_int(request.args.get("p"), 1))
+    rows = _act_rows(request.args, ACT_PAGE + 1, (page - 1) * ACT_PAGE)
+    more = len(rows) > ACT_PAGE
+    rows = [dict(r, what=_act_text(r)) for r in rows[:ACT_PAGE]]
+    people = q("SELECT DISTINCT u.id, u.name FROM audit_log a JOIN users u ON u.id=a.user_id WHERE a.workspace_id=? ORDER BY u.name", (g.ws["id"],))
+    return render_template("activity.html", rows=rows, groups=ACT_GROUPS, cur=request.args.get("a", "all"), who=S.to_int(request.args.get("who"), 0), people=people, t=(request.args.get("q") or "")[:60], page=page, more=more)
 
 
 @bp.route("/activity/export.csv")
 @S.roles(*C.TEAM_MANAGERS)
 def activity_export():
     import csv, io
-    lim = 1000 if "group" in g.plan["features"] else 150
-    rows = q("SELECT a.*, u.name AS uname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.workspace_id=? ORDER BY a.id DESC LIMIT %d" % lim, (g.ws["id"],))
+    rows = _act_rows(request.args, 20000)
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["When", "Who", "Action", "Detail"])
@@ -205,6 +257,20 @@ def activity_export():
 def account():
     cands = [m for m in _members(g.ws["id"]) if m["uid"] != g.user["id"] and m["role"] in ("admin", "lead", "manager")] if g.role == "owner" else []
     return render_template("account.html", industries=IND.CHOICES, candidates=cands)
+
+
+@bp.route("/account/language", methods=["POST"])
+@S.roles("owner", "admin", "lead", "manager")
+def account_language():
+    import i18n
+    lang = (request.form.get("lang") or "en").strip()
+    if lang not in dict(i18n.LANGUAGES):
+        abort(400)
+    ex("UPDATE workspaces SET lang=? WHERE id=?", (lang, g.ws["id"]))
+    S.audit("language", lang)
+    flash("भाषा बदल दी गई। मेन्यू और मुख्य बटन अब हिन्दी में हैं। 🪔" if lang == "hi"
+          else "Language set to English.")
+    return redirect(url_for("ws.account") + "#comfort")
 
 
 @bp.route("/account/profile", methods=["POST"])
@@ -379,7 +445,7 @@ def industry_update():
     S.audit("industry", key)
     if request.form.get("kit"):
         n = S.apply_industry(g.ws["id"], key, personas=True)
-        flash(f"Starter kit loaded: {n['checklist']} checklist items, {n['dates']} key dates, {n['feeds']} news feeds, {n['personas']} personas.")
+        flash(f"Starter kit loaded: {n['checklist']} checklist items, {n['dates']} key dates, {n['personas']} personas.")
     else:
         flash("Industry updated. The Idea Bank and AI Studio now use it. Use “Save & load starter kit” to add its checklist, key dates, feeds and personas.")
     return redirect(url_for("ideas") if request.form.get("kit") else url_for("ws.account"))

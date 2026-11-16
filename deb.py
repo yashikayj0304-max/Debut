@@ -1,7 +1,8 @@
 """Deb: the friendly layer. Wrapped (shareable week/month/year cards), Radar (what to post about next, with ready scripts),
 quick answers when AI is off, and the tone switch."""
 import datetime as dt
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
+from urllib.parse import quote
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify, Response
 import config as C
 import services as S
 import voice
@@ -73,12 +74,97 @@ def wrapped():
     return render_template("wrapped.html", st=st, streak=streak, span=span, title=title, line=line, level=(pr or {}).get("level", 1), lname=(pr or {}).get("name", ""), brand=g.ws["name"])
 
 
+def _when(date, today):
+    n = (date - today).days
+    return "Overdue" if n < 0 else "Today" if n == 0 else "Tomorrow" if n == 1 else f"In {n} days" if n < 7 else date.strftime("%a %d %b")
+
+
+def due_items(days=7, limit=8):
+    """What is actually due, soonest first: posts going out and open tasks. Only things that need a person, nothing already done."""
+    t = S.today()
+    lo, hi = (t - dt.timedelta(days=3)).isoformat(), (t + dt.timedelta(days=days)).isoformat()
+    out = []
+    for r in q("SELECT id, title, channel, publish_date AS d, status FROM content_items WHERE workspace_id=? AND publish_date BETWEEN ? AND ? AND status NOT IN ('Published','On hold') ORDER BY publish_date, id LIMIT 30", (W(), lo, hi)):
+        out.append(dict(kind="post", id=r["id"], title=r["title"], d=r["d"], extra=r["channel"] or "any channel", status=r["status"]))
+    for r in q("SELECT id, title, due_date AS d, status, assignee FROM tasks WHERE workspace_id=? AND due_date BETWEEN ? AND ? AND status NOT IN ('Done','Cancelled') ORDER BY due_date, id LIMIT 30", (W(), lo, hi)):
+        out.append(dict(kind="task", id=r["id"], title=r["title"], d=r["d"], extra=r["assignee"] or "task", status=r["status"]))
+    rows = []
+    for it in sorted(out, key=lambda x: (x["d"], x["kind"])):
+        try:
+            date = dt.date.fromisoformat(it["d"])
+        except ValueError:
+            continue
+        label = _when(date, t)
+        txt = f"{'📸' if it['kind'] == 'post' else '✅'} {it['title']} ({it['extra']}) – {label.lower() if label in ('Today', 'Tomorrow', 'Overdue') else label}, {date:%a %d %b}"
+        rows.append(dict(kind=it["kind"], id=it["id"], title=it["title"], when=label, date=date.strftime("%a %d %b"), extra=it["extra"], status=it["status"], late=label == "Overdue",
+                         open=url_for("m_edit", key="content_items" if it["kind"] == "post" else "tasks", rid=it["id"]), ics=url_for("deb.item_ics", kind=it["kind"], rid=it["id"]),
+                         wa="https://wa.me/?text=" + quote(txt)))
+    return rows[:limit]
+
+
+@bp.route("/deb/ics/<kind>/<int:rid>.ics")
+def item_ics(kind, rid):
+    """One post or task as a calendar event, so it can be added to Google, Apple or Outlook calendar with a tap."""
+    _need()
+    if kind == "post":
+        r = q("SELECT title, publish_date AS d, channel, copy FROM content_items WHERE id=? AND workspace_id=?", (rid, W()), one=True)
+        what = (r["channel"] or "Post") if r else ""
+    elif kind == "task":
+        r = q("SELECT title, due_date AS d, assignee, description AS copy FROM tasks WHERE id=? AND workspace_id=?", (rid, W()), one=True)
+        what = "Task"
+    else:
+        abort(404)
+    if not r:
+        abort(404)
+    try:
+        d0 = dt.date.fromisoformat(r["d"])
+    except (ValueError, TypeError):
+        abort(404)
+    esc = lambda s: (s or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+    ics = ["BEGIN:VCALENDAR", "VERSION:2.0", f"PRODID:-//{C.APP_NAME}//EN", "BEGIN:VEVENT", f"UID:{kind}-{rid}@{C.APP_NAME.replace(' ', '').lower()}", f"DTSTAMP:{dt.datetime.now(dt.timezone.utc):%Y%m%dT%H%M%SZ}",
+           f"DTSTART;VALUE=DATE:{d0:%Y%m%d}", f"DTEND;VALUE=DATE:{d0 + dt.timedelta(days=1):%Y%m%d}", f"SUMMARY:{esc(what + ' - ' + (r['title'] or ''))}", f"DESCRIPTION:{esc((r['copy'] or '')[:300])}",
+           "BEGIN:VALARM", "TRIGGER:-PT15H", "ACTION:DISPLAY", "DESCRIPTION:Due tomorrow", "END:VALARM", "END:VEVENT", "END:VCALENDAR"]
+    return Response("\r\n".join(ics), mimetype="text/calendar", headers={"Content-Disposition": f"attachment; filename={kind}-{rid}.ics"})
+
+
 @bp.route("/deb/quick")
 def quick():
     """Answers that need no AI: built from your own calendar, so Ask Deb is useful even without an API key."""
     _need()
     k = request.args.get("k", "")
     t = S.today().isoformat()
+    if k == "due":
+        items = due_items()
+        if not items:
+            return jsonify(text="Nothing is due in the next 7 days. Nice. Want to plan something?", link=url_for("studio.studio"), label="Make a post")
+        return jsonify(text=f"{len(items)} thing{'s' if len(items) != 1 else ''} need you, soonest first:", items=items)
+    if k == "howdid":
+        import learn as L
+        rows = L.awaiting(W())
+        if not rows:
+            head = L.headline(W())
+            return jsonify(text=head or "Nothing is waiting to be rated. Publish something and I'll ask in a few days.")
+        items = [dict(title=r["title"], when=r["publish_date"], extra=(r["format"] or "Post"), late=False,
+                      href=url_for("m_edit", key="content_items", rid=r["id"]) + "#howdid") for r in rows]
+        return jsonify(text=f"{len(rows)} post{'s' if len(rows) != 1 else ''} went out and nobody has said how they did. "
+                            "Three taps each, and I can tell you what works for you:", items=items)
+    if k == "share":
+        items = due_items()
+        if not items:
+            return jsonify(text="Nothing due this week, so there is nothing to share yet.")
+        lines = [f"{'⚠️' if i['late'] else '📌'} {i['when']}: {i['title']} ({i['extra']})" for i in items]
+        msg = f"This week at {g.ws['name'].replace(' (demo)', '')}:\n" + "\n".join(lines)
+        return jsonify(text="Here is your week, ready to send:\n\n" + "\n".join(lines), links=[dict(label="📲 Share on WhatsApp", href="https://wa.me/?text=" + quote(msg))])
+    if k == "sync":
+        from itsdangerous import URLSafeSerializer
+        import secrets
+        key_ = g.ws["ics_key"] or secrets.token_hex(6)
+        if not g.ws["ics_key"]:
+            ex("UPDATE workspaces SET ics_key=? WHERE id=?", (key_, W()))
+        feed = S.app_url() + url_for("ics_feed", token=URLSafeSerializer(C.SECRET_KEY, salt="ics").dumps([W(), key_]))
+        web = feed.replace("https://", "webcal://").replace("http://", "webcal://")
+        return jsonify(text="Your calendar stays in sync on its own. Add it once and every post and task with a deadline shows up in your phone calendar.", links=[
+            dict(label="➕ Google Calendar", href="https://calendar.google.com/calendar/r?cid=" + quote(web, safe="")), dict(label="🍎 Apple / Outlook", href=web), dict(label="📋 Copy feed link", copy=feed)])
     if k == "today":
         p = q("SELECT id, title, channel FROM content_items WHERE workspace_id=? AND publish_date=? AND status NOT IN ('Published','On hold') ORDER BY id", (W(), t))
         if p:
@@ -97,6 +183,8 @@ def quick():
             return jsonify(text="No published posts yet. Post one and I can tell you what to try next.", link=url_for("studio.studio"), label="Make a post")
         return jsonify(text=f"About “{r['title']}”: most flops come down to a weak first line, too many words, or posting when your people are offline. Rewrite the hook so it names a person or a number, keep slides to 8 words, and post at 7 to 9 pm. Then compare reach.", link=url_for("studio.studio"), label="Rework it in Create")
     return jsonify(text="Ask me what to post today, what's coming up, or why a post flopped.")
+
+
 
 
 @bp.route("/account/tone", methods=["POST"])

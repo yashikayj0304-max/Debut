@@ -206,3 +206,53 @@ Debut now makes its own push keys the first time it starts and runs its own sche
 | Safety | `SECRET_KEY` (long random), `DATABASE_URL` (Postgres) | Render |
 
 Auto-posting to Instagram is not built: it needs Meta app review for the Instagram Graph API. Until then Debut plans and prepares the post and you publish it from your phone.
+
+## Posting straight to Instagram (free)
+
+Meta charges nothing for this. What it costs is a one-time setup and a wait for Meta's review.
+
+**What Instagram requires**
+1. The Instagram account must be a **Business** or **Creator** account — not a personal one.
+   In the Instagram app: Settings → Account type and tools → Switch to professional account.
+2. That account must be **linked to a Facebook Page**.
+3. Debut must be **online at a public https address**, because Meta's servers download the picture
+   themselves. Set `APP_URL` to your real domain. A picture on a laptop can never be posted.
+
+**Setting it up**
+1. Create an app at https://developers.facebook.com/apps (type: Business).
+2. Add the **Instagram Graph API** product.
+3. Put the app's ID and secret in the environment:
+   ```
+   META_APP_ID=...
+   META_APP_SECRET=...
+   META_API_VER=v21.0        # optional
+   ```
+4. Submit for **App Review** with the permissions `instagram_basic`, `instagram_content_publish`
+   and `pages_show_list`. Review typically takes two to six weeks and needs business verification.
+   Start this early: the code is ready long before Meta is.
+5. While in development mode, the app can already post to accounts listed as testers, so you can
+   try the whole flow before review finishes.
+6. In Debut: **Content & Calendar → Publishing**, paste a token from Meta's Graph API Explorer and
+   press Connect. Debut swaps it for a long-lived Page token, so this is a one-time step.
+
+**Before it is approved** nothing is blocked: a scheduled post becomes a "post helper" — at the
+scheduled minute Debut notifies whoever runs the account, with the caption ready to copy and the
+picture ready to download.
+
+**Limits Meta applies:** 50 posts per account per 24 hours; images must be public JPG or PNG under
+8 MB, with an aspect ratio between 4:5 and 1.91:1.
+
+**The queue runs** inside the existing scheduled-jobs call (`services.run_due_jobs`), so whatever cron
+or scheduler already drives reminders also drives publishing. No extra worker is needed.
+
+## LinkedIn posting (free, separate from Meta)
+
+LinkedIn is its own developer platform. Create a free app at https://www.linkedin.com/developers/apps
+and request the `w_member_social` permission to post as a person. Posting to a **company page** also
+needs LinkedIn's Community Management API, which they review separately.
+
+In Debut: **Content & Calendar → Publishing → Connect LinkedIn**. Paste the access token and your
+member id (from LinkedIn's `/v2/me` endpoint). Leave the company page id empty to post as yourself.
+
+LinkedIn sends the picture as a link preview, so the same rule applies: the image must be on a public
+address, which means `APP_URL` must be your real site.

@@ -1112,3 +1112,96 @@ def test_once_a_day_nudge_survives_indian_midnight(app):
     start_ist = dt.datetime.combine(S.today(), dt.time.min, tzinfo=S.IST)
     assert cutoff == start_ist.astimezone(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     assert cutoff <= dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def test_login_from_inside_the_demo_shows_the_sign_in_form(app):
+    """Clicking Log in while poking around the demo used to bounce you straight back into the demo,
+    with no way to reach the sign-in form."""
+    c = app.test_client()
+    assert c.get("/demo", follow_redirects=True).status_code == 200
+    assert c.get("/app").status_code == 200                      # the demo session is live
+    r = c.get("/login")
+    assert r.status_code == 200 and b'name="password"' in r.data  # the real form, not a redirect
+    assert c.get("/app").status_code == 302                       # and the demo session is over
+    d = app.test_client()
+    d.get("/demo", follow_redirects=True)
+    s = d.get("/signup")
+    assert s.status_code == 200 and b'name="password"' in s.data  # same for signing up for real
+
+
+def test_a_real_account_is_still_sent_to_the_dashboard(app):
+    o = signup(app, "real1@x.com")
+    r = o.get("/login")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/app")
+    assert o.get("/app").status_code == 200                       # and is NOT logged out by visiting it
+    assert o.get("/signup").status_code == 302
+
+
+def test_a_page_belongs_to_one_section_and_does_not_repeat_its_name(app):
+    """Launch Plans used to light up "Campaigns" under Tasks & Campaigns, and every tab bar repeated
+    the section's own name back at you."""
+    import re
+    o = signup(app, "nav1@x.com")
+    o.post("/account/focus", data=dict(all="1"))
+    hub_of = lambda p: (re.search(r'<nav class="hubtabs" data-hub="([^"]+)"', o.get(p).data.decode()) or [None, None])[1]
+    assert hub_of("/m/gtm_plans") == "plan"        # Launch Plans lives in Launch playbook
+    assert hub_of("/campaigns") == "tasks"
+    assert hub_of("/m/leads") == "sales"
+    for p in ("/m/leads", "/calendar", "/m/tasks"):
+        page = o.get(p).data.decode()
+        assert "ht-title" not in page              # the bar no longer repeats the section name
+    tabs = re.findall(r'<a class="ht[ "][^>]*>([^<]+)</a>', o.get("/m/leads").data.decode())
+    assert [x.strip() for x in tabs] == ["🧲 Leads", "🤝 Clients", "⭐ Reviews"]
+
+
+# ---- team chat: reads like a messaging app ----
+def _two_people(app):
+    """An owner and a teammate with a short conversation across three days."""
+    import datetime as dt
+    o = signup(app, "chatowner@x.com")
+    with app.app_context():
+        from db import q, ins, ex
+        wid = q("SELECT id FROM workspaces ORDER BY id DESC LIMIT 1")[0]["id"]
+        rid = ins("users", dict(name="Riya Mehta", email="riya-chat@x.com", password_hash="x"))
+        ins("memberships", dict(user_id=rid, workspace_id=wid, role="manager"))
+        me = q("SELECT user_id FROM memberships WHERE workspace_id=? AND role='owner'", (wid,))[0]["user_id"]
+        now = dt.datetime.utcnow()
+        rows = [(me, rid, "Did the reel go out?", 2), (rid, me, "Not yet", 2),
+                (me, rid, "Sending in 10 mins", 1), (me, rid, "Also the caption?", 1),
+                (rid, me, "Sure", 0), (rid, me, "Shall I book the boost too?", 0)]
+        for f, t, body, back in rows:
+            ins("chat_messages", dict(workspace_id=wid, from_id=f, to_id=t, body=body,
+                                      created_at=(now - dt.timedelta(days=back)).strftime("%Y-%m-%d %H:%M:%S")))
+    return o, rid
+
+
+def test_chat_groups_messages_and_separates_days(app):
+    import re
+    o, rid = _two_people(app)
+    page = o.get(f"/chat/{rid}").get_data(as_text=True)
+    body = page.split('id="msgs"')[1].split('<form id="cf"')[0]
+    days = re.findall(r'class="msg-day"><span>([^<]*)', body)
+    assert days[-1] == "Today" and "Yesterday" in days and len(days) == 3
+    classes = re.findall(r'class="msg ([a-z ]+)"', body)
+    assert classes == ["me", "them", "me", "me run", "them", "them run"]   # runs of one sender group up
+    assert body.count("<p>") == 6
+
+
+def test_chat_day_labels_use_india_time(app):
+    import datetime as dt
+    from team import _daychip, _daykey
+    import services as S
+    with app.app_context():
+        utc_late = (dt.datetime.combine(S.today(), dt.time(0, 0)) - dt.timedelta(hours=5, minutes=30))
+        # 23:30 UTC yesterday is already today in India, and must be labelled that way
+        assert _daykey(utc_late.strftime("%Y-%m-%d %H:%M:%S")) == S.today().isoformat()
+        assert _daychip(utc_late.strftime("%Y-%m-%d %H:%M:%S")) == "Today"
+
+
+def test_chat_message_actions_are_not_always_open(app):
+    o, rid = _two_people(app)
+    page = o.get(f"/chat/{rid}").get_data(as_text=True)
+    # the toolbar still exists for every message, but the page must carry the tap-to-open behaviour
+    assert page.count('class="msg-act"') == 6
+    assert 'classList.add("open")' in page and 'matchMedia("(hover:none)")' in page
+    assert 'data-chatting="1"' in page

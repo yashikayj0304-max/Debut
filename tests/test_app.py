@@ -3717,7 +3717,8 @@ def test_hubs_in_sidebar_with_tabs_and_nothing_missing(app):
     p = o.get("/calendar").data.decode()
     assert 'class="hubtabs"' in p and 'class="ht on"' in p and "Board" in p and "List" in p and "Key dates" in p
     sales = o.get("/m/leads").data.decode()
-    assert 'class="subtabs"' in sales and "Clients" in sales
+    assert "Clients" in sales and "Reviews" in sales          # Leads, Clients and Reviews are their own tabs now
+    assert 'class="hubtabs"' in sales
     assert 'class="sbt on"' in o.get("/m/kpis").data.decode()  # the logged-results list still lights up its tab
     team = o.get("/team-hub").data.decode()
     for t in ("Team hub", "People &amp; activity", "Team cheers"):

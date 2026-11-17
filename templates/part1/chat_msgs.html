@@ -1,13 +1,18 @@
+{% set ns = namespace(day='', who=0, at='') %}
 {% for m in msgs %}{% set mine = m['from_id']==me %}{% set later = m['send_at'] and m['send_at'] > now %}
-<div class="msg {{ 'me' if mine else 'them' }}" id="m{{ m['id'] }}">
-{% if not mine and (m['channel_id']) %}<b class="msg-n">{{ names.get(m['from_id'], 'Someone') }}</b>{% endif %}
+{% set stamp = m['send_at'] or m['created_at'] %}{% set day = stamp|daykey %}
+{% if day != ns.day %}<div class="msg-day"><span>{{ stamp|daychip }}</span></div>{% set ns.day = day %}{% set ns.who = 0 %}{% endif %}
+{% set run = (m['from_id'] == ns.who) and (stamp|hhmm)[:4] == (ns.at|hhmm)[:4] %}
+<div class="msg {{ 'me' if mine else 'them' }}{{ ' run' if run }}" id="m{{ m['id'] }}">
+{% if not mine and m['channel_id'] and not run %}<b class="msg-n">{{ names.get(m['from_id'], 'Someone') }}</b>{% endif %}
 {% if quotes.get(m['id']) %}{% set qq = quotes[m['id']] %}<div class="msg-q"><b>{{ names.get(qq['from_id'], '') }}</b> {{ (qq['body'] or qq['file_name'] or 'File')[:70] }}</div>{% endif %}
 {% if refs.get(m['id']) %}{% set rr = refs[m['id']] %}<a class="msg-card" href="{{ rr[2] }}"><b>{{ rr[0] }}</b><small>{{ rr[1] }}</small></a>{% endif %}
 {% if m['image'] %}<a href="{{ media(m['image']) }}" target="_blank" rel="noopener"><img src="{{ media(m['image']) }}" alt="Picture shared in chat" loading="lazy"></a>{% endif %}
 {% if m['file'] %}{% if m['file_name']|is_audio %}<audio controls preload="none" src="{{ media(m['file']) }}"></audio>{% else %}<a class="msg-file" href="{{ media(m['file']) }}" target="_blank" rel="noopener">📄 {{ m['file_name'] }}</a>{% endif %}{% endif %}
 {% if m['body'] %}<p>{{ m['body']|mention }}</p>{% endif %}
-<small>{% if later %}⏰ sends {{ m['send_at'] }} <form method="post" action="{{ url_for('tm.cancel', mid=m['id']) }}" style="display:inline"><button class="linkbtn">cancel</button></form>{% else %}{{ m['send_at'][11:16] if m['send_at'] else m['created_at']|hhmm }}{% if mine and not m['channel_id'] %} {{ '✓✓' if m['is_read'] else '✓' }}{% endif %}{% if m['pinned'] %} 📌{% endif %}{% endif %}</small>
+<small>{% if later %}⏰ sends {{ m['send_at'] }} <form method="post" action="{{ url_for('tm.cancel', mid=m['id']) }}" style="display:inline"><button class="linkbtn">cancel</button></form>{% else %}{{ stamp|hhmm }}{% if mine and not m['channel_id'] %} <span class="tick{{ ' on' if m['is_read'] }}">{{ '✓✓' if m['is_read'] else '✓' }}</span>{% endif %}{% if m['pinned'] %} 📌{% endif %}{% endif %}</small>
 {% set rc = reacts.get(m['id'], {}) %}{% if rc %}<div class="msg-r">{% for e, us in rc.items() %}<button type="button" class="rx {{ 'on' if me in us }}" onclick="chatReact({{ m['id'] }},'{{ e }}')">{{ e }} {{ us|length }}</button>{% endfor %}</div>{% endif %}
 <div class="msg-act">{% for e in REACTS %}<button type="button" onclick="chatReact({{ m['id'] }},'{{ e }}')" aria-label="React {{ e }}">{{ e }}</button>{% endfor %}<button type="button" onclick="chatReply({{ m['id'] }}, {{ (m['body'] or m['file_name'] or 'File')[:50]|tojson|forceescape }})" aria-label="Reply">↩</button>
 {% if m['channel_id'] and g.role in ('owner','admin','lead','manager') %}<form method="post" action="{{ url_for('tm.pin', mid=m['id']) }}" style="display:inline"><button aria-label="Pin">📌</button></form>{% endif %}{% if mine or g.role in ('owner','admin','lead') %}<form method="post" action="{{ url_for('tm.delete_msg', mid=m['id']) }}" style="display:inline"><button aria-label="Delete">🗑</button></form>{% endif %}</div></div>
-{% else %}<p class="muted" style="text-align:center">No messages yet. Say hi 👋</p>{% endfor %}
+{% set ns.who = m['from_id'] %}{% set ns.at = stamp %}
+{% else %}<div class="msg-none"><b>No messages yet</b><p class="muted">Say hi 👋</p></div>{% endfor %}

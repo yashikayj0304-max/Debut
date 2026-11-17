@@ -221,6 +221,31 @@ def _hhmm(v):
         return str(v)[11:16]
 
 
+
+@bp.app_template_filter("daychip")
+def _daychip(v):
+    """"Today", "Yesterday" or a date, for the separator between days in a chat."""
+    try:
+        d = (dt.datetime.strptime(str(v)[:16], "%Y-%m-%d %H:%M") + dt.timedelta(hours=5, minutes=30)).date()
+    except ValueError:
+        return ""
+    today = S.today()
+    if d == today:
+        return "Today"
+    if d == today - dt.timedelta(days=1):
+        return "Yesterday"
+    return d.strftime("%d %b %Y" if d.year != today.year else "%a %d %b")
+
+
+@bp.app_template_filter("daykey")
+def _daykey(v):
+    """The India-time date a message belongs to, so the separator falls in the right place."""
+    try:
+        return (dt.datetime.strptime(str(v)[:16], "%Y-%m-%d %H:%M") + dt.timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+    except ValueError:
+        return str(v)[:10]
+
+
 @bp.app_template_filter("is_audio")
 def _is_audio(name):
     return (name or "").rsplit(".", 1)[-1].lower() in AUDIO

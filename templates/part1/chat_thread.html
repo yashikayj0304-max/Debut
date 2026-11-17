@@ -1,12 +1,12 @@
 {% extends "base.html" %}{% block title %}{{ title }} — Chat{% endblock %}{% block body %}
-<div class="chat-app has-thread"><div class="ca-list">{% include "_chatlist.html" %}</div>
+<div class="chat-app has-thread" data-chatting="1"><div class="ca-list">{% include "_chatlist.html" %}</div>
 <div class="ca-pane"><div class="ca-head"><a class="ca-back" href="{{ url_for('tm.chat') }}" aria-label="Back to chats">←</a><div><b>{{ title }}</b><small>{{ topic }}</small></div></div>
 {% if pinned %}<div class="ca-pins">{% for m in pinned %}<div>📌 {{ (m['body'] or m['file_name'])[:90] }}</div>{% endfor %}</div>{% endif %}
 <div id="msgs" class="msgs" aria-live="polite">{% include "chat_msgs.html" %}</div>
 <form id="cf" method="post" action="{{ url_for('tm.send_channel', cid=ident) if kind == 'c' else url_for('tm.send', uid=ident) }}" enctype="multipart/form-data" class="cf">
 <input type="hidden" name="reply_to" id="cf-rt"><div id="cf-rep" class="cf-rep" hidden></div>
 <div class="cf-row"><label class="cf-ic" title="Attach a file or picture">📎<input type="file" name="file" id="cf-file" hidden></label><button type="button" class="cf-ic" id="cf-mic" title="Record a voice note" aria-label="Record a voice note">🎙️</button>
-<textarea name="body" id="cf-body" rows="1" maxlength="2000" placeholder="Message{{ ' #' ~ title[1:] if kind == 'c' else '' }}… use @ to mention" aria-label="Message"></textarea><button class="btn cf-send" aria-label="Send">➤</button></div>
+<textarea name="body" id="cf-body" rows="1" maxlength="2000" placeholder="Message{{ ' #' ~ title[1:] if kind == 'c' else ' ' ~ title.split(' ')[0] }}…" aria-label="Message"></textarea><button class="btn cf-send" aria-label="Send">➤</button></div>
 <div class="cf-more"><span id="cf-fn" class="muted"></span><details><summary class="muted">⏰ Send later</summary><input type="datetime-local" name="send_at" min="{{ now|replace(' ','T') }}"></details><div id="cf-mn" class="cf-mn" hidden></div></div></form></div></div>
 <script>(function(){var box=document.getElementById("msgs"),body=document.getElementById("cf-body"),form=document.getElementById("cf");function down(){box.scrollTop=box.scrollHeight}down();
 var busy=false;function send(){if(busy)return;var fi=document.getElementById("cf-file");if(!body.value.trim()&&!fi.files.length)return;busy=true;var fd=new FormData(form);fetch(form.action,{method:"POST",body:fd,credentials:"same-origin",headers:{"X-Requested-With":"fetch"}}).then(function(r){if(!r.ok)throw 0;body.value="";body.style.height="auto";fi.value="";document.getElementById("cf-fn").textContent="";document.getElementById("cf-rt").value="";var rp=document.getElementById("cf-rep");rp.hidden=true;rp.innerHTML="";var sa=form.querySelector("[name=send_at]");if(sa)sa.value="";return fetch(location.pathname+"?frag=1",{credentials:"same-origin"})}).then(function(r){return r&&r.text()}).then(function(h){if(h){box.innerHTML=h}down();busy=false;body.focus()}).catch(function(){busy=false;form.submit()})}
@@ -17,6 +17,16 @@ document.getElementById("cf-file").onchange=function(){document.getElementById("
 window.chatReply=function(id,t){document.getElementById("cf-rt").value=id;var r=document.getElementById("cf-rep");r.hidden=false;r.innerHTML="";var s=document.createElement("span");s.textContent="Replying to: "+t;var x=document.createElement("button");x.type="button";x.className="linkbtn";x.textContent="✕";x.onclick=function(){document.getElementById("cf-rt").value="";r.hidden=true};r.appendChild(s);r.appendChild(x);body.focus()};
 window.chatReact=function(id,e){var fd=new FormData();fd.append("emoji",e);fd.append("csrf_token",window.CSRF);fetch("/chat/msg/"+id+"/react",{method:"POST",body:fd,credentials:"same-origin",headers:{"X-Requested-With":"fetch"}}).then(refresh)};
 function refresh(){fetch(location.pathname+"?frag=1",{credentials:"same-origin"}).then(function(r){return r.ok?r.text():null}).then(function(h){if(h!==null&&h!==box.innerHTML){var end=box.scrollTop+box.clientHeight>=box.scrollHeight-60;box.innerHTML=h;if(end)down()}})}
+document.body.classList.add("chatting");
+if (matchMedia("(hover:none)").matches) {
+  box.addEventListener("click", function (e) {
+    if (e.target.closest("a,button,audio,input,form,.rx")) return;     // never swallow a real tap
+    var m = e.target.closest(".msg"); if (!m) return;
+    var was = m.classList.contains("open");
+    box.querySelectorAll(".msg.open").forEach(function (o) { o.classList.remove("open"); });
+    if (!was) m.classList.add("open");
+  });
+}
 setInterval(function(){if(!document.hidden)refresh()},6000);
 var mic=document.getElementById("cf-mic"),rec=null,chunks=[];
 if(!(navigator.mediaDevices&&window.MediaRecorder)){mic.hidden=true}

@@ -105,7 +105,10 @@ def invite_workspace(token):
 @bp.route("/signup", methods=["GET", "POST"])
 @limiter.limit("10 per hour", methods=["POST"])
 def signup():
-    if g.user:
+    if g.user and _in_demo():
+        session.clear()                 # same as logging in: leaving the demo to make a real account
+        g.user = g.ws = g.role = None
+    elif g.user:
         return redirect(url_for("dashboard"))
     token = request.values.get("invite", "")
     inv = find_invite(token)
@@ -161,10 +164,24 @@ def finish_login(user, token="", nxt=None):
     return redirect(nxt if (nxt or "").startswith("/") and not (nxt or "").startswith("//") else url_for("dashboard"))
 
 
+
+def _in_demo():
+    """True when the current session is the try-it-out demo account rather than a real one."""
+    try:
+        return bool(g.user) and (g.user["email"] or "").endswith("@demo.debut.invalid")
+    except Exception:
+        return False
+
+
 @bp.route("/login", methods=["GET", "POST"])
 @limiter.limit("15 per 15 minutes", methods=["POST"])
 def login():
-    if g.user:
+    if g.user and _in_demo():
+        # Clicking "Log in" while poking around the demo must show the sign-in form, not bounce you
+        # back into the demo. Ending the demo session here is safe: nothing in it is real.
+        session.clear()
+        g.user = g.ws = g.role = None
+    elif g.user:
         return redirect(url_for("dashboard"))
     token = request.values.get("invite", "")
     if request.method == "POST":
@@ -245,7 +262,7 @@ def login_2fa():
 @bp.route("/logout", methods=["GET", "POST"])
 def logout():
     # GET only ends a demo session (the "Leave demo" link); real accounts still need a POST so a stray link can't log you out
-    if request.method == "GET" and not (g.user and (g.user["email"] or "").endswith("@demo.debut.invalid")):
+    if request.method == "GET" and not _in_demo():
         return redirect(url_for("landing"))
     session.clear()
     return redirect(url_for("landing"))
@@ -253,7 +270,7 @@ def logout():
 
 @bp.route("/demo/exit")
 def demo_exit():
-    if g.user and (g.user["email"] or "").endswith("@demo.debut.invalid"):
+    if _in_demo():
         session.clear()
     return redirect(url_for("landing"))
 

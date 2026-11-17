@@ -324,3 +324,88 @@ html:not([data-theme=dark]) .deb-b.u{background:#d9fdd3;color:#111}html:not([dat
  .muted{color:#444!important}
  @page{margin:14mm}
 }
+
+/* Page heads: the title keeps its own line when the buttons need the room, instead of pushing
+   "Import / export" off the right edge. */
+.head{align-items:flex-start;row-gap:8px}
+.head>div:last-child,.head .acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.head h1{min-width:0;overflow-wrap:anywhere}
+@media(max-width:980px){.head{flex-direction:column;align-items:stretch}.head>div:last-child,.head .acts{justify-content:flex-start}}
+
+/* An empty list should not take a whole screen to say it is empty. */
+.empty-state{padding:22px 16px}
+.empty-state .deb{width:88px;height:88px}
+.empty-state p{margin-bottom:12px}
+
+/* ---------- team chat: read like a messaging app, not a web form ---------- */
+/* One frame, not a box inside a box: the list panel owns the border, the inner aside is plain. */
+.ca-list>.cl{background:none!important;background-image:none!important;border:0;padding:0;width:auto;height:auto;overflow:visible;box-shadow:none}
+.ca-list{padding:6px}
+.cl-h{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);background:var(--card)}
+.cl-h b{font-weight:800;font-size:12px}
+.cl-row{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:12px;text-decoration:none;color:inherit}
+.cl-row:hover{background:var(--soft,#ffffff10)}
+.cl-row.on{background:var(--pri);color:var(--on,#fff)}
+.cl-row.on small{color:inherit;opacity:.85}
+.cl-mid{min-width:0;display:flex;flex-direction:column;flex:1}
+.cl-mid b{font-size:14px;line-height:1.3}
+.cl-mid small{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cl-ic{width:28px;text-align:center;opacity:.7}
+.chat-av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;background:var(--pri);color:var(--on,#fff);flex:0 0 32px}
+.cl-row.on .chat-av{background:var(--on,#fff);color:var(--pri)}
+
+/* Bubbles: capped so a wide screen does not stretch one sentence across the room. */
+.msgs{gap:2px;padding:14px 16px 10px;scroll-padding-bottom:12px}
+.msg{max-width:min(76%,560px);padding:7px 11px 5px}
+.msg.run{margin-top:1px}
+.msg:not(.run){margin-top:10px}
+.msg.me:not(.run){border-bottom-right-radius:4px}
+.msg.them:not(.run){border-bottom-left-radius:4px}
+.msg.me.run{border-radius:14px 4px 4px 14px}
+.msg.them.run{border-radius:4px 14px 14px 4px}
+.msg p{font-size:14.5px;line-height:1.45}
+.msg>small{display:block;text-align:right;margin-top:1px;font-size:10.5px;opacity:.65;line-height:1}
+.msg .tick.on{color:#4fc3f7}
+.msg.me .tick.on{color:#bde9ff}
+
+/* A day separator, so a long thread is readable. */
+.msg-day{display:flex;justify-content:center;margin:12px 0 2px}
+.msg-day+.msg{margin-top:2px!important}
+.msg-day span{background:var(--card);border:1px solid var(--line,#ffffff1f);color:var(--mut);font-size:11.5px;font-weight:700;padding:3px 12px;border-radius:99px}
+.msg-none{margin:auto;text-align:center;color:var(--mut)}
+.msg-none b{display:block;font-size:15px;margin-bottom:2px;color:inherit}
+
+/* Composer: one tidy row, icons the same size as the send button. */
+.cf{padding:10px 12px 12px}
+.cf-row{gap:8px;align-items:flex-end}
+.cf-row textarea{padding:10px 14px;font-size:14.5px;line-height:1.4;border-radius:20px}
+.cf-ic{font-size:18px;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;padding:0;opacity:.8}
+.cf-ic:hover{opacity:1;background:var(--soft,#ffffff12)}
+.cf-send{width:40px;height:40px;font-size:15px;display:grid;place-items:center}
+.cf-more{margin-top:6px;font-size:12.5px;gap:12px}
+.cf-row textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cf-more summary{cursor:pointer}
+
+/* ---------- team chat on a phone ---------- */
+@media(hover:none){
+  /* The reaction row used to sit open under every single message, which doubled the height of the
+     thread and made it hard to read. Tap a message to reveal its actions, like any messaging app. */
+  .msg .msg-act{display:none!important}
+  .msg.open .msg-act{display:flex!important;position:static;margin-top:6px;background:none;border:0;padding:0;opacity:.9;gap:6px;flex-wrap:wrap}
+  .msg.open .msg-act button{font-size:17px;padding:2px 4px}
+}
+@media(max-width:800px){
+  .chat-app.has-thread{height:calc(100dvh - 190px)}
+  .msgs{padding:10px 10px 6px}
+  .msg{max-width:84%;padding:7px 10px 5px}
+  .msg p{font-size:15px;line-height:1.4}
+  .msg>small{font-size:10.5px}
+  .cf{padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+  .cf-row{gap:4px}
+  .cf-ic{width:34px;height:34px;font-size:17px;flex:0 0 34px}
+  .cf-send{width:38px;height:38px;flex:0 0 38px}
+  .cf-row textarea{padding:9px 12px;font-size:15px}
+  .cf-more{margin-top:4px;font-size:12px}
+  /* Deb's floating button sat on top of the send button. You are already in a conversation here. */
+  body.chatting .deb-fab{display:none}
+}

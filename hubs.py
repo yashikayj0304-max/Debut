@@ -17,7 +17,7 @@ HUBS = [
         ("🎨 Brand kit", "m_list", {"key": "brand_kit"}, [], None)]),
     dict(key="tasks", icon="✅", label="Tasks & Campaigns", lv=1, tabs=[
         ("✅ Tasks", "m_list", {"key": "tasks"}, [], None),
-        ("📣 Campaigns", "campaigns_all", {}, ["/m/campaigns", "/kanban/campaigns", "/m/promotions", "/m/events", "/m/gtm_plans"], "camp")]),
+        ("📣 Campaigns", "campaigns_all", {}, ["/m/campaigns", "/kanban/campaigns", "/m/promotions", "/m/events"], "camp")]),
     dict(key="news", icon="🤖", label="AI & Market News", lv=1, tabs=[
         ("🤖 AI Studio", "ai_studio", {}, [], None),
         ("💡 Ideas", "ideas", {}, [], None),
@@ -31,8 +31,8 @@ HUBS = [
         ("✅ Launch checklist", "m_list", {"key": "launch_checklist"}, [], None)]),
     dict(key="sales", icon="🧲", label="Leads & Clients", lv=2, tabs=[
         ("🧲 Leads", "m_list", {"key": "leads"}, ["/bio"], None),
-        ("⭐ Reviews", "bio.reviews", {}, [], "mgr"),
-        ("🤝 Clients", "m_list", {"key": "clients"}, [], None)]),
+        ("🤝 Clients", "m_list", {"key": "clients"}, [], None),
+        ("⭐ Reviews", "bio.reviews", {}, [], "mgr")]),
     dict(key="results", icon="📈", label="Results & Insights", lv=2, tabs=[
         ("📈 Numbers", "analytics", {}, ["/m/kpis"], None),
         ("🎯 Results log", "m_list", {"key": "kpis"}, [], "hid"),
@@ -137,7 +137,6 @@ GROUPS = [
     ("📡 News", [("pulse_page", None)]),
     ("🧭 Strategy", [("m_list", "gtm_plans"), ("m_list", "personas"), ("m_list", "competitors"), ("m_list", "launch_checklist")]),
     ("📣 Campaigns", [("campaigns_all", None)]),
-    ("🧲 Leads & clients", [("m_list", "leads"), ("m_list", "clients")]),
     ("🤳 Influencers & PR", [("m_list", "influencers"), ("discover", None), ("m_list", "pr_contacts"), ("m_list", "outreach_templates")]),
     ("💸 Creators & pay", [("content_ops", None), ("m_list", "creators"), ("m_list", "payments"), ("m_list", "content_orders"), ("m_list", "rate_card")]),
     ("💬 Chat & approvals", [("tm.chat", None), ("tm.approvals", None)]),
@@ -146,5 +145,6 @@ GROUPS = [
 ]
 
 # Pages that no longer have a menu entry of their own: they are one button away from the page they belong to, and stay in search.
-FOLDED = [("m_list", "promotions"), ("m_list", "events"), ("m_list", "gtm_plans"),
+FOLDED = [("m_list", "promotions"), ("m_list", "events"),      # Launch plans has its own home in Launch playbook
+          
           ("ws.activity", None), ("kudos", None), ("discover", None), ("studio.grid", None)]

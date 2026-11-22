@@ -275,7 +275,8 @@ def ensure_demo(variant="chai"):
     ws = q("SELECT * FROM workspaces WHERE slug=?", (v["slug"],), one=True)
     today = S.today().isoformat()
     if not ws:
-        wid = ins("workspaces", dict(name=v["name"], slug=v["slug"], plan="team", plan_status="active", industry=v["industry"], owner_id=owner, ics_key=secrets.token_hex(6), hook_key=secrets.token_hex(12), period_end=today))
+        wid = ins("workspaces", dict(name=v["name"], slug=v["slug"], plan="team", plan_status="active", industry=v["industry"], owner_id=owner, ics_key=secrets.token_hex(6), hook_key=secrets.token_hex(12), period_end=today,
+                                       review_url="https://g.page/r/demo-review-link/review"))
         ins("memberships", dict(workspace_id=wid, user_id=owner, role="owner"))
         ins("memberships", dict(workspace_id=wid, user_id=viewer, role="viewer"))
         S.seed_workspace(wid, v["industry"], False)
@@ -286,7 +287,9 @@ def ensure_demo(variant="chai"):
             S.wipe_workspace_data(wid, keep_members=True)
             S.seed_workspace(wid, v["industry"], False)
             seed(wid, viewer)
-            ex("UPDATE workspaces SET period_end=?, plan='team', plan_status='active' WHERE id=?", (today, wid))
+            # A review link so the Reviews page shows its filled-in state rather than an empty form
+            ex("UPDATE workspaces SET period_end=?, plan='team', plan_status='active', review_url=? WHERE id=?",
+               (today, "https://g.page/r/demo-review-link/review", wid))
         if not q("SELECT id FROM memberships WHERE workspace_id=? AND user_id=?", (wid, viewer), one=True):
             ins("memberships", dict(workspace_id=wid, user_id=viewer, role="viewer"))
     return viewer, wid

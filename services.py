@@ -235,6 +235,42 @@ def store_file(wid, ext, data):
     return f"/media/{wid}/{name}"
 
 
+
+def as_jpeg(content):
+    """Instagram accepts JPEG and nothing else - a PNG design is refused with a download error that
+    tells the person nothing. Convert our own stored file once and keep the JPEG beside it."""
+    content = content or ""
+    if not content or content.lower().rsplit(".", 1)[-1] in ("jpg", "jpeg"):
+        return content
+    try:
+        from PIL import Image
+        import io as _io
+        if content.startswith("s3:"):
+            key = content[3:]
+            raw = s3().get_object(Bucket=C.S3_BUCKET, Key=key)["Body"].read()
+            wid = key.split("/", 1)[0]
+        elif content.startswith("/media/"):
+            _, _, wid, name = content.split("/", 3)
+            with open(os.path.join(C.UPLOAD_DIR, wid, os.path.basename(name)), "rb") as f:
+                raw = f.read()
+        else:
+            return content                       # someone else's URL: we cannot rewrite it
+        im = Image.open(_io.BytesIO(raw))
+        if im.mode in ("RGBA", "LA", "P"):       # a transparent background becomes white, not black
+            bg = Image.new("RGB", im.size, (255, 255, 255))
+            im = im.convert("RGBA")
+            bg.paste(im, mask=im.split()[-1])
+            im = bg
+        else:
+            im = im.convert("RGB")
+        out = _io.BytesIO()
+        im.save(out, "JPEG", quality=92, optimize=True)
+        return store_file(wid, "jpg", out.getvalue())
+    except Exception:
+        log.exception("jpeg conversion failed")
+        return content
+
+
 def media_url(content):
     content = content or ""
     if content.startswith("s3:"):

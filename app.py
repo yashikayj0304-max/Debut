@@ -27,8 +27,8 @@ class SafeInt(IntegerConverter):
         kw.setdefault("max", 2**31 - 1)
         super().__init__(map, **kw)
 
-MARKETING = {"features", "templates_gallery", "pricing", "terms", "privacy", "contact", "refunds", "changelog", "about", "channels_page"}
-PUBLIC = {"bio.public", "bio.go", "bio.qr", "bio.review_go", "bio.review_qr", "cron_morning", "cron_evening", "auth.demo_exit", "about", "channels_page", "healthz", "agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
+MARKETING = {"features", "templates_gallery", "pricing", "terms", "privacy", "data_deletion", "contact", "refunds", "changelog", "about", "channels_page"}
+PUBLIC = {"bio.public", "bio.go", "bio.qr", "bio.review_go", "bio.review_qr", "data_deletion", "cron_morning", "cron_evening", "auth.demo_exit", "about", "channels_page", "healthz", "agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
 VIEWER_WRITE_OK = {"deb.set_tone", "tm.send", "tm.send_channel", "tm.channel", "tm.new_channel", "tm.react", "tm.pin", "tm.delete_msg", "tm.share", "tm.cancel", "tm.access_request", "auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
@@ -439,13 +439,34 @@ def create_app(config=None, init=True, database_url=None):
             _search_hubs = list(_hubs) + list(_tucked)
             if _other:
                 _search_hubs.append(dict(key="other", icon="🧰", label="Other tools", lv=3, href=_other[0][1], tabs=[dict(label=l, href=h, paths=[h.split("?")[0]], on=False) for l, h in _other], on=False))
-            if _show_more:      # only when the person asks for it in Profile > Menu
-                _hubs.append(dict(key="more", icon="🧰", label="More tools", lv=3, href=_tools_url, tabs=[dict(label="🧰 All tools", href=_tools_url, paths=[_tools_url], on=False)] + [dict(label=l, href=h, paths=[h.split("?")[0]], on=False) for l, h in _rest], on=False))
+            # Everything the person could add to the sidebar, for the list in Profile > Menu.
+            _pool = _rest + [(s["label"], s["href"]) for hb in _hubs for t in hb["tabs"] for s in (t.get("subs") or [t]) if t.get("more")]
+            _pool = [(l, hh) for l, hh in dict.fromkeys((l, hh) for l, hh in _pool) if hh and hh != _tools_url]
+            d["MENU_TOOLS"] = sorted(_pool, key=lambda x: x[0].lower())
+            d["MENU_TOOLS_SEL"] = _show_more if isinstance(_show_more, list) else []
+            # "More tools" shows only the tools that were ticked. Nothing ticked, no section at all.
+            # "More tools" is its own small section in the sidebar, holding exactly the tools that
+            # were ticked in Profile > Menu. Nothing ticked, no section at all.
+            # "More tools" is where everything you switched off goes. A section you untick in
+            # Profile > Menu lands here straight away, even if it is the only one, so nothing you
+            # turned off becomes unreachable.
+            d["ESS_TOOLS_ALL"] = _tools_url
+            d["ESS_TOOLS"] = [(hb["icon"] + " " + hb["label"], hb["tabs"][0]["href"]) for hb in _tucked]
+            if _show_more:
+                if isinstance(_show_more, list):
+                    _known = {hh: l for l, hh in _pool}
+                    _picked = [(_label_of.get(hh) or _known.get(hh) or hh, hh) for hh in _show_more
+                               if hh in _label_of or hh in _known]
+                else:
+                    _picked = _pool                # an older save meant "show them all"
+                d["ESS_TOOLS"] = d["ESS_TOOLS"] + [x for x in _picked if x[1] not in {h for _l, h in d["ESS_TOOLS"]}]
             _p = request.path
             for hb in _hubs:
                 for t in hb["tabs"]:
                     for pp in t["paths"]:
-                        if (_p == pp or _p.startswith(pp.rstrip("/") + "/")) and len(pp) > _best:
+                        if not (_p == pp or _p.startswith(pp.rstrip("/") + "/")):
+                            continue
+                        if len(pp) > _best:
                             _best, _cur, _curtab = len(pp), hb, t
             if _cur:
                 _cur["on"] = True

@@ -101,7 +101,8 @@ def public(slug):
     logo = ws["logo_url"] if (ws["logo_url"] or "").startswith(("http://", "https://", "/")) else ""
     S.audit("bio_view", "", wid=ws["id"], uid=None)
     fl = flavour(ws)
-    r = Response(render_template("bio_public.html", fl=fl, ws=ws, d=d, col=col, sec=sec, logo=logo, bare=True, hide_chrome=True, name=ws["name"].replace(" (demo)", "")))
+    r = Response(render_template("bio_public.html", fl=fl, ws=ws, d=d, col=col, sec=sec, logo=logo, bare=True, hide_chrome=True,
+                                 review_url=(ws["review_url"] if "review_url" in ws.keys() else ""), name=ws["name"].replace(" (demo)", "")))
     r.headers["Cache-Control"] = "no-store"      # every visit is counted
     return r
 
@@ -124,6 +125,28 @@ def qr(slug):
     return Response(buf.getvalue(), mimetype="image/svg+xml", headers={"Cache-Control": "public, max-age=3600"})
 
 # ----------------------------------------------------------------- asking for reviews
+# Which site a pasted link actually goes to. People paste all sorts of things into that box, and
+# the page should be able to say plainly where their customers will land rather than accept
+# anything in silence. Unknown hosts come back as the bare domain, which is still useful to read.
+REVIEW_SITES = [("zomato", "Zomato"), ("swiggy", "Swiggy"), ("practo", "Practo"), ("justdial", "JustDial"),
+                ("tripadvisor", "Tripadvisor"), ("amazon", "Amazon"), ("flipkart", "Flipkart"),
+                ("facebook", "Facebook"), ("yelp", "Yelp"), ("urbancompany", "Urban Company"),
+                ("urbanclap", "Urban Company"), ("trustpilot", "Trustpilot"), ("nykaa", "Nykaa")]
+
+
+def review_site(url):
+    host = (urlparse(url or "").netloc or "").lower()
+    if not host:
+        return ""
+    if "google" in host or host.endswith(("g.page", "goo.gl")):
+        return "Google"
+    for key, name in REVIEW_SITES:
+        if key in host:
+            return name
+    return host[4:] if host.startswith("www.") else host
+
+
+
 # For a shop, a salon or a restaurant, Google reviews bring more people through the door than any
 # post does. The pieces were already here - a short link, a QR code, click tracking - so asking for
 # a review is the same machinery pointed somewhere else.
@@ -144,7 +167,8 @@ def reviews():
     msgs = [f"Thanks for coming to {ws['name']}! If you have 30 seconds, a review really helps a small business like ours:",
             "Hope you loved it. A quick review helps more people find us:",
             "Thank you for your order. Would you leave us a line? It takes 30 seconds:"]
-    return render_template("reviews.html", messages=msgs, url=ws["review_url"] if "review_url" in ws.keys() else "",
+    _url = ws["review_url"] if "review_url" in ws.keys() else ""
+    return render_template("reviews.html", messages=msgs, url=_url, where=review_site(_url),
                            short=S.app_url() + url_for("bio.review_go", slug=ws["slug"]), sent=sent,
                            public=not any(x in S.app_url() for x in ("127.0.0.1", "localhost")))
 

@@ -1,4 +1,4 @@
-Debut — part 3 of 3
+Debut — part 1 of 3
 
 This is one third of the app. It does NOT run on its own.
 
@@ -8,6 +8,12 @@ This is one third of the app. It does NOT run on its own.
       app.py, views.py, requirements.txt, Procfile, render.yaml, Dockerfile
       static/   templates/part1/   templates/part2/   tests/   docs/
 4. Push that folder to GitHub, then point Render at the repo.
+
+For Meta app review you will need these, which are already in here:
+  - app icon 1024x1024:  static/icons/app-icon-1024.png
+  - privacy policy:      https://YOUR-SITE/privacy
+  - data deletion page:  https://YOUR-SITE/data-deletion
+  - terms:               https://YOUR-SITE/terms
 
 Each part is under 80 files, so every upload stays below GitHub's 100-file limit.
 All three parts are needed; the app will not start if any is missing.

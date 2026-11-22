@@ -142,7 +142,9 @@ HI = {
     "Use this again somewhere else": "इसे कहीं और दोबारा इस्तेमाल करें",
     "Print the month": "महीना प्रिंट करें",
     "Ask for reviews": "रिव्यू माँगें",
+    "Ask Deb": "Deb से पूछें",
     "Language": "भाषा",
+    "Customise menu": "मेन्यू बदलें",
 }
 
 STRINGS = {"hi": HI}

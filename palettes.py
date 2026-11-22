@@ -60,7 +60,11 @@ def build_css():
     out = []
     for key, label, c1, c2, c3, tone in PALS:
         soft = tone == "soft"
-        L = [f"--p1:{c1}", f"--p2:{c2}", f"--p3:{c3}", f"--pri:{c1}", f"--pri-d:{_mix(c1, 78, '#000')}", f"--sec:{c2}", f"--sec-d:{_mix(c2, 78, '#000')}", f"--accent:{c3}",
+        # --pri-d is the colour links and small labels are written in, so it has to be a *text*
+        # colour, not a slightly darker brand colour. A pastel primary at 78% is still only about
+        # 3.5:1 on a pale page, which is what made the soft palettes hard to read in light mode.
+        dk = 56 if soft else 78
+        L = [f"--p1:{c1}", f"--p2:{c2}", f"--p3:{c3}", f"--pri:{c1}", f"--pri-d:{_mix(c1, dk, '#000')}", f"--sec:{c2}", f"--sec-d:{_mix(c2, dk, '#000')}", f"--accent:{c3}",
              f"--pri2:{_mix(c1, 16 if soft else 10, '#fff')}", f"--pri3:{_mix(c1, 30 if soft else 24, '#fff')}",
              f"--bg:{_mix(c2, 16, '#fff') if soft else _mix(c1, 4, '#fff')}", f"--bg2:{_mix(c3, 38, '#fff') if soft else _mix(c2, 9, '#fff')}",
              f"--line:{_mix(c1, 30 if soft else 18, '#fff')}", f"--ink:{_mix(c1, 14, '#15121f')}", f"--mut:{_mix(c1, 18, '#5a5470')}", f"--on:{on_colour(c1, c2)}"]

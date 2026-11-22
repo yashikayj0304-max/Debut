@@ -77,9 +77,10 @@ def _friendly(err, status):
         return ("Instagram has not granted permission to post yet. The account must be a Business or Creator "
                 "account linked to a Facebook Page, and your Meta app needs the instagram_content_publish permission.")
     if code == 4 or code == 17 or sub == 2207051:
-        return "Instagram's hourly posting limit has been reached. Debut will try again later."
+        return "Instagram's posting limit is reached (100 posts in 24 hours). Debut will try again later."
     if sub in (2207003, 2207004, 2207020, 2207053):
-        return "Instagram could not download the picture. It must be a public JPG or PNG under 8 MB."
+        return ("Instagram could not download the picture. It has to be a JPEG on a public web address - "
+                "Instagram does not accept PNG, and it cannot reach a file on your own computer.")
     if sub == 2207032:
         return "Instagram rejected the picture's shape. Use a square or portrait image (between 4:5 and 1.91:1)."
     return msg
@@ -208,7 +209,7 @@ def publish_due(now=None):
             continue
         item = rows[0]
         caption = "\n\n".join(x for x in ((item["copy"] or "").strip(), (item["hashtags"] or "").strip()) if x)
-        image = S.media_url(item["asset_url"] or "")
+        image = S.media_url(S.as_jpeg(item["asset_url"] or "") if job["platform"] == "instagram" else (item["asset_url"] or ""))
         acct = account(job["workspace_id"], job["platform"])
         link = f"/m/content_items/{item['id']}/edit"
         if not acct:

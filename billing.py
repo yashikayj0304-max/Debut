@@ -96,6 +96,9 @@ def verify():
 @S.roles("owner")
 def cancel():
     ws = g.ws
+    if S.plan_key(ws) not in C.PAID_PLANS:
+        flash("There is no paid subscription to cancel.")
+        return redirect(url_for("billing.billing"))
     if C.BILLING_MODE == "demo":
         ex("UPDATE workspaces SET plan_status='cancelled', period_end=?, cancel_at_period_end=1 WHERE id=?", ((S.today() - dt.timedelta(days=1)).isoformat(), ws["id"]))  # demo: ends immediately
     elif ws["rzp_subscription_id"]:
@@ -108,6 +111,41 @@ def cancel():
     S.audit("cancel_requested")
     flash("Cancellation scheduled. Your plan stays active until the end of the paid period.")
     return redirect(url_for("billing.billing"))
+
+
+@bp.route("/billing/resume", methods=["POST"])
+@S.roles("owner")
+def resume():
+    """Undo a cancellation - the way back that was missing.
+
+    Demo mode simply switches the plan back on. With Razorpay there are two different
+    situations and it is worth being straight about both: a *paused* subscription can be
+    resumed through the API, but a cancellation that is already scheduled cannot be
+    withdrawn, so the honest answer there is to say so and send the owner to the plan
+    cards to start a fresh one. Either way nothing in the workspace is ever deleted.
+    """
+    ws = g.ws
+    if not (ws["cancel_at_period_end"] or ws["plan_status"] in ("cancelled", "completed", "paused")):
+        flash("Nothing to bring back - your plan is already running.")
+        return redirect(url_for("billing.billing"))
+    if C.BILLING_MODE == "demo":
+        ex("UPDATE workspaces SET plan_status='active', period_end=?, cancel_at_period_end=0 WHERE id=?",
+           ((S.today() + dt.timedelta(days=30)).isoformat(), ws["id"]))
+        S.audit("subscription_resumed")
+        flash("Your plan is back on. Nothing was lost.")
+        return redirect(url_for("billing.billing"))
+    if ws["rzp_subscription_id"] and ws["plan_status"] == "paused":
+        try:
+            _rzp("POST", f"/subscriptions/{ws['rzp_subscription_id']}/resume", json={"resume_at": "now"})
+        except Exception as e:
+            flash("Could not bring the plan back: " + str(e))
+            return redirect(url_for("billing.billing"))
+        ex("UPDATE workspaces SET plan_status='active', cancel_at_period_end=0 WHERE id=?", (ws["id"],))
+        S.audit("subscription_resumed")
+        flash("Your plan is back on.")
+        return redirect(url_for("billing.billing"))
+    flash("Razorpay cannot undo a cancellation once it is scheduled. Choose your plan below to start again - everything in your workspace stays exactly where it is.")
+    return redirect(url_for("billing.billing", restart=1))
 
 
 STATUS_MAP = {"subscription.activated": "active", "subscription.charged": "active", "subscription.resumed": "active", "subscription.authenticated": "authenticated",

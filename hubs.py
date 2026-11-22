@@ -81,8 +81,9 @@ ALWAYS = {"content", "tasks", "plan"}
 
 
 def focus_keys(csv):
-    """(hub keys to show, show "More tools") for a saved menu string. Empty = every hub, no "More tools".
-    Tokens: "h:<hub>" a hub the person ticked, "more" the All tools entry; older saves hold the goal names above."""
+    """(hub keys to show, the extra tools to show under "More tools") for a saved menu string. Empty = every hub, no "More tools".
+    Tokens: "h:<hub>" a section the person ticked, "t:<path>" one extra tool they ticked; a bare
+    "more" is an older save meaning "show every extra tool"; older saves still hold the goal names above."""
     toks = [x for x in (csv or "").split(",") if x]
     if not toks:
         return None, False
@@ -93,7 +94,8 @@ def focus_keys(csv):
     for k, _i, _l, hubs in FOCUS:
         if k in toks:
             out.update(hubs)
-    return out, "more" in toks
+    tools = [t[2:] for t in toks if t.startswith("t:")]
+    return out, (tools or ("more" in toks))
 
 
 def goals_to_focus(goals):
@@ -105,11 +107,14 @@ def goals_to_focus(goals):
     return clean_focus(keys)
 
 
-def clean_focus(hub_keys, more=False):
+def clean_focus(hub_keys, tools=()):
+    """A saved menu: the sections ticked, plus the individual extra tools ticked.
+
+    "More tools" is not a switch any more. It appears only when at least one tool is ticked, and it
+    holds exactly those tools - so a person who wants nothing extra never sees the section at all."""
     ok = {h["key"] for h in HUBS}
     out = ["h:" + k for k in ORDER if k in set(hub_keys) and k in ok]
-    if more:
-        out.append("more")
+    out += ["t:" + t for t in dict.fromkeys(t.strip() for t in tools if t and t.strip())][:40]
     return ",".join(out)
 
 

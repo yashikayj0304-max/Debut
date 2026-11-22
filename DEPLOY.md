@@ -207,6 +207,23 @@ Debut now makes its own push keys the first time it starts and runs its own sche
 
 Auto-posting to Instagram is not built: it needs Meta app review for the Instagram Graph API. Until then Debut plans and prepares the post and you publish it from your phone.
 
+## Important on Render: uploads need somewhere permanent to live
+
+Render's normal disk is **ephemeral** - it is wiped on every deploy and every restart. Pictures,
+voice notes and files people upload will simply vanish, and a chat message that had a picture will
+show "this picture is no longer on the server". Instagram publishing breaks too, because Meta
+downloads the picture from your site and there is nothing there any more.
+
+Pick one before you let anyone use it:
+
+* **S3 (recommended, and what Debut prefers).** Set `S3_BUCKET`, `S3_REGION`, `AWS_ACCESS_KEY_ID`
+  and `AWS_SECRET_ACCESS_KEY`. Uploads are stored as `s3:` keys and survive everything.
+* **A Render persistent disk.** Add one in the service settings, mount it at `/var/data`, and set
+  `UPLOAD_DIR=/var/data/uploads`. Cheaper to set up, but it ties the service to one instance.
+
+Without either, everything still works until the first redeploy - which is exactly the kind of
+problem that shows up only after real people have started using it.
+
 ## Posting straight to Instagram (free)
 
 Meta charges nothing for this. What it costs is a one-time setup and a wait for Meta's review.
@@ -227,9 +244,11 @@ Meta charges nothing for this. What it costs is a one-time setup and a wait for 
    META_APP_SECRET=...
    META_API_VER=v21.0        # optional
    ```
-4. Submit for **App Review** with the permissions `instagram_basic`, `instagram_content_publish`
-   and `pages_show_list`. Review typically takes two to six weeks and needs business verification.
-   Start this early: the code is ready long before Meta is.
+4. Submit for **App Review** with the permissions `instagram_basic`, `instagram_content_publish`,
+   `pages_show_list` and `pages_read_engagement`. Review typically takes two to six weeks and needs
+   business verification. Start this early: the code is ready long before Meta is.
+   If the Facebook Page asks for **Page Publishing Authorization**, complete that too, or publishing
+   is refused no matter what the app is allowed to do.
 5. While in development mode, the app can already post to accounts listed as testers, so you can
    try the whole flow before review finishes.
 6. In Debut: **Content & Calendar → Publishing**, paste a token from Meta's Graph API Explorer and
@@ -239,8 +258,10 @@ Meta charges nothing for this. What it costs is a one-time setup and a wait for 
 scheduled minute Debut notifies whoever runs the account, with the caption ready to copy and the
 picture ready to download.
 
-**Limits Meta applies:** 50 posts per account per 24 hours; images must be public JPG or PNG under
-8 MB, with an aspect ratio between 4:5 and 1.91:1.
+**Limits Meta applies:** 100 published posts per account per 24 hours (a carousel counts as one).
+**Images must be JPEG** - Instagram does not accept PNG - on a public address, with an aspect ratio
+between 4:5 and 1.91:1. Debut converts its own PNG designs to JPEG automatically when it publishes;
+an image you paste in from somewhere else has to already be a JPEG.
 
 **The queue runs** inside the existing scheduled-jobs call (`services.run_due_jobs`), so whatever cron
 or scheduler already drives reminders also drives publishing. No extra worker is needed.

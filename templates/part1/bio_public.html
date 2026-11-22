@@ -13,7 +13,8 @@ a.l:hover,a.l:focus-visible{transform:translateY(-2px) scale(1.01);outline:3px s
 a.offer{background:#16141f;color:#fff}.tag{display:inline-block;font-size:12px;font-weight:700;background:rgba(255,255,255,.22);border-radius:99px;padding:3px 10px;margin-bottom:8px}
 body.clean{background:#f6f5fb;color:#16141f}body.clean .hero{background:linear-gradient(160deg,var(--c),var(--s));margin:-36px -16px 22px;padding:36px 16px 26px;border-radius:0 0 32px 32px}body.clean h1,body.clean .sub{color:#fff}body.clean .av{background:#fff;color:var(--c);box-shadow:0 8px 24px rgba(0,0,0,.18)}body.clean a.l{border:1px solid #e7e3f5}body.clean .chip{background:rgba(255,255,255,.25);color:#fff}body.clean .foot{color:#16141f}body.clean .foot a{color:var(--c)}
 body.warm{background:radial-gradient(circle at 20% 0,var(--s),transparent 55%),linear-gradient(160deg,var(--c),#2a1830)}body.warm a.l{border-radius:99px;text-align:center}
-.chip{display:inline-block;font-size:12px;font-weight:700;background:rgba(255,255,255,.22);border-radius:99px;padding:4px 12px;margin-bottom:12px}.sec{margin:18px 0 8px;font-size:12px;font-weight:700;opacity:.8}.msgbtn{background:transparent!important;color:inherit!important;border:2px dashed rgba(255,255,255,.7)!important;box-shadow:none!important}body.clean .msgbtn{color:var(--c)!important;border-color:var(--c)!important}
+.chip{display:inline-block;font-size:12px;font-weight:700;background:rgba(255,255,255,.22);border-radius:99px;padding:4px 12px;margin-bottom:12px}.sec{margin:18px 0 8px;font-size:12px;font-weight:700;opacity:.8}a.l.rev{background:#fff4d6;color:#4a3300}body.clean a.l.rev{border-color:#efd79b}
+.msgbtn{background:transparent!important;color:inherit!important;border:2px dashed rgba(255,255,255,.7)!important;box-shadow:none!important}body.clean .msgbtn{color:var(--c)!important;border-color:var(--c)!important}
 .foot{margin-top:26px;font-size:12px;opacity:.85}.foot a{color:#fff}
 </style></head><body class="{{ fl.mood }}"><main>
 <header class="hero"><div class="av">{% if logo %}<img src="{{ logo }}" alt="">{% else %}{{ name[:1]|upper }}{% endif %}</div>
@@ -22,6 +23,9 @@ body.warm{background:radial-gradient(circle at 20% 0,var(--s),transparent 55%),l
 {% if d.offer and d.offer_url %}<span class="tag">🎁 Special</span><a class="l offer" href="{{ d.offer_url }}" rel="noopener nofollow" target="_blank">{{ d.offer }}</a>{% endif %}
 {% for l in d.links %}<a class="l" href="{{ url_for('bio.go', slug=ws['slug'], i=loop.index0) }}" rel="noopener nofollow">{{ l.label }}</a>{% endfor %}
 {% if d.form %}<a class="l msgbtn" href="{{ url_for('lead_form', slug=ws['slug'], src='bio') }}">{{ fl.msg }}</a>{% endif %}
+{# The review ask lives here too: the people most likely to leave one are the people already
+   tapping your link. It goes through /review/<slug> so the tap is counted like any other. #}
+{% if review_url %}<a class="l rev" href="{{ url_for('bio.review_go', slug=ws['slug']) }}" rel="noopener nofollow">⭐ Leave us a review</a>{% endif %}
 {% if not d.links and not d.form and not d.offer %}<p class="sub">Links coming soon.</p>{% endif %}
 <div class="foot">Made with <a href="{{ url_for('landing') }}">Debut</a> · <a href="{{ url_for('auth.signup') }}">Make your own free page</a></div>
 </main></body></html>

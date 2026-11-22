@@ -28,5 +28,6 @@
 <input name="url{{ i }}" value="{{ l.get('url','') }}" placeholder="https://" aria-label="Link {{ i+1 }} address">
 <span class="muted" title="Taps on this link">{% if l %}{{ clicks.get(i ~ ':' ~ l.get('label',''), 0) }} taps{% endif %}</span></div>{% endfor %}
 <label style="font-weight:400"><input type="checkbox" name="form" value="1" style="width:auto" {{ 'checked' if d.form }}> Show a “Send us a message” button (messages show above and land in Leads)</label>
+<p class="muted">A <b>⭐ Leave us a review</b> button appears here too, as soon as you add your review link on <a href="{{ url_for('bio.reviews') }}">Ask for reviews</a>. Taps on it are counted there.</p>
 <button class="btn">Save</button> <a class="btn ghost" href="{{ url_for('bio.public', slug=slug) }}" target="_blank">Preview</a>
 </form></div>{% endblock %}

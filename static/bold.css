@@ -1,6 +1,6 @@
 /* ===== bold: one strong look for light and dark. Loaded last. Tokens only, plus a few type and contrast rules. ===== */
 html:root{--bg:#efe9ff;--bg2:#e4dbff;--card:#ffffff;--ink:#14092e;--mut:#4a4166;--line:#b6a6ee;--pri2:#e6ddff;--pri3:#cfc0fb;
-  --hot:#ff2e83;--sun:#ffd400;--ok:#0f8f66;--warn:#b26a00;--bad:#d4163f;
+  --hot:#ff2e83;--sun:#ffd400;--ok:#0f8f66;--warn:#8f5500;--bad:#d4163f;
   --shadow:0 2px 0 rgba(20,9,46,.9),0 10px 26px rgba(106,61,240,.18);--shadow-lg:0 4px 0 rgba(20,9,46,.9),0 18px 40px rgba(106,61,240,.28)}
 html:root[data-theme=dark]{--bg:#0b0716;--bg2:#140d28;--card:#171031;--ink:#ffffff;--mut:#d3cdf0;--line:#4a3b8c;--pri2:#241a4d;--pri3:#352670;
   --hot:#ff5fa2;--sun:#ffe14d;--ok:#4fe0b0;--warn:#ffc65a;--bad:#ff7a96;
@@ -26,7 +26,7 @@ aside a.on,.ht.on{background:var(--pri)!important;color:var(--on,#fff)!important
 .vsw{display:inline-flex;gap:0;margin:0 0 12px;border:2px solid var(--ink);border-radius:999px;overflow:hidden;background:var(--card)}
 .vsw a{padding:7px 18px;font-weight:700;font-size:14px;text-decoration:none;color:var(--ink)}
 html[data-theme=dark] .vsw{border-color:var(--pri)}
-html[data-theme=dark] .vsw a{color:#fff}
+html[data-theme=dark] .vsw a{color:var(--ink)}html[data-theme=dark] .vsw a.on{color:var(--on,#fff)}
 .vsw a.on{background:var(--pri);color:var(--on,#fff)}
 .latecard{border-color:var(--hot)!important;background:color-mix(in srgb,var(--hot) 12%,var(--card))!important}
 .late-b{display:flex;gap:8px;flex-wrap:wrap}.late-b form{margin:0}
@@ -105,7 +105,7 @@ table.stack th{background:transparent;border:0}table.stack tbody tr:hover td,tab
 .mbl-card>button:focus-visible,.mbl-more>summary:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
 .mbl-sw{height:74px;border-radius:9px;display:flex;align-items:center;justify-content:center}.mbl-sw i{font-style:normal;font-size:30px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
 .mbl-sw2{background:repeating-linear-gradient(45deg,transparent 0 8px,rgba(124,92,255,.12) 8px 16px);border:1.5px dashed var(--pri)}
-.mbl-card b{font-size:13.5px}.mbl-card small{color:var(--muted,#777);font-size:12px}
+.mbl-card b{font-size:13.5px}.mbl-card small{color:var(--mut);font-size:12px}
 .mbl-more[open]{grid-column:span 2}.mbl-more form{display:flex;gap:6px;margin-top:8px}.mbl-more input{flex:1;min-width:0}
 /* team space: approvals, chat, locks */
 .apr-row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--line,#eee)}.apr-row>div:first-child{flex:1 1 220px;min-width:0}.apr-row input{max-width:170px}
@@ -127,7 +127,7 @@ a.tb-ic{display:inline-flex;align-items:center;justify-content:center;text-decor
 @media(prefers-reduced-motion:no-preference){main>.card,main>.bento,main>.dhero{animation:slidein .35s ease both}@keyframes slidein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}.btn:active,.st-chip:active,.quick3 a:active{transform:scale(.96)}}
 html[data-motion=off] *,html[data-motion=off] *::before{animation:none!important;transition:none!important}
 html[data-text=large]{font-size:112.5%}
-html[data-contrast=high]{--muted:#d0cce6!important}html[data-contrast=high] .muted{color:var(--fg,#fff)!important;opacity:.9}
+html[data-contrast=high]{--mut:#d0cce6!important}html[data-contrast=high] .muted{color:var(--ink)!important;opacity:.9}
 .deb-lost{font-size:72px;line-height:1}
 .st-chips{display:flex;gap:6px;flex-wrap:wrap}
 .st-chip{display:inline-block;font:inherit;font-weight:700;font-size:13px;padding:7px 12px;border-radius:999px;border:1.5px solid var(--line,#ddd);background:var(--card,#fff);color:inherit;cursor:pointer;text-decoration:none}
@@ -138,25 +138,25 @@ html[data-contrast=high]{--muted:#d0cce6!important}html[data-contrast=high] .mut
 .ca-list{overflow:auto;background:var(--card);border:1px solid var(--line,#ffffff1a);border-radius:20px;padding:8px}
 .ca-pane{display:flex;flex-direction:column;min-width:0;background:var(--card);border:1px solid var(--line,#ffffff1a);border-radius:20px;overflow:hidden}
 .ca-empty{align-items:center;justify-content:center;text-align:center;padding:30px}
-.ca-head{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line,#ffffff1a)}.ca-head small{display:block;color:var(--muted,#8a86a0)}.ca-back{display:none;font-size:22px;text-decoration:none}
+.ca-head{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line,#ffffff1a)}.ca-head small{display:block;color:var(--mut)}.ca-back{display:none;font-size:22px;text-decoration:none}
 .ca-pins{padding:6px 14px;background:var(--soft,#2a2147);font-size:13px}
-.cl-h{display:flex;justify-content:space-between;align-items:center;padding:10px 10px 4px;color:var(--muted,#8a86a0);font-size:12px;text-transform:none}
+.cl-h{display:flex;justify-content:space-between;align-items:center;padding:10px 10px 4px;color:var(--mut);font-size:12px;text-transform:none}
 .cl-row{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:14px;text-decoration:none;color:inherit}.cl-row:hover{background:var(--soft,#ffffff10)}.cl-row.on{background:var(--pri);color:var(--on,#fff)}
 .cl-mid{display:flex;flex-direction:column;min-width:0;flex:1}.cl-mid small{opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}.cl-ic{width:40px;text-align:center;font-weight:800;font-size:18px}
-.cl-new summary{list-style:none;cursor:pointer;font-size:20px;line-height:1;padding:0 6px}.cl-form{display:grid;gap:6px;padding:8px;background:var(--soft,#2a2147);border-radius:12px;margin-top:6px;position:absolute;z-index:5;width:260px}.cl-chk{display:flex;gap:6px;align-items:center;font-size:13px}
+.cl-new summary{list-style:none;cursor:pointer;font-size:20px;line-height:1;padding:0 6px}.cl-form{display:grid;gap:6px;padding:10px;background:var(--soft,#2a2147);border:1px solid var(--line,#ffffff1f);border-radius:12px;margin:6px 8px 10px}.cl-chk{display:flex;gap:6px;align-items:center;font-size:13px}
 .msgs{flex:1;max-height:none;padding:12px}.msg{position:relative;max-width:80%}.msg-n{font-size:12px;opacity:.85;display:block;margin-bottom:2px}
 .msg-q{border-left:3px solid var(--sec,#ff4f9a);padding:2px 8px;margin-bottom:4px;font-size:12px;opacity:.85;background:#00000014;border-radius:6px}
 .msg-card{display:flex;flex-direction:column;padding:8px 10px;border-radius:12px;background:#00000022;color:inherit;text-decoration:none;margin-bottom:4px}.msg-card small{opacity:.8}
 .msg-file{display:inline-block;padding:6px 10px;border-radius:10px;background:#00000022;color:inherit;margin-bottom:4px}.msg audio{max-width:240px;display:block;margin-bottom:4px}
 .msg-r{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}.rx{border:1px solid #ffffff44;background:#00000022;color:inherit;border-radius:99px;padding:1px 8px;font-size:12px;cursor:pointer}.rx.on{border-color:var(--sec,#ff4f9a)}
-.msg-act{position:absolute;top:-18px;right:8px;display:none;gap:2px;background:var(--card);border:1px solid var(--line,#ffffff33);border-radius:99px;padding:2px 6px;color:var(--fg,#fff);z-index:3}.msg.me .msg-act{right:auto;left:8px}.msg:hover .msg-act,.msg:focus-within .msg-act{display:flex}.msg-act button{background:none;border:0;cursor:pointer;font-size:14px;padding:2px 3px;color:inherit}
+.msg-act{position:absolute;top:-18px;right:8px;display:none;gap:2px;background:var(--card);border:1px solid var(--line,#ffffff33);border-radius:99px;padding:2px 6px;color:var(--ink);z-index:3}.msg.me .msg-act{right:auto;left:8px}.msg:hover .msg-act,.msg:focus-within .msg-act{display:flex}.msg-act button{background:none;border:0;cursor:pointer;font-size:14px;padding:2px 3px;color:inherit}
 @media(hover:none){.msg-act{position:static;display:flex;margin-top:4px;background:none;border:0;padding:0;opacity:.7}}
 .mn{color:var(--sun,#ffd166)}
 .cf{padding:8px 10px;border-top:1px solid var(--line,#ffffff1a)}.cf-row{display:flex;gap:6px;align-items:flex-end}.cf-row textarea{flex:1;min-width:0;border-radius:18px;resize:none;max-height:140px}
 .cf-ic{background:none;border:0;font-size:22px;cursor:pointer;padding:6px}.cf-send{border-radius:50%;width:42px;height:42px;padding:0}.cf-more{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}.cf-rep{display:flex;justify-content:space-between;font-size:12px;padding:4px 8px;background:var(--soft,#2a2147);border-radius:10px;margin-bottom:4px}.cf-mn{display:flex;gap:4px}
 @media(max-width:800px){.chat-app{grid-template-columns:1fr;height:auto}.chat-app.has-thread .ca-list{display:none}.chat-app:not(.has-thread) .ca-pane{display:none}.chat-app.has-thread{height:calc(100vh - 120px)}.ca-back{display:block}}
 /* home: month so far */
-.mcard{padding:14px 16px;margin:12px 0}.mc-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.mc-l{font-size:13px}.mc-l a{color:var(--muted,inherit)}
+.mcard{padding:14px 16px;margin:12px 0}.mc-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.mc-l{font-size:13px}.mc-l a{color:var(--mut)}
 .mc-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-top:10px}.mc-g a{display:block;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--card) 70%,transparent);text-decoration:none;color:inherit}.mc-g b{display:block;font-size:26px;line-height:1.1}.mc-g small{opacity:.7}
 /* ===== alignment pass: pricing cards, landing tiles, header rows ===== */
 .plans{align-items:stretch;gap:16px}
@@ -196,9 +196,7 @@ html[data-contrast=high]{--muted:#d0cce6!important}html[data-contrast=high] .mut
 .remcard{margin-top:14px}.rem-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line,rgba(128,128,128,.2))}
 .rem-add{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}.rem-add input[name=text]{flex:1;min-width:180px;margin:0}.rem-add select,.rem-add input{margin:0;width:auto}.rem-dt{display:flex;gap:6px}
 /* contrast: small chat labels */
-.cl-h b,.cl-chk{color:var(--ink2,#4a4560)}
-:root[data-theme=dark] .cl-h b,:root[data-theme=dark] .cl-chk{color:#d9d2f2}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .cl-h b,:root:not([data-theme=light]) .cl-chk{color:#d9d2f2}}
+.cl-h b,.cl-chk{color:var(--mut)}
 /* launch deck */
 .ld-paid{background:linear-gradient(120deg,#f59e0b,#ef4444);color:#fff;vertical-align:middle;font-size:12px}
 .ld-lead{max-width:760px}.ld-lock{border:2px dashed var(--pri);margin:10px 0}.ld-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}.ld-grid label{display:grid;gap:4px}
@@ -250,10 +248,16 @@ main [hidden],.acct-tab[hidden]{display:none!important}
 @media(max-width:600px){.act-row{flex-direction:column;gap:2px}}
 
 /* Deb chat: WhatsApp-style */
-.deb-fab{position:fixed;right:16px;bottom:20px;z-index:60;width:58px;height:58px;border-radius:50%;border:0;background:var(--card);box-shadow:0 8px 28px rgba(0,0,0,.35);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}.deb-fab[hidden]{display:none}
-.deb-dot{position:absolute;top:4px;right:4px;width:14px;height:14px;border-radius:50%;background:#25d366;border:2px solid var(--card)}.deb-dot[hidden]{display:none}
+/* The bubble people have to be able to see. It used to be a card-coloured circle on a
+   card-coloured page behind a soft shadow, which on most palettes disappeared entirely.
+   It is now a filled pill in the brand colour with its name written on it, so it reads as
+   a button and says what tapping it does. The ring keeps it off whatever sits behind. */
+.deb-fab{position:fixed;right:16px;bottom:20px;z-index:60;min-height:56px;padding:0 18px 0 6px;border-radius:99px;border:0;background:var(--pri);color:var(--on,#fff);font:inherit;font-size:15px;font-weight:800;box-shadow:0 10px 26px rgba(0,0,0,.3),0 0 0 3px var(--bg);cursor:pointer;display:flex;align-items:center;gap:8px}.deb-fab[hidden]{display:none}
+.deb-fab .deb{flex:none}.deb-say{white-space:nowrap}
+.deb-fab:hover{filter:brightness(1.08)}.deb-fab:active{transform:translateY(1px)}
+.deb-dot{position:absolute;top:2px;left:38px;right:auto;width:14px;height:14px;border-radius:50%;background:#25d366;border:2px solid var(--pri)}.deb-dot[hidden]{display:none}
 .deb-pan{position:fixed;right:16px;bottom:88px;z-index:61;width:min(380px,calc(100vw - 24px));height:min(560px,calc(100vh - 110px));display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line,#ffffff22);border-radius:22px;box-shadow:0 20px 60px rgba(0,0,0,.45);overflow:hidden}.deb-pan[hidden]{display:none}
-.deb-hd{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--pri);color:var(--on,#fff)}.deb-av{width:38px;height:38px;border-radius:50%;background:#fff3;display:grid;place-items:center;flex:none;overflow:hidden}.deb-who{flex:1;min-width:0;display:grid}.deb-who small{opacity:.85;font-size:11.5px}
+.deb-hd{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--pri);color:var(--on,#fff)}.deb-av{width:38px;height:38px;border-radius:50%;background:#fff3;display:grid;place-items:center;flex:none;overflow:hidden}.deb-who{flex:1;min-width:0;display:grid}.deb-who small{color:inherit;opacity:.85;font-size:11.5px}
 .deb-ib{background:none;border:0;color:inherit;font-size:18px;width:34px;height:34px;border-radius:50%;cursor:pointer}.deb-ib:hover{background:#ffffff26}.deb-menu{position:relative}.deb-mm{position:absolute;right:0;top:38px;z-index:3;background:var(--card);color:var(--ink,#fff);border:1px solid var(--line,#ffffff33);border-radius:14px;padding:6px;min-width:210px;box-shadow:0 12px 30px #0006}.deb-mm[hidden]{display:none}.deb-mm button{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:9px 10px;border-radius:10px;cursor:pointer}.deb-mm button:hover{background:var(--pri2,#ffffff14)}.deb-mm small{display:block;padding:4px 10px 6px;opacity:.65;font-size:11.5px}
 .deb-log{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:6px;background:color-mix(in srgb,var(--pri) 7%,var(--card))}
 .deb-day{align-self:center;font-size:11.5px;padding:3px 10px;border-radius:99px;background:var(--card);opacity:.85;margin:4px 0}
@@ -267,7 +271,7 @@ html:not([data-theme=dark]) .deb-b.u{background:#d9fdd3;color:#111}html:not([dat
 .deb-typing{display:flex;gap:4px;padding:12px 14px}.deb-typing i{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.4;animation:debT 1s infinite}.deb-typing i:nth-child(2){animation-delay:.15s}.deb-typing i:nth-child(3){animation-delay:.3s}@keyframes debT{0%,60%,100%{opacity:.25;transform:none}30%{opacity:.9;transform:translateY(-3px)}}
 .deb-chips{display:flex;gap:6px;overflow-x:auto;padding:8px 10px;scrollbar-width:none;border-top:1px solid var(--line,#ffffff1f)}.deb-chips::-webkit-scrollbar{display:none}.deb-chips button{flex:none;font:inherit;font-size:13px;font-weight:600;padding:6px 12px;border-radius:99px;border:1px solid var(--pri);background:transparent;color:inherit;cursor:pointer;white-space:nowrap}.deb-chips button:hover{background:var(--pri);color:var(--on,#fff)}
 .deb-in{display:flex;gap:8px;padding:8px 10px 10px}.deb-in input{flex:1;min-width:0;border-radius:99px;padding:10px 16px}.deb-send{width:42px;height:42px;border-radius:50%;border:0;background:var(--pri);color:var(--on,#fff);display:grid;place-items:center;cursor:pointer;flex:none}
-@media(max-width:900px){.deb-fab{bottom:88px}.deb-pan{bottom:150px;height:min(520px,calc(100vh - 190px))}}
+@media(max-width:900px){.deb-fab{bottom:88px}.deb-pan{bottom:88px;height:min(560px,calc(100vh - 130px))}body.debon .deb-fab{display:none}}   /* on a phone the pill would sit on top of the panel */
 @media(prefers-reduced-motion:reduce){.deb-typing i,.deb-row.in .deb-b{animation:none}}
 
 /* chat polish: WhatsApp-like */
@@ -278,7 +282,7 @@ html:not([data-theme=dark]) .deb-b.u{background:#d9fdd3;color:#111}html:not([dat
 .ca-pane .ca-head{background:var(--card)}.cf{background:var(--card)}
 
 .pl-bar{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:10px 0}.pl-tabs{display:flex;gap:4px;background:var(--soft);padding:4px;border-radius:99px;flex-wrap:wrap}.pl-tabs button{border:0;background:none;color:inherit;padding:6px 14px;border-radius:99px;cursor:pointer;font:inherit}.pl-tabs button.on{background:var(--pri);color:var(--on,#fff)}.pl-lang{display:flex;gap:6px;align-items:center;font-size:13px}.pl-lang select{width:auto}.pv[hidden]{display:none!important}
-.deb-chips .deb-link{display:inline-block;padding:6px 12px;border-radius:99px;border:1px solid var(--line,#ffffff33);text-decoration:none;color:inherit;font-size:13px}
+.deb-chips .deb-link{flex:none;display:inline-block;padding:6px 12px;border-radius:99px;border:1px solid var(--line,#ffffff33);text-decoration:none;color:inherit;font-size:13px;font-weight:600;white-space:nowrap}
 
 /* phone: one clear top bar, one row of tabs, compact chips */
 @media(max-width:760px){
@@ -409,3 +413,51 @@ html:not([data-theme=dark]) .deb-b.u{background:#d9fdd3;color:#111}html:not([dat
   /* Deb's floating button sat on top of the send button. You are already in a conversation here. */
   body.chatting .deb-fab{display:none}
 }
+.fp-tools{margin:10px 0 4px;border-top:1px solid var(--line,#ffffff1a);padding-top:10px}
+.fp-tools summary{cursor:pointer;list-style:none}
+.fp-tools summary::-webkit-details-marker{display:none}
+.fp-tools summary b::before{content:"▸ ";opacity:.6}
+.fp-tools[open] summary b::before{content:"▾ "}
+.fp-tools .fp-row{margin-top:8px}
+
+.ess-h2{margin-top:12px}
+.ess .esstool{font-size:13.5px;padding:5px 10px;opacity:.9}
+.ess .esstool:hover{opacity:1}
+.cl-plus,.ca-rename{border:0;background:none;color:inherit;font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:8px;opacity:.75}
+.cl-plus:hover,.ca-rename:hover{opacity:1;background:var(--soft,#ffffff14)}
+.ca-head{display:flex;align-items:center;gap:8px}
+.ca-head>div{flex:1;min-width:0}
+#newChan .cl-form,#renChan .cl-form{margin:6px 12px 10px}
+
+/* Deb's header: one line for the name, one for the status, and nothing that can squeeze them. */
+.deb-hd{flex-wrap:nowrap}
+.deb-who b{font-size:15px;line-height:1.2;white-space:nowrap}
+.deb-who small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.85}
+.deb-hd .deb-ib,.deb-hd .deb-menu{flex:none}
+
+/* The tab row is navigation, not content: no card behind it, so the page starts at the heading. */
+.hubtabs{background:none!important;border:0!important;border-radius:0;padding:2px 0 0;margin:0 0 10px}
+html[data-theme=dark] .hubtabs{background:none!important;border-color:transparent!important}
+.hubtabs a.ht{padding:7px 14px}
+.hubtabs a.ht:not(.on){background:var(--pri2)}
+@media(max-width:720px){.hubtabs{padding:2px 0 0}}
+.msg-gone{display:block;font-size:13px;opacity:.75;font-style:italic}
+
+/* Numbered steps, for the few features that only make sense as a sequence (asking for reviews).
+   The number is the whole affordance: no card-within-a-card, no decoration. */
+.stepc{display:flex;gap:12px;align-items:flex-start;padding:16px 0;border-top:1px solid var(--line)}
+.stepc:first-of-type{border-top:0;padding-top:2px}
+.stepc .sn{flex:none;width:28px;height:28px;border-radius:50%;background:var(--pri);color:var(--on,#fff);font-weight:800;font-size:14px;display:grid;place-items:center}
+.stepc>div{flex:1;min-width:0}
+.stepc h3{margin:1px 0 4px;font-size:16px}
+.stepc p{margin:0 0 8px}
+.stepc .btn{margin:0 6px 6px 0}
+/* A QR code has to stay black on white to scan, in either theme - hence a class, not an inline
+   style: the dark-mode guard rewrites inline white backgrounds and would break the scan. */
+.qrbox{background:#fff;padding:8px;border-radius:12px;vertical-align:middle}
+
+/* The phone's bottom bar sits on a near-white strip in light mode, and the pastel ("soft")
+   palettes put their primary at around 2.5:1 against it - the active tab was the one thing
+   on the bar you could not read. --bt1 is the darkened primary those palettes already carry;
+   the rich ones fall back to --pri-d, which is darker than --pri and so only helps. */
+html:not([data-theme=dark]) .bnav a.on{color:var(--bt1,var(--pri-d,var(--pri)))}

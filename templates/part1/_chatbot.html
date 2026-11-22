@@ -1,11 +1,11 @@
 {% if user and role and role != "client" and not bare and not hide_chrome %}{% from "_mascot.html" import deb as _deb %}
-<button type="button" class="deb-fab" id="debFab" aria-label="{{ tn('ask') }}" aria-expanded="false">{{ _deb('happy', 44) }}<i class="deb-dot" id="debDot" hidden></i></button>
+<button type="button" class="deb-fab" id="debFab" aria-label="{{ tn('ask') }}" aria-expanded="false">{{ _deb('happy', 44) }}<span class="deb-say">{{ tr('Ask Deb') }}</span><i class="deb-dot" id="debDot" hidden></i></button>
 <div class="deb-pan" id="debPan" hidden role="dialog" aria-label="Chat with Deb">
 <div class="deb-hd"><span class="deb-av">{{ _deb('happy', 34) }}</span><div class="deb-who"><b>Deb</b><small>online · your marketing buddy</small></div>
 <div class="deb-menu"><button type="button" class="deb-ib" id="debMore" aria-label="More" aria-haspopup="true">⋮</button><div class="deb-mm" id="debMM" hidden><button type="button" id="debClear">🧹 Clear this chat</button><button type="button" id="debHide">🙈 Hide this bubble</button><small>Bring it back in Profile › Look and feel.</small></div></div>
-<button type="button" class="deb-ib" id="debX" aria-label="Close chat">✕</button><a class="deb-link" href="{{ url_for('ai_studio') }}">✍️ Write with AI</a><a class="deb-link" href="{{ url_for('ideas') }}">💡 Get ideas</a></div>
+<button type="button" class="deb-ib" id="debX" aria-label="Close chat">✕</button></div>
 <div class="deb-log" id="debLog" aria-live="polite"></div>
-<div class="deb-chips" id="debChips"><button type="button" data-k="due">📅 What's due?</button><button type="button" data-k="share">📲 Share my week</button><button type="button" data-k="sync">🔄 Sync calendar</button><button type="button" data-k="today">✨ What to post today?</button><button type="button" data-k="coming">🎉 What's coming up?</button><button type="button" data-k="howdid">📊 How did my posts do?</button><button type="button" data-k="flop">📉 Why did my post flop?</button></div>
+<div class="deb-chips" id="debChips"><a class="deb-link" href="{{ url_for('ai_studio') }}">✍️ Write with AI</a><a class="deb-link" href="{{ url_for('ideas') }}">💡 Get ideas</a><button type="button" data-k="due">📅 What's due?</button><button type="button" data-k="share">📲 Share my week</button><button type="button" data-k="sync">🔄 Sync calendar</button><button type="button" data-k="today">✨ What to post today?</button><button type="button" data-k="coming">🎉 What's coming up?</button><button type="button" data-k="howdid">📊 How did my posts do?</button><button type="button" data-k="flop">📉 Why did my post flop?</button></div>
 <form class="deb-in" id="debF"><input id="debQ" placeholder="Type a message" maxlength="300" autocomplete="off" aria-label="Your message"><button class="deb-send" aria-label="Send"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg></button></form></div>
 <script>(function(){
 var f=document.getElementById("debFab"),p=document.getElementById("debPan"),l=document.getElementById("debLog"),KEY="debChat:{{ ws['id'] }}",HID="debOff",ERR={{ tn('err')|tojson }};
@@ -34,8 +34,8 @@ function render(){l.innerHTML="";lastDay="";if(!hist.length){hist=[{s:"d",text:"
 function reply(j){var m={s:"d",text:j.text||"",items:j.items,link:j.link,label:j.label,links:j.links};push(m);}
 function ask(label,run){push({s:"u",text:label});var t=typing();run().then(function(j){t.remove();reply(j);}).catch(function(){t.remove();push({s:"d",text:ERR});});}
 function quick(k,label){ask(label,function(){return fetch("/deb/quick?k="+k,{credentials:"same-origin"}).then(function(r){return r.json();});});}
-f.onclick=function(){p.hidden=!p.hidden;f.setAttribute("aria-expanded",!p.hidden);if(!p.hidden){document.getElementById("debDot").hidden=true;ls("debSeen",String(Date.now()));l.scrollTop=l.scrollHeight;setTimeout(function(){document.getElementById("debQ").focus();},50);}};
-document.getElementById("debX").onclick=function(){p.hidden=true;f.setAttribute("aria-expanded","false");};
+f.onclick=function(){p.hidden=!p.hidden;f.setAttribute("aria-expanded",!p.hidden);document.body.classList.toggle("debon",!p.hidden);if(!p.hidden){document.getElementById("debDot").hidden=true;ls("debSeen",String(Date.now()));l.scrollTop=l.scrollHeight;setTimeout(function(){document.getElementById("debQ").focus();},50);}};
+document.getElementById("debX").onclick=function(){p.hidden=true;document.body.classList.remove("debon");f.setAttribute("aria-expanded","false");f.focus();};
 var mm=document.getElementById("debMM");document.getElementById("debMore").onclick=function(e){e.stopPropagation();mm.hidden=!mm.hidden;};document.addEventListener("click",function(){mm.hidden=true;});
 document.getElementById("debClear").onclick=function(){hist=[];ls(KEY,null);render();};
 document.getElementById("debHide").onclick=function(){ls(HID,"1");f.hidden=true;p.hidden=true;};

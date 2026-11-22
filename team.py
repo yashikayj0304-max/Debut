@@ -447,6 +447,29 @@ def send(uid):
     return _post(0, uid, url_for("tm.thread", uid=uid))
 
 
+@bp.route("/chat/c/<int:cid>/rename", methods=["POST"])
+def rename_channel(cid):
+    """Channels get named in a hurry and then live for years. Anyone who can run the team can fix
+    the name or say what the channel is actually for."""
+    _need_member()
+    if g.role not in ("owner", "admin", "lead", "manager"):
+        abort(403)
+    c = chan_or_404(cid)
+    name = re.sub(r"[^a-z0-9\-]+", "-", (request.form.get("name") or "").lower().strip()).strip("-")[:30]
+    if not name:
+        flash("Give the channel a short name.")
+        return redirect(url_for("tm.channel", cid=cid))
+    clash = q("SELECT id FROM channels WHERE workspace_id=? AND name=? AND id<>?", (W(), name, cid), one=True)
+    if clash:
+        flash(f"There is already a channel called #{name}.")
+        return redirect(url_for("tm.channel", cid=cid))
+    ex("UPDATE channels SET name=?, topic=? WHERE workspace_id=? AND id=?",
+       (name, S.clean_text(request.form.get("topic"), 100), W(), cid))
+    S.audit("channel_rename", f"#{c['name']} \u2192 #{name}")
+    flash(f"Renamed to #{name}.")
+    return redirect(url_for("tm.channel", cid=cid))
+
+
 @bp.route("/chat/new", methods=["POST"])
 def new_channel():
     _need_member()

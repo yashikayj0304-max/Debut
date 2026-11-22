@@ -1,6 +1,12 @@
 {% extends "base.html" %}{% block title %}{{ title }} — Chat{% endblock %}{% block body %}
 <div class="chat-app has-thread" data-chatting="1"><div class="ca-list">{% include "_chatlist.html" %}</div>
-<div class="ca-pane"><div class="ca-head"><a class="ca-back" href="{{ url_for('tm.chat') }}" aria-label="Back to chats">←</a><div><b>{{ title }}</b><small>{{ topic }}</small></div></div>
+<div class="ca-pane"><div class="ca-head"><a class="ca-back" href="{{ url_for('tm.chat') }}" aria-label="Back to chats">←</a><div><b>{{ title }}</b><small>{{ topic }}</small></div>
+{% if kind == 'c' and g.role in ('owner','admin','lead','manager') %}<button type="button" class="ca-rename" aria-label="Rename this channel" aria-expanded="false" onclick="var f=document.getElementById('renChan');f.hidden=!f.hidden;this.setAttribute('aria-expanded',!f.hidden);if(!f.hidden)f.querySelector('input').focus()">✏️</button>{% endif %}</div>
+{% if kind == 'c' and g.role in ('owner','admin','lead','manager') %}<div id="renChan" hidden><form method="post" action="{{ url_for('tm.rename_channel', cid=ident) }}" class="cl-form">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label class="sr-only" for="rn-name">Channel name</label><input id="rn-name" name="name" value="{{ title[1:] if title.startswith('#') else title }}" maxlength="30" required>
+<label class="sr-only" for="rn-topic">What it is for</label><input id="rn-topic" name="topic" value="{{ topic }}" placeholder="What is it for?" maxlength="100">
+<button class="btn sm">Save name</button></form></div>{% endif %}
 {% if pinned %}<div class="ca-pins">{% for m in pinned %}<div>📌 {{ (m['body'] or m['file_name'])[:90] }}</div>{% endfor %}</div>{% endif %}
 <div id="msgs" class="msgs" aria-live="polite">{% include "chat_msgs.html" %}</div>
 <form id="cf" method="post" action="{{ url_for('tm.send_channel', cid=ident) if kind == 'c' else url_for('tm.send', uid=ident) }}" enctype="multipart/form-data" class="cf">

@@ -3,6 +3,18 @@
 <p class="muted">{% if plan_key == 'free' %}You are on the free plan. Level up whenever you're ready.{% elif plan_key == 'trial' %}Everything's unlocked until {{ ws['trial_ends'] }}. After that you slide onto Free, no stress.{% else %}Status: {{ ws['plan_status'] }} · current period ends {{ ws['period_end'] }}{% endif %}{% if ws['cancel_at_period_end'] %} · <b>cancels at period end, then continues on Free</b>{% endif %}</p>
 <p>Seats {{ seats }}/{{ plan['seats'] }}{% if plan['clients'] %} · Client portal {{ clients }}/{{ plan['clients'] }}{% endif %} · AI credits {{ used }}/{{ plan['ai_credits'] }} this month · Records {{ records }}/{{ '{:,}'.format(plan['records']) }}</p>
 {% if plan_key in C.PAID_PLANS and ws['plan_status'] in ('active','authenticated','pending') and not ws['cancel_at_period_end'] and role == 'owner' %}<form method="post" action="{{ url_for('billing.cancel') }}" onsubmit="return confirm('Cancel at the end of the current period?')"><button class="btn danger">Cancel subscription</button></form>{% endif %}</div>
+{# The way back. A cancellation used to leave the page looking exactly as before, with no
+   acknowledgement and no button to rejoin - so this says plainly what happened, when it
+   happens, and offers the one action that undoes it. #}
+{% set _old = C.PLANS.get(ws['plan']) %}
+{% if _old and ws['plan'] in C.PAID_PLANS and (ws['cancel_at_period_end'] or ws['plan_status'] in ('cancelled','completed','paused')) %}
+{% set _ended = plan_key not in C.PAID_PLANS %}
+<div class="card" style="border-left:4px solid var(--warn)"><b>{% if _ended %}Your {{ _old['name'] }} plan has ended{% else %}Your {{ _old['name'] }} plan ends on {{ ws['period_end'] }}{% endif %}</b>
+<p class="muted">{% if _ended %}It ran out on {{ ws['period_end'] }}, so you are on Free for now. Nothing was deleted - your posts, clients, tasks and files are all still here, and they come straight back when you subscribe again.{% else %}Until then everything works exactly as it does today. After that you move to Free and nothing is deleted.{% endif %}</p>
+{% if role == 'owner' %}{% if _ended %}<p><button class="btn" onclick="subscribe('{{ ws['plan'] }}')">↩ Resubscribe to {{ _old['name'] }}</button> <a class="btn ghost" href="#plans">Pick a different plan</a></p>
+{% else %}<form method="post" action="{{ url_for('billing.resume') }}"><button class="btn">↩ Keep my {{ _old['name'] }} plan</button></form>{% endif %}
+{% else %}<p class="muted">Only the workspace owner can change the plan.</p>{% endif %}</div>
+{% endif %}
 {% if mode == 'off' %}<div class="banner">Billing isn't configured on this server yet.</div>{% endif %}
 
 {% if request.args.get('paid') %}<div class="banner okbar">🎉 <b>You're in!</b> Your plan is unlocked. A GST invoice is on its way to your email.</div><script>window.addEventListener('load',function(){if(window.confetti)confetti();});</script>{% endif %}
@@ -12,6 +24,7 @@
 <ul style="margin:6px 0 0 18px"><li>Seats {{ plan['seats'] }} → {{ nx['seats'] }}{% if nx['clients'] > plan['clients'] %}, client portal {{ plan['clients'] }} → {{ nx['clients'] }}{% endif %}</li><li>AI credits {{ plan['ai_credits'] }} → {{ nx['ai_credits'] }} a month</li><li>Records {{ '{:,}'.format(plan['records']) }} → {{ '{:,}'.format(nx['records']) }}</li>{% for f in nx['features'] if f not in plan['features'] %}<li>New: {{ fl.get(f, f) }}</li>{% endfor %}</ul></div>{% endif %}
 <p class="muted">Heads up: prices are before payment-gateway fees (Razorpay), GST and any other taxes. They get added at checkout.</p>
 <div id="msg" class="banner bad" style="display:none"></div>
+<a id="plans" tabindex="-1"></a>
 {% with cur=plan_key, cta='billing', can_buy=(role == 'owner' and mode != 'off'), cur_paid=(plan_key in C.PAID_PLANS) %}{% include "_plans.html" %}{% endwith %}
 <p class="muted">Prices in INR ({{ C.PRICE_NOTE }}). Payments are processed by Razorpay (UPI AutoPay, cards, netbanking).</p>
 {% endblock %}

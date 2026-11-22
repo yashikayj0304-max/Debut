@@ -7,7 +7,7 @@
 {% if not mine and m['channel_id'] and not run %}<b class="msg-n">{{ names.get(m['from_id'], 'Someone') }}</b>{% endif %}
 {% if quotes.get(m['id']) %}{% set qq = quotes[m['id']] %}<div class="msg-q"><b>{{ names.get(qq['from_id'], '') }}</b> {{ (qq['body'] or qq['file_name'] or 'File')[:70] }}</div>{% endif %}
 {% if refs.get(m['id']) %}{% set rr = refs[m['id']] %}<a class="msg-card" href="{{ rr[2] }}"><b>{{ rr[0] }}</b><small>{{ rr[1] }}</small></a>{% endif %}
-{% if m['image'] %}<a href="{{ media(m['image']) }}" target="_blank" rel="noopener"><img src="{{ media(m['image']) }}" alt="Picture shared in chat" loading="lazy"></a>{% endif %}
+{% if m['image'] %}<a href="{{ media(m['image']) }}" target="_blank" rel="noopener"><img src="{{ media(m['image']) }}" alt="Picture shared in chat" loading="lazy" onerror="this.closest('a').outerHTML='&lt;span class=\'msg-gone\'&gt;🖼️ This picture is no longer on the server&lt;/span&gt;'"></a>{% endif %}
 {% if m['file'] %}{% if m['file_name']|is_audio %}<audio controls preload="none" src="{{ media(m['file']) }}"></audio>{% else %}<a class="msg-file" href="{{ media(m['file']) }}" target="_blank" rel="noopener">📄 {{ m['file_name'] }}</a>{% endif %}{% endif %}
 {% if m['body'] %}<p>{{ m['body']|mention }}</p>{% endif %}
 <small>{% if later %}⏰ sends {{ m['send_at'] }} <form method="post" action="{{ url_for('tm.cancel', mid=m['id']) }}" style="display:inline"><button class="linkbtn">cancel</button></form>{% else %}{{ stamp|hhmm }}{% if mine and not m['channel_id'] %} <span class="tick{{ ' on' if m['is_read'] }}">{{ '✓✓' if m['is_read'] else '✓' }}</span>{% endif %}{% if m['pinned'] %} 📌{% endif %}{% endif %}</small>

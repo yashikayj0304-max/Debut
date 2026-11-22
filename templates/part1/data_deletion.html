@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}Delete your data — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="legal">
+<h1>Delete your data</h1>
+<p class="muted">Last updated 17 November 2026</p>
+
+<p>You can delete everything {{ C.APP_NAME }} holds about you at any time, yourself, without asking us.</p>
+
+<h2>If you have an account</h2>
+<ol>
+<li>Sign in and open <b>Profile → Workspace</b>.</li>
+<li>Use <b>Export my data</b> first if you want a copy — it downloads everything as a zip.</li>
+<li>Then use <b>Delete workspace</b>. This removes your posts, calendar, leads, clients, files, chat messages and every connected account, permanently.</li>
+</ol>
+<p>Deleting a workspace also disconnects any Instagram, Facebook or LinkedIn account linked to it, and removes the access tokens we were holding. We keep nothing afterwards except what the law requires us to keep (for example, invoices for payments you made).</p>
+
+<h2>If you connected Instagram or Facebook and only want that removed</h2>
+<p>Open <b>Content &amp; Calendar → Publishing</b> and press <b>Remove</b> next to the account. The access token is deleted immediately and we stop fetching anything from Meta. You can also revoke us from Meta's own settings: <b>Facebook → Settings → Business Integrations</b>, or <b>Instagram → Settings → Apps and websites</b>.</p>
+
+<h2>What we hold from Meta, and for how long</h2>
+<ul>
+<li><b>An access token</b> for each connected account, so posts can be published. Deleted the moment you disconnect.</li>
+<li><b>The account name and id</b>, so you can tell which account you are posting to.</li>
+<li><b>Post results</b> — the id of a post we published, plus its reach, likes, comments, saves and shares, so your Numbers page can show how it did.</li>
+</ul>
+<p>We never fetch your followers' personal details, your direct messages, or anything about people who interact with your posts.</p>
+
+<h2>If you cannot sign in</h2>
+<p>Email <a href="mailto:{{ C.SUPPORT_EMAIL }}">{{ C.SUPPORT_EMAIL }}</a> from the address on the account and ask for deletion. We will confirm it is you, delete everything within 30 days, and write back when it is done.</p>
+
+<p class="muted">Questions about any of this: <a href="{{ url_for('privacy') }}">our privacy policy</a> explains what we collect and why.</p>
+</div>
+{% endblock %}

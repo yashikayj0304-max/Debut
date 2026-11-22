@@ -117,7 +117,7 @@ CHANGELOG = [
         "Reels get a shoot sheet: every shot, its seconds, what to film and what to say",
         "“Before you post” checks the caption hook, the hashtags, the ask and the file",
         "Use a post again elsewhere: carousel, story, LinkedIn or newsletter in one tap",
-        "Ask for reviews: a short link, a QR code for the counter and a count of who you asked",
+        "Ask for reviews in three steps: your Google link, a QR code for the counter, and a ⭐ button on your link-in-bio page",
         "Print the month: one page for the wall, with tick boxes",
         "हिन्दी: the menu, the bottom bar and the main buttons",
         "Drafts survive a bad connection, and are offered back rather than lost",
@@ -386,6 +386,13 @@ def terms():
 @route("/privacy")
 def privacy():
     return render_template("privacy.html")
+
+
+@route("/data-deletion")
+def data_deletion():
+    """Meta asks every app for a page telling people how to get their data deleted, and wants the URL
+    in the app's settings. Ours is a real page, not a promise: the buttons it points at already work."""
+    return render_template("data_deletion.html")
 
 
 @route("/health")
@@ -1165,9 +1172,13 @@ def set_focus():
     if request.form.get("all"):
         val = ""
     else:
-        val = clean_focus(request.form.getlist("hub"), more=bool(request.form.get("more")))
+        val = clean_focus(request.form.getlist("hub"), request.form.getlist("tool"))
     ex("UPDATE users SET focus=? WHERE id=?", (val, g.user["id"]))
-    flash("Menu saved. Anything you hid is still one search away (Ctrl+K)." if val else "Menu reset: every section is showing.")
+    n = len([t for t in val.split(",") if t.startswith("t:")])
+    flash(("Menu saved. " + (f"{n} extra tool{'s' if n != 1 else ''} added under More tools. "
+           if n else "No extra tools picked, so there is no More tools section. ")
+           + "Anything hidden is still one search away (Ctrl+K).") if val
+          else "Menu reset: every section is showing.")
     return redirect(url_for("ws.account") + "#menu")
 
 

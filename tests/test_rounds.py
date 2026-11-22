@@ -1205,3 +1205,200 @@ def test_chat_message_actions_are_not_always_open(app):
     assert page.count('class="msg-act"') == 6
     assert 'classList.add("open")' in page and 'matchMedia("(hover:none)")' in page
     assert 'data-chatting="1"' in page
+
+
+def test_png_designs_are_converted_for_instagram(app, tmp_path):
+    """Instagram accepts JPEG and nothing else. A PNG design used to fail with a download error."""
+    import io, os
+    import config as C, services as S
+    from PIL import Image
+    C.UPLOAD_DIR = str(tmp_path)
+    os.makedirs(os.path.join(str(tmp_path), "1"), exist_ok=True)
+    buf = io.BytesIO()
+    Image.new("RGBA", (300, 300), (255, 0, 0, 120)).save(buf, "PNG")
+    png = S.store_file(1, "png", buf.getvalue())
+    jpg = S.as_jpeg(png)
+    assert jpg.endswith(".jpg") and jpg != png
+    out = Image.open(os.path.join(str(tmp_path), "1", jpg.rsplit("/", 1)[-1]))
+    assert out.mode == "RGB"                                   # transparency flattened, not black
+    assert S.as_jpeg("/media/1/already.jpg") == "/media/1/already.jpg"
+    assert S.as_jpeg("https://someone-else.example/a.png") == "https://someone-else.example/a.png"
+    import social
+    assert "JPEG" in social._friendly({"error_subcode": 2207003}, 400)
+    assert "100 posts" in social._friendly({"code": 4}, 400)
+
+
+# ---- More tools: you pick the extra features, and the section only exists if you picked some ----
+def _sidebar(client):
+    """Just the visible menu. The page also carries a hidden "all tools" list that search uses, and
+    that list holds every page, so checking the whole left column proves nothing."""
+    head = client.get("/app").get_data(as_text=True).split("<main")[0]
+    return head.split('<div id="allTools"')[0]
+
+
+def _more_tools_links(client):
+    """The links listed under the More tools heading in the sidebar."""
+    import re
+    return re.findall(r'class="esstool[^"]*" href="([^"]+)"', _sidebar(client))
+
+
+def test_more_tools_only_exists_when_you_pick_tools(app):
+    import re
+    o = signup(app, "more1@x.com")
+    import hubs
+    o.post("/account/focus", data={"hub": list(hubs.ORDER)}, follow_redirects=True)
+    assert "More tools" not in _sidebar(o)                        # nothing switched off: no section
+    page = o.get("/account").get_data(as_text=True)
+    tools = re.findall(r'name="tool" value="([^"]+)"', page)
+    assert len(tools) >= 4 and "/utm" in tools                    # a real list to choose from
+    r = o.post("/account/focus", data={"hub": list(hubs.ORDER), "tool": ["/utm", "/m/keywords"]},
+               follow_redirects=True)
+    assert "2 extra tools added" in r.get_data(as_text=True)
+    assert "More tools" in _sidebar(o)
+    links = _more_tools_links(o)
+    assert "/utm" in links and "/m/keywords" in links
+    assert "/kudos" not in links                                   # only what was ticked
+    r = o.post("/account/focus", data={"hub": list(hubs.ORDER)}, follow_redirects=True)
+    assert "no More tools section" in r.get_data(as_text=True)
+    assert "More tools" not in _sidebar(o)                         # unticking removes the section again
+
+
+def test_picked_tools_are_remembered_and_still_work(app):
+    o = signup(app, "more2@x.com")
+    o.post("/account/focus", data={"hub": ["content"], "tool": ["/utm"]}, follow_redirects=True)
+    page = o.get("/account").get_data(as_text=True)
+    assert 'name="tool" value="/utm" checked' in page
+    assert o.get("/utm").status_code == 200                        # the page itself is untouched
+    import hubs
+    assert hubs.focus_keys("h:content,t:/utm")[1] == ["/utm"]
+    assert hubs.focus_keys("h:content")[1] is False                # nothing picked
+    assert hubs.focus_keys("h:content,more")[1] is True            # an older save still means "show them all"
+
+
+def test_an_old_more_switch_still_shows_something(app):
+    """Saves made before tools were pickable used a plain "more" token - they must not break."""
+    o = signup(app, "more3@x.com")
+    dbx(app, "UPDATE users SET focus='h:content,h:tasks,more'")
+    assert "More tools" in _sidebar(o)
+
+
+def test_more_tools_appears_only_when_a_tool_is_ticked(app):
+    """Profile > Menu > Extra tools: tick some and a More tools section appears in the sidebar
+    holding exactly those. Tick none and the section does not exist at all."""
+    import re
+    o = signup(app, "tools1@x.com")
+
+    import hubs as _h
+    o.post("/account/focus", data={"hub": list(_h.ORDER)}, follow_redirects=True)
+    assert "More tools" not in _sidebar(o)
+    acc = o.get("/account").data.decode()
+    tools = re.findall(r'name="tool" value="([^"]+)"', acc)
+    hubs = list(_h.ORDER)
+    assert len(tools) >= 4                                     # there is a real list to choose from
+    r = o.post("/account/focus", data={"hub": hubs, "tool": tools[:2]}, follow_redirects=True)
+    assert "More tools" in r.data.decode()
+    assert "More tools" in _sidebar(o)
+    links = _more_tools_links(o)
+    for href in tools[:2]:                                     # the ticked tools are the ones listed
+        assert href in links, href
+    assert not [x for x in tools[2:] if x in links]             # and nothing else
+    r = o.post("/account/focus", data={"hub": hubs}, follow_redirects=True)
+    assert "no More tools section" in r.data.decode()
+    assert "More tools" not in _sidebar(o)
+
+
+def test_pages_meta_asks_for_before_app_review(app):
+    c = app.test_client()
+    d = c.get("/data-deletion")
+    assert d.status_code == 200                                # reachable without signing in
+    body = d.data.decode()
+    for bit in ("Delete your data", "Export my data", "Delete workspace", "Publishing", "Business Integrations"):
+        assert bit in body, bit
+    p = c.get("/privacy").data.decode()
+    assert "/data-deletion" in p and "access token" in p and "Connected social accounts" in p
+    assert c.get("/terms").status_code == 200
+    import os
+    from PIL import Image
+    icon = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "icons", "app-icon-1024.png")
+    assert Image.open(icon).size == (1024, 1024)               # Meta requires exactly this
+
+
+# ---- the round after the dark/light and menu report ----
+def test_channels_can_be_created_and_renamed(app):
+    o = signup(app, "chan1@x.com")
+    page = o.get("/chat").get_data(as_text=True)
+    assert "cl-plus" in page and 'id="newChan"' in page      # the form sits in the column, not floating out of it
+    o.post("/chat/new", data=dict(name="Launch Week", topic="all things launch"), follow_redirects=True)
+    with app.app_context():
+        from db import q
+        cid = q("SELECT id FROM channels WHERE name='launch-week'")[0]["id"]
+    thread = o.get(f"/chat/c/{cid}").get_data(as_text=True)
+    assert "ca-rename" in thread and 'id="renChan"' in thread
+    r = o.post(f"/chat/c/{cid}/rename", data=dict(name="Launch 2026", topic="the big one"), follow_redirects=True)
+    assert "Renamed to #launch-2026" in r.get_data(as_text=True)
+    assert "the big one" in o.get(f"/chat/c/{cid}").get_data(as_text=True)
+    clash = o.post(f"/chat/c/{cid}/rename", data=dict(name="general"), follow_redirects=True)
+    assert "already a channel" in clash.get_data(as_text=True)
+    dbx(app, "UPDATE memberships SET role='viewer'")
+    assert o.post(f"/chat/c/{cid}/rename", data=dict(name="nope")).status_code == 403
+
+
+def test_more_tools_holds_whatever_you_switched_off(app):
+    """A section unticked in Profile > Menu goes straight to More tools, even if it is the only one."""
+    import re
+    o = signup(app, "mt1@x.com")
+    import hubs
+    everything = [k for k in hubs.ORDER]
+    o.post("/account/focus", data={"hub": everything}, follow_redirects=True)
+    assert "More tools" not in _sidebar(o)                   # nothing switched off, nothing to show
+    o.post("/account/focus", data={"hub": [k for k in everything if k != "team"]}, follow_redirects=True)
+    links = re.findall(r'class="esstool[^"]*"[^>]*>([^<]+)<', _sidebar(o))
+    assert any("Team" in x for x in links) and len(links) == 2    # the one section, plus "All tools"
+    assert "hidden · add back" not in _sidebar(o)            # it said the same thing twice
+
+
+def test_new_accounts_keep_the_three_starting_sections(app):
+    import re
+    o = signup(app, "mt2@x.com")
+    o.post("/account/focus", data={"hub": ["content", "tasks", "plan"]}, follow_redirects=True)
+    assert re.findall(r'data-label="([^"]+)"', _sidebar(o)) == [
+        "Content &amp; Calendar", "Tasks &amp; Campaigns", "Launch playbook"]
+
+
+def test_colour_tokens_have_no_typos(app):
+    """A --muted that should have been --mut meant a hardcoded grey won in both themes, and the text
+    failed contrast on white and on near-black alike."""
+    import glob, os, re
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    declared, risky = set(), set()
+    files = (glob.glob(os.path.join(here, "static", "*.css")) + glob.glob(os.path.join(here, "static", "*.js"))
+             + glob.glob(os.path.join(here, "templates", "*", "*.html")))   # some are set inline per element
+    for f in files:
+        text = open(f, encoding="utf-8").read()
+        declared |= set(re.findall(r"(--[a-z0-9-]+)\s*:", text))
+        # a var with no fallback, or a fallback that is a fixed colour, cannot follow the theme
+        risky |= {m for m in re.findall(r"var\((--[a-z0-9-]+)\s*,\s*#[0-9a-fA-F]{3,8}\s*\)", text)}
+        risky |= {m for m in re.findall(r"var\((--[a-z0-9-]+)\s*\)", text)}
+    inline = {"--dx", "--rot"}                       # set per element by the confetti animation
+    missing = {v for v in risky - declared - inline if not v.startswith("--tw")}
+    assert not missing, f"CSS uses theme tokens nothing defines: {sorted(missing)}"
+
+
+def test_tab_row_has_no_card_behind_it(app):
+    css = open(__import__("os").path.join(
+        __import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))),
+        "static", "bold.css"), encoding="utf-8").read()
+    assert ".hubtabs{background:none!important" in css
+
+
+def test_a_missing_picture_says_so_instead_of_breaking(app):
+    import io
+    from PIL import Image
+    o = signup(app, "img1@x.com")
+    buf = io.BytesIO()
+    Image.new("RGB", (40, 40), (10, 200, 90)).save(buf, "PNG")
+    buf.seek(0)
+    o.post("/chat/c/1/send", data={"file": (buf, "p.png")}, content_type="multipart/form-data",
+           follow_redirects=True)
+    page = o.get("/chat/c/1").get_data(as_text=True)
+    assert "msg-gone" in page and "no longer on the server" in page

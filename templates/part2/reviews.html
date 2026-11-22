@@ -1,32 +1,43 @@
-{% extends "base.html" %}{% from "_bold.html" import bold %}{% block title %}Ask for reviews — {{ C.APP_NAME }}{% endblock %}{% block body %}
-{{ bold("Reviews bring people <b>through the door</b>", "More than any post does. One link, one QR code, and a count of how many people you asked.") }}
+{% extends "base.html" %}{% block title %}Ask for reviews — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="head"><h1>⭐ Ask for reviews</h1></div>
+<p class="muted" style="max-width:62ch">Before anyone walks in or orders, they read your reviews. This page gives you one link to send, a QR code for the counter, and a count of how many people you asked. Three steps, and you only do the first one once.</p>
 
 <div class="card">
-<h3 style="margin:0 0 6px">Where should people leave the review?</h3>
-<p class="muted">Open your business on Google Maps, tap <b>Share</b> → <b>Copy link</b>, or use the "Ask for reviews" link Google gives you in your Business Profile. A Zomato, Swiggy, Practo or Justdial page works just as well — paste whichever one you want people to land on.</p>
+<div class="stepc{{ ' done' if url }}"><span class="sn" aria-hidden="true">{{ '✓' if url else '1' }}</span><div>
+<h3>Copy your review link from Google</h3>
+{% if url %}<p>Saved. Your customers land on <b>{{ where }}</b>.</p>
+<p class="bio-link"><code>{{ url }}</code></p>
+{% else %}<p>Open your business on Google, tap <b>Ask for reviews</b> (or <b>Share</b> → <b>Copy link</b>), and paste what Google gives you below. Zomato, Swiggy, Practo, JustDial or Amazon work the same way — paste whichever page you want people to land on.</p>
+<p><a class="btn ghost sm" href="https://business.google.com/" target="_blank" rel="noopener">Open Google Business Profile ↗</a>
+<a class="btn ghost sm" href="https://www.google.com/maps/search/{{ g.ws['name']|urlencode }}" target="_blank" rel="noopener">Find my business on Maps ↗</a></p>
+<p class="muted">No Google listing yet? Create one free on Google Business Profile first — it is what makes your shop show up on Maps and in search.</p>{% endif %}
 <form method="post" class="stack">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label>Your review page link<input name="review_url" value="{{ url }}" placeholder="https://g.page/r/..." autocomplete="off"></label>
-<button class="btn">Save</button>
+<label>{{ 'Change the link' if url else 'Paste your review page link' }}<input name="review_url" value="{{ url }}" placeholder="https://g.page/r/..." autocomplete="off" inputmode="url"></label>
+<button class="btn">{{ 'Save the change' if url else 'Save and continue' }}</button>
 </form>
-</div>
+</div></div>
 
+<div class="stepc{{ ' done' if url }}"><span class="sn" aria-hidden="true">2</span><div>
+<h3>Send it, or stick it on the counter</h3>
 {% if url %}
-<div class="card">
-<h3 style="margin:0 0 6px">Your asking link</h3>
-<p class="bio-link"><code id="rv-url">{{ short }}</code> <button type="button" class="btn ghost sm" onclick="copyTxt(document.getElementById('rv-url').textContent, this)">Copy</button></p>
-<p class="muted">Put it in a WhatsApp message after a sale, at the bottom of a bill, or in your Instagram bio. Debut counts every tap, so you know how many people you actually asked.</p>
-<p class="tpl-meta"><span class="pill">{{ sent }} tap{{ '' if sent == 1 else 's' }} so far</span></p>
+<p>Share this short Debut link rather than the long Google one. It is easier to read out, and Debut counts every tap.</p>
+<p class="bio-link"><code id="rv-url">{{ short }}</code> <button type="button" class="btn ghost sm" onclick="copyTxt(document.getElementById('rv-url').textContent, this)">Copy link</button></p>
 {% if not public %}<div class="banner">This link only works on this computer until Debut is online and <b>APP_URL</b> points at your real site.</div>{% endif %}
-<h3 style="margin:16px 0 6px">QR code for the counter</h3>
-<p class="muted">Print it and stick it where people pay, or put it on the delivery box.</p>
-<p><img src="{{ url_for('bio.review_qr', slug=g.ws['slug']) }}" alt="QR code to your review page" width="180" height="180" style="background:#fff;padding:8px;border-radius:12px">
-<a class="btn ghost sm" href="{{ url_for('bio.review_qr', slug=g.ws['slug']) }}" download="review-qr.svg">Download</a></p>
+<p class="muted" style="margin-top:12px">Ready-made messages — tap to copy, then paste into WhatsApp:</p>
+<ul class="chk">{% for msg in messages %}<li>{{ msg }} <button type="button" class="btn ghost sm" onclick="copyTxt({{ (msg ~ ' ' ~ short)|tojson }}, this)">Copy with link</button></li>{% endfor %}</ul>
+<p class="muted" style="margin-top:12px">Or print the QR code and put it where people pay:</p>
+<p><img src="{{ url_for('bio.review_qr', slug=g.ws['slug']) }}" alt="QR code that opens your review page" width="160" height="160" class="qrbox">
+<a class="btn ghost sm" href="{{ url_for('bio.review_qr', slug=g.ws['slug']) }}" download="review-qr.svg">Download the QR code</a></p>
+<p class="muted">It is also on your link-in-bio page as <b>⭐ Leave us a review</b>, so anyone who taps your Instagram link can leave one. <a href="{{ url_for('bio.edit') }}">See the page</a>.</p>
+{% else %}<p class="muted">Once the link is saved, this is where your short link, your WhatsApp messages and a QR code for the counter appear. The link also goes onto your link-in-bio page by itself.</p>{% endif %}
+</div></div>
 
-<h3 style="margin:16px 0 6px">What to send</h3>
-<ul class="chk">
-{% for msg in messages %}<li>{{ msg }} <button type="button" class="btn ghost sm" onclick="copyTxt({{ (msg ~ ' ' ~ short)|tojson }}, this)">Copy with link</button></li>{% endfor %}
-</ul>
+<div class="stepc"><span class="sn" aria-hidden="true">3</span><div>
+<h3>Watch how many people you asked</h3>
+{% if url %}<p><span class="pill">{{ sent }} tap{{ '' if sent == 1 else 's' }} so far</span></p>
+<p class="muted">That is how many people opened your review page from the link or the QR code. Google does not tell anyone who wrote a review, so this is the honest half of the picture: how often you asked. Most shops that ask after every sale see a handful a week.</p>
+{% else %}<p class="muted">Debut counts every tap on your link and QR code, so you can tell whether asking is actually happening.</p>{% endif %}
+</div></div>
 </div>
-{% endif %}
 {% endblock %}

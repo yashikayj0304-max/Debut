@@ -4345,10 +4345,21 @@ def test_signup_focus_shortens_menu_and_nothing_is_lost(app):
     c.post("/account/focus", data=dict(all="1"))
     h = c.get("/app").get_data(as_text=True)
     assert 'data-hub="sales"' in h
+    # "More tools" is no longer an on/off switch: it holds exactly the tools that were ticked.
     c.post("/account/focus", data=dict(hub=["sales", "bogus"], more="1"))
-    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "h:sales,more"
-    h = c.get("/app").get_data(as_text=True)
-    assert 'data-hub="sales"' in h and 'data-hub="more"' in h and 'data-hub="results"' not in h
+    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "h:sales"
+    side = c.get("/app").get_data(as_text=True).split("<main")[0].split('<div id="allTools"')[0]
+    # every section that is switched off now lives under More tools, so it is still one tap away
+    assert 'data-hub="sales"' in side and 'data-hub="results"' not in side
+    assert "More tools" in side and "Results &amp; Insights" in side
+    c.post("/account/focus", data=dict(hub=["sales"], tool=["/utm"]))
+    assert dbq(app, "SELECT focus FROM users WHERE email='f@x.com'", one=True)["focus"] == "h:sales,t:/utm"
+    side = c.get("/app").get_data(as_text=True).split("<main")[0].split('<div id="allTools"')[0]
+    assert "More tools" in side and "/utm" in side          # a ticked extra tool joins the switched-off sections
+    # a menu saved by an older version, where a bare "more" meant "show every extra tool", still works
+    dbx(app, "UPDATE users SET focus='h:sales,more' WHERE email='f@x.com'")
+    side = c.get("/app").get_data(as_text=True).split("<main")[0].split('<div id="allTools"')[0]
+    assert "More tools" in side
 
 
 def test_tagline_is_a_kicker_not_a_second_headline():
@@ -4554,7 +4565,9 @@ def test_new_accounts_start_on_the_short_menu_and_can_open_the_rest(app):
     c = app.test_client()
     assert c.post("/signup", data=dict(name="Short", email="short@x.com", workspace="Short Co", password="Sup3rSecret!", agree="1")).status_code == 302
     html = c.get("/app").data.decode()
-    assert "Content &amp; Calendar" in html and "add back" in html and "More tools" not in html.split("<aside>", 1)[1].split("</aside>", 1)[0]
+    # the three starting sections show; everything switched off is reachable under More tools
+    assert "Content &amp; Calendar" in html and "More tools" in html
+    assert "Influencers &amp; PR" in html
     assert html.count('class="hub') <= 6
     assert dbq(app, "SELECT focus FROM users WHERE email=?", ("short@x.com",), one=True)["focus"].startswith("h:content")
     c.post("/account/focus", data=dict(all="1"))                  # one tap brings the full menu back
@@ -4851,3 +4864,75 @@ def test_client_portal_uses_the_clients_own_brand_colour(app, mails):
     page = cl.get("/portal").data.decode()
     assert "--pri:#e63946" in page.replace(" ", "").lower() or "e63946" in page.lower()
     assert "e63946" not in o.get("/app").data.decode().lower()          # the team's own screens keep the workspace colours
+
+
+def test_cancelling_leaves_a_clear_way_back(app):
+    """A cancellation used to leave the billing page looking untouched: no acknowledgement that
+    anything had happened, and no button to rejoin. Both halves are checked here."""
+    o = signup(app, "o@x.com")
+    assert o.post("/billing/subscribe/team").get_json()["demo"]
+    page = o.get("/billing").data.decode()
+    assert "Resubscribe" not in page and "Keep my" not in page      # nothing to undo yet
+    assert o.post("/billing/resume").status_code == 302
+    assert dbq(app, "SELECT plan_status FROM workspaces", one=True)["plan_status"] == "active"
+
+    assert o.post("/billing/cancel").status_code == 302
+    page = o.get("/billing").data.decode()
+    assert "plan has ended" in page and "Resubscribe to Team" in page
+    assert "Nothing was deleted" in page                            # says the data is safe
+    assert "subscribe('team')" in page                              # the button restarts the same plan
+
+    assert o.post("/billing/resume").status_code == 302
+    row = dbq(app, "SELECT plan, plan_status, cancel_at_period_end FROM workspaces", one=True)
+    assert row["plan"] == "team" and row["plan_status"] == "active" and not row["cancel_at_period_end"]
+    assert o.get("/m/events").status_code == 200                    # the paid pages work again
+    assert "Resubscribe" not in o.get("/billing").data.decode()
+
+
+def test_only_a_paid_plan_can_be_cancelled(app):
+    """Cancelling a trial used to write plan_status='cancelled' and a past period_end onto a
+    workspace with no subscription, which then showed a cancelled banner for a plan nobody bought."""
+    o = signup(app, "o@x.com")
+    assert o.post("/billing/cancel").status_code == 302
+    row = dbq(app, "SELECT plan, plan_status, cancel_at_period_end FROM workspaces", one=True)
+    assert row["plan"] == "trial" and row["plan_status"] != "cancelled" and not row["cancel_at_period_end"]
+    assert "plan has ended" not in o.get("/billing").data.decode()
+
+
+def test_reviews_page_walks_through_the_three_steps(app):
+    o = signup(app, "o@x.com")
+    page = o.get("/reviews").data.decode()
+    assert "Copy your review link from Google" in page
+    assert "business.google.com" in page                       # a way to actually get the link
+    assert "Leave us a review" not in o.get("/l/acme-foods").data.decode()
+
+    assert o.post("/reviews", data=dict(review_url="g.page/r/abc123")).status_code == 302
+    page = o.get("/reviews").data.decode()
+    assert "land on <b>Google</b>" in page                     # says where customers end up
+    assert "Copy with link" in page and "Download the QR code" in page
+
+    pub = o.get("/l/acme-foods").data.decode()
+    assert "Leave us a review" in pub and "/review/acme-foods" in pub
+    r = app.test_client().get("/review/acme-foods")
+    assert r.status_code == 302 and r.headers["Location"] == "https://g.page/r/abc123"
+    assert "1 tap so far" in o.get("/reviews").data.decode()   # the tap was counted
+
+
+def test_review_link_names_the_site_it_points_at(app):
+    from bio import review_site
+    assert review_site("https://g.page/r/x") == "Google"
+    assert review_site("https://www.zomato.com/x") == "Zomato"
+    assert review_site("https://search.google.com/local/writereview?x=1") == "Google"
+    assert review_site("https://www.mysite.in/feedback") == "mysite.in"
+    assert review_site("") == "" and review_site("not a url") == ""
+
+
+def test_the_chat_bubble_says_what_it_is(app):
+    """The launcher used to be a card-coloured circle on a card-coloured page: on most palettes
+    you could not see it, and nothing said what it was for."""
+    o = signup(app, "o@x.com")
+    page = o.get("/app").data.decode()
+    assert 'class="deb-fab"' in page and "Ask Deb" in page
+    css = open("static/bold.css", encoding="utf-8").read()
+    fab = [l for l in css.splitlines() if l.startswith(".deb-fab{")][0]
+    assert "background:var(--pri)" in fab and "var(--card)" not in fab   # the brand colour, not the page's

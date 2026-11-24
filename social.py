@@ -24,6 +24,7 @@ import requests
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 
 import config as C
+import autofill
 import services as S
 from db import ex, ins, q
 
@@ -147,6 +148,64 @@ def _save(ws_id, platform, account_id, page_id, name, token):
                                     page_id=page_id, name=name, token=token, status="ok"))
 
 
+def check_connections(limit=200):
+    """Ask Meta whether each connection still works, before a post needs it.
+
+    A Meta token stops working quietly: it is revoked, the password changes, the person removes
+    the app, or Meta invalidates it. Nothing tells you. The first you hear of it is a post that
+    did not go out, and by then the moment has passed. So this asks a one-field question of the
+    Graph API for every connected account once a day, records when it was last confirmed alive,
+    and tells the owner the first time it stops - once, not every day.
+
+    Returns (checked, newly broken). Safe to call when no Meta app is configured: it does nothing.
+    """
+    if not configured():
+        return 0, 0
+    today = S.today().isoformat()
+    accounts = q("SELECT * FROM social_accounts WHERE platform='instagram' ORDER BY id LIMIT ?", (limit,))
+    checked = broken = 0
+    for a in accounts:
+        try:
+            got = _call("GET", a["account_id"], fields="id", access_token=a["token"])
+            alive = bool(got.get("id"))
+            why = "" if alive else "Instagram did not recognise this account any more."
+        except Exception as e:
+            alive, why = False, str(e)[:200]
+        checked += 1
+        if alive:
+            ex("UPDATE social_accounts SET status='ok', last_error='', checked_at=?, warned_at='' WHERE id=?",
+               (today, a["id"]))
+            continue
+        ex("UPDATE social_accounts SET status='expired', last_error=?, checked_at=? WHERE id=?",
+           (why, today, a["id"]))
+        if a["warned_at"] if "warned_at" in a.keys() else "":
+            continue                     # already told them; do not nag every morning
+        broken += 1
+        ex("UPDATE social_accounts SET warned_at=? WHERE id=?", (today, a["id"]))
+        _warn_owners(a, why)
+    return checked, broken
+
+
+def _warn_owners(acct, why):
+    """Tell whoever can actually fix it, by email and in the app."""
+    name = acct["name"] or "your Instagram account"
+    body = (f"Debut can no longer post to {name}.\n\n"
+            f"Instagram said: {why}\n\n"
+            f"Nothing has been lost - anything scheduled is still waiting. To start it going again, "
+            f"open Account \u2192 Connected accounts and reconnect.\n")
+    for u in q("""SELECT u.id, u.email, u.name FROM users u JOIN memberships m ON m.user_id=u.id
+                  WHERE m.workspace_id=? AND m.role IN ('owner','admin')""", (acct["workspace_id"],)):
+        try:
+            S.send_email(u["email"], f"Reconnect Instagram in {C.APP_NAME}", body)
+        except Exception:
+            log.exception("could not email the Instagram warning")
+        try:
+            S.notify(acct["workspace_id"], u["id"], "instagram",
+                     f"Instagram needs reconnecting: {name}", "/account/connected-accounts")
+        except Exception:
+            pass
+
+
 def disconnect(ws_id, acct_id):
     ex("DELETE FROM social_accounts WHERE workspace_id=? AND id=?", (ws_id, acct_id))
     S.audit("social_disconnect", str(acct_id))
@@ -208,8 +267,16 @@ def publish_due(now=None):
             ex("UPDATE publish_jobs SET status='cancelled', error=? WHERE id=?", ("The post was deleted.", job["id"]))
             continue
         item = rows[0]
-        caption = "\n\n".join(x for x in ((item["copy"] or "").strip(), (item["hashtags"] or "").strip()) if x)
-        image = S.media_url(S.as_jpeg(item["asset_url"] or "") if job["platform"] == "instagram" else (item["asset_url"] or ""))
+        # Write the caption and draw the picture if the post has neither. Without this a planned
+        # post went out with an empty caption, and one with no picture could not go to Instagram
+        # at all - which put the owner back to downloading files and posting by hand.
+        wsr = q("SELECT * FROM workspaces WHERE id=?", (job["workspace_id"],))
+        ready = autofill.prepare(item, wsr[0], allow_ai=True) if wsr else dict(
+            caption="\n\n".join(x for x in ((item["copy"] or "").strip(), (item["hashtags"] or "").strip()) if x),
+            image=item["asset_url"] or "", filled=[])
+        caption = ready["caption"]
+        src = ready["image"]
+        image = S.media_url(S.as_jpeg(src) if job["platform"] == "instagram" else src)
         acct = account(job["workspace_id"], job["platform"])
         link = f"/m/content_items/{item['id']}/edit"
         if not acct:
@@ -333,12 +400,27 @@ def publishing_cancel():
 @bp.route("/publishing/now/<int:cid>", methods=["POST"])
 @S.roles("owner", "admin", "lead", "manager")
 def publishing_now(cid):
+    """Post it, now, with nothing left for the owner to do.
+
+    Anything missing is filled in first - the caption written, the picture drawn - so "post this"
+    means exactly that even for a post that is still only a title on the calendar.
+    """
+    platform = request.form.get("platform") or "instagram"
+    item = autofill.fresh(g.ws["id"], cid)
+    if not item:
+        flash("That post is no longer there.")
+        return redirect(_next(url_for("m_list", key="content_items")))
+    ready = autofill.prepare(item, g.ws, allow_ai=True)
     queue(g.ws["id"], cid, (dt.datetime.now() - dt.timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M"),
-          request.form.get("platform") or "instagram", g.user["id"])
+          platform, g.user["id"])
     out = publish_due()
-    flash("Posted to Instagram. 🎉" if out["sent"] else
+    made = " Debut wrote the caption and made the picture for you - open the post to change either." \
+        if len(ready["filled"]) == 2 else (
+        f" Debut wrote the caption for you." if ready["filled"] == ["caption"] else (
+        f" Debut made the picture for you." if ready["filled"] == ["picture"] else ""))
+    flash((f"Posted to {PLATFORMS.get(platform, platform)}. 🎉" + made) if out["sent"] else
           ("Could not post it - see Publishing for the reason." if out["failed"] else
-           "No Instagram account is connected yet, so Debut saved it as a post helper instead."))
+           f"No {PLATFORMS.get(platform, platform)} account is connected yet, so Debut saved it as a post helper instead." + made))
     return redirect(_next(url_for("m_edit", key="content_items", rid=cid)))
 
 # When to post, by industry. These are starting points for India, not laws: lunch break and the

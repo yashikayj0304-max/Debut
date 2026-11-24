@@ -1,4 +1,4 @@
-Debut — part 3 of 3
+Debut — part 1 of 3
 
 This is one third of the app. It does NOT run on its own.
 

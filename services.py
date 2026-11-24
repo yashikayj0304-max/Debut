@@ -1,5 +1,5 @@
 """Shared helpers: plans & limits, audit log, email, storage, URL safety, workspace seeding."""
-import collections, functools, os, re, uuid, socket, ipaddress, hashlib, secrets, smtplib, logging, datetime as dt
+import collections, functools, hmac, os, re, uuid, socket, ipaddress, hashlib, secrets, smtplib, logging, datetime as dt
 from email.message import EmailMessage
 from urllib.parse import urlparse, urljoin
 import requests
@@ -271,10 +271,28 @@ def as_jpeg(content):
         return content
 
 
+def media_sig(path):
+    """A signature that makes one stored file readable without signing in.
+
+    Instagram downloads the picture from its URL with no session of any kind, and so does every
+    visitor to a link-in-bio page, a shared board or a client report. S3 solves this by handing
+    out a presigned URL; on local disk this is the same idea. The signature covers this one file,
+    so a picture being shareable never makes the rest of a workspace's uploads readable - which
+    is what simply opening /media/ to everyone would have done.
+    """
+    return hmac.new(C.SECRET_KEY.encode(), path.encode(), hashlib.sha256).hexdigest()[:24]
+
+
+def media_ok(path, sig):
+    return bool(sig) and hmac.compare_digest(media_sig(path), sig)
+
+
 def media_url(content):
     content = content or ""
     if content.startswith("s3:"):
         return s3().generate_presigned_url("get_object", Params={"Bucket": C.S3_BUCKET, "Key": content[3:]}, ExpiresIn=3600)
+    if content.startswith("/media/"):
+        return f"{content}?s={media_sig(content)}"
     return content
 
 

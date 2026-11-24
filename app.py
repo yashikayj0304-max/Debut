@@ -28,7 +28,7 @@ class SafeInt(IntegerConverter):
         super().__init__(map, **kw)
 
 MARKETING = {"features", "templates_gallery", "pricing", "terms", "privacy", "data_deletion", "contact", "refunds", "changelog", "about", "channels_page"}
-PUBLIC = {"bio.public", "bio.go", "bio.qr", "bio.review_go", "bio.review_qr", "data_deletion", "cron_morning", "cron_evening", "auth.demo_exit", "about", "channels_page", "healthz", "agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
+PUBLIC = {"media", "bio.public", "bio.go", "bio.qr", "bio.review_go", "bio.review_qr", "data_deletion", "cron_morning", "cron_evening", "auth.demo_exit", "about", "channels_page", "healthz", "agency_enquiry", "templates_gallery", "features", "demo", "changelog", "survey.public", "survey.submit", "board_public", "board_public_img", "landing", "pricing", "terms", "privacy", "health", "robots", "static", "auth.login", "auth.login_2fa", "auth.login_pin", "auth.signup", "auth.forgot", "auth.reset",
           "auth.verify", "auth.invite", "apply_form", "billing.webhook", "ics_feed", "lead_form", "lead_hook", "report_public", "manifest", "service_worker", "offline", "unsubscribe", "contact", "refunds", "sitemap", "manual"}
 VIEWER_WRITE_OK = {"deb.set_tone", "tm.send", "tm.send_channel", "tm.channel", "tm.new_channel", "tm.react", "tm.pin", "tm.delete_msg", "tm.share", "tm.cancel", "tm.access_request", "auth.logout", "auth.switch_ws", "admin.exit_support", "admin.support", "ws.account_profile", "ws.account_password", "ws.account_verify",
                    "ws.twofa_enable", "ws.twofa_disable", "ws.account_digest", "comment_add", "comment_delete", "notifications_read", "feedback", "ws.onboarded"}
@@ -207,6 +207,13 @@ def create_app(config=None, init=True, database_url=None):
                 return None                   # the draft maker is free (templates only for demo visitors) and saves nothing
             if ep == "presence":
                 return ("", 204)          # silent "who is viewing" ping: not a user action, so no nudge and no demo_blocked noise
+            # A fetch that expects JSON and gets an HTML page throws, and the person sees a
+            # made-up "the internet ate it" error that makes a working product look broken.
+            # Anything called from script gets the real reason, in JSON, in words they can act on.
+            if ep in ("api_ask", "api_ai") or (request.path or "").startswith("/api/"):
+                return jsonify(error="Deb can't chat freely in the demo — that part needs an account. "
+                                     "Sign up free and ask her anything. The buttons below work right now, "
+                                     "from this workspace's own calendar.", demo=True), 403
             try:
                 S.audit("demo_blocked", ep or "", wid=g.ws["id"], uid=g.user["id"])      # counted, so we can see which locked buttons people reach for
             except Exception:
@@ -526,6 +533,12 @@ def create_app(config=None, init=True, database_url=None):
                 pass
         if g.get("user") and r.mimetype == "text/html":
             r.headers["Cache-Control"] = "private, no-store"
+        # Count which screens get opened, so "is this feature redundant?" has an answer. Only
+        # successful GETs of real pages by a signed-in person, and only the endpoint name.
+        if (request.method == "GET" and r.status_code == 200 and r.mimetype == "text/html"
+                and g.get("user") and g.get("ws") and request.endpoint):
+            import usage
+            usage.record(g.ws["id"], g.user["id"], request.endpoint, request.view_args)
         if request.path.startswith("/static/") and r.status_code == 200:
             r.headers["Cache-Control"] = "public, max-age=604800"          # CSS, JS and images change only on a new release
         try:       # gzip text responses: the pages and stylesheets are several times smaller on a phone connection

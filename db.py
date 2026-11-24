@@ -69,12 +69,13 @@ def _pk():
 MANUAL_ORDER = ("launch_checklist", "content_items", "campaigns", "influencers", "leads", "tasks", "creators", "content_orders", "promotions", "events", "accounts",
                 "personas", "competitors", "key_dates", "brand_kit", "gtm_plans", "keywords", "kpis", "assets", "clients")
 EXTRA_COLUMNS = {
-    "workspaces": [("ai_voice", "TEXT DEFAULT ''"), ("ai_lang", "TEXT DEFAULT 'English'"), ("founding", "INTEGER DEFAULT 0"), ("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
+    "workspaces": [("ai_voice", "TEXT DEFAULT ''"), ("ai_lang", "TEXT DEFAULT 'English'"), ("founding", "INTEGER DEFAULT 0"), ("brand_facts", "TEXT DEFAULT ''"), ("industry", "TEXT DEFAULT 'general'"), ("ics_key", "TEXT DEFAULT ''"), ("hook_key", "TEXT DEFAULT ''"), ("brand_color", "TEXT DEFAULT ''"), ("secondary_color", "TEXT DEFAULT ''"), ("logo_url", "TEXT DEFAULT ''")],
     "memberships": [("client_name", "TEXT DEFAULT ''")],
     "invites": [("client_name", "TEXT DEFAULT ''")],
     "comments": [("client_visible", "INTEGER DEFAULT 0")],
     "users": [("totp_secret", "TEXT DEFAULT ''"), ("totp_on", "INTEGER DEFAULT 0"), ("totp_last", "INTEGER DEFAULT 0"), ("recovery", "TEXT DEFAULT ''"), ("digest", "INTEGER DEFAULT 1"), ("onboarded", "INTEGER DEFAULT 0"), ("pin_hash", "TEXT DEFAULT ''"), ("pal", "TEXT DEFAULT ''"), ("focus", "TEXT DEFAULT ''")],
     "boards": [("share_token", "TEXT DEFAULT ''")],
+    "social_accounts": [("checked_at", "TEXT DEFAULT ''"), ("warned_at", "TEXT DEFAULT ''")],
     "board_items": [("x", "INTEGER DEFAULT -1"), ("y", "INTEGER DEFAULT -1"), ("w", "INTEGER DEFAULT 240"), ("h", "INTEGER DEFAULT 170"), ("z", "INTEGER DEFAULT 1")],
     # a manual within-column order for every kanban-enabled module, so cards can be dragged into a custom
     # order inside one column (not just dragged between columns) - see kanban() / m_reorder() in views.py
@@ -104,6 +105,13 @@ def init_schema(modules):
         f"CREATE TABLE IF NOT EXISTS reactions (id {pk}, workspace_id INTEGER NOT NULL, module TEXT NOT NULL, record_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS audit_log (id {pk}, workspace_id INTEGER, user_id INTEGER, action TEXT, detail TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS webhook_events (id {pk}, event_id TEXT UNIQUE, type TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        # Templates a business wrote for itself. The steps live as JSON because a template is
+        # edited and used whole - a separate steps table would add a join to every gallery view
+        # and buy nothing.
+        f"CREATE TABLE IF NOT EXISTS own_templates (id {pk}, workspace_id INTEGER NOT NULL, created_by INTEGER DEFAULT 0, name VARCHAR(80) DEFAULT '', icon VARCHAR(8) DEFAULT '', tag VARCHAR(24) DEFAULT '', anchor VARCHAR(60) DEFAULT '', notes VARCHAR(300) DEFAULT '', steps TEXT DEFAULT '[]', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        # One row per person per screen per day, counted not logged: this answers "does anyone
+        # actually open this" without keeping a trail of who looked at what when.
+        "CREATE TABLE IF NOT EXISTS feature_hits (workspace_id INTEGER NOT NULL, user_id INTEGER NOT NULL, endpoint VARCHAR(120) NOT NULL, day VARCHAR(10) NOT NULL, n INTEGER DEFAULT 0, PRIMARY KEY (workspace_id, user_id, endpoint, day))",
         f"CREATE TABLE IF NOT EXISTS comments (id {pk}, workspace_id INTEGER NOT NULL, module TEXT NOT NULL, record_id INTEGER NOT NULL, user_id INTEGER, body TEXT NOT NULL, client_visible INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS notifications (id {pk}, workspace_id INTEGER NOT NULL, user_id INTEGER NOT NULL, kind TEXT DEFAULT '', message TEXT NOT NULL, link TEXT DEFAULT '', is_read INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS api_keys (id {pk}, workspace_id INTEGER NOT NULL, user_id INTEGER, name TEXT DEFAULT '', prefix TEXT DEFAULT '', key_hash TEXT UNIQUE NOT NULL, scope TEXT DEFAULT 'read', last_used TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
@@ -150,9 +158,15 @@ def init_schema(modules):
             c.exec_driver_sql("DROP TABLE reference_links")
         if "feeds" in insp.get_table_names():     # News Sources fed nothing (Live news uses the topics you track), so the table is removed
             c.exec_driver_sql("DROP TABLE feeds")
-        for t in list(modules) + ["boards", "board_items", "memberships", "ai_usage", "audit_log", "comments", "notifications", "api_keys", "pulse_runs", "social_accounts", "publish_jobs", "post_stats", "post_feedback"]:
+        for t in list(modules) + ["boards", "board_items", "memberships", "ai_usage", "audit_log", "comments", "notifications", "api_keys", "pulse_runs", "social_accounts", "publish_jobs", "post_stats", "post_feedback",
+                                  "chat_messages", "channels", "reactions", "reminders", "kudos", "invites", "presence", "page_locks", "page_access", "feedback", "idea_requests", "own_templates"]:
             col = "workspace_id"
             c.exec_driver_sql(f"CREATE INDEX IF NOT EXISTS ix_{t}_ws ON {t} ({col})")
         c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_members_user ON memberships (user_id)")
         c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_comments_rec ON comments (workspace_id, module, record_id)")
+        # Chat reads one conversation at a time, newest first, and it is the table that grows
+        # fastest in an active workspace - a workspace_id index alone still scans every channel.
+        c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_chat_thread ON chat_messages (workspace_id, channel_id, id)")
+        c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_chat_dm ON chat_messages (workspace_id, to_id, is_read)")
+        c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_hits_ws_day ON feature_hits (workspace_id, day)")
         c.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_notif_user ON notifications (user_id, is_read)")

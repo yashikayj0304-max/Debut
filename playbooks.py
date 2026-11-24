@@ -148,7 +148,8 @@ BY_KEY = {p["key"]: p for p in PLAYBOOKS}
 
 def summary(p):
     """How many posts and tasks a template will create, and how long it runs."""
-    posts = sum(1 for i in p["items"] if i[1] == "post")
-    tasks = sum(1 for i in p["items"] if i[1] == "task")
-    span = max(i[0] for i in p["items"]) - min(i[0] for i in p["items"])
+    items = p.get("items") or []
+    posts = sum(1 for i in items if i[1] == "post")
+    tasks = sum(1 for i in items if i[1] == "task")
+    span = (max(i[0] for i in items) - min(i[0] for i in items)) if items else 0
     return posts, tasks, span

@@ -98,7 +98,7 @@ def public(slug):
     d = _load(ws)
     col = ws["brand_color"] if re.match(r"^#[0-9a-fA-F]{6}$", ws["brand_color"] or "") else "#6a3df0"
     sec = ws["secondary_color"] if re.match(r"^#[0-9a-fA-F]{6}$", ws["secondary_color"] or "") else "#ff4f9a"
-    logo = ws["logo_url"] if (ws["logo_url"] or "").startswith(("http://", "https://", "/")) else ""
+    logo = S.media_url(ws["logo_url"]) if (ws["logo_url"] or "").startswith(("http://", "https://", "/")) else ""
     S.audit("bio_view", "", wid=ws["id"], uid=None)
     fl = flavour(ws)
     r = Response(render_template("bio_public.html", fl=fl, ws=ws, d=d, col=col, sec=sec, logo=logo, bare=True, hide_chrome=True,

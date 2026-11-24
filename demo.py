@@ -135,11 +135,41 @@ def _dates(wid, t, rows):
                 break
 
 
+# A post that names a day has to land on that day. Shifting everything by "today minus N" put
+# "Children's Day tea-time story" on 24 November when Children's Day is the 14th, which anyone
+# in India spots instantly and reads as the whole demo being made up.
+FIXED_DAYS = {"children's day": "11-14", "diwali": "11-09", "dev diwali": "11-24", "black friday": "11-27",
+              "cyber monday": "11-30", "christmas": "12-25", "new year": "01-01", "sankranti": "01-14",
+              "republic day": "01-26", "holi": "03-03", "independence day": "08-15", "rakhi": "08-28",
+              "raksha bandhan": "08-28", "valentine": "02-14", "women's day": "03-08"}
+
+
+def _real_day(title, today):
+    """The real date of the day a post names, this year or next - whichever is still ahead,
+    or the one just gone if it is within a fortnight. Returns "" when the title names no day."""
+    low = (title or "").lower()
+    for name, md in sorted(FIXED_DAYS.items(), key=lambda kv: -len(kv[0])):
+        if name in low:
+            m, dd = (int(x) for x in md.split("-"))
+            for year in (today.year, today.year + 1):
+                try:
+                    when = dt.date(year, m, dd)
+                except ValueError:
+                    continue
+                if (when - today).days >= -14:
+                    return when.isoformat()
+            return ""
+    return ""
+
+
 def _seed_chai(wid, viewer):
     t = S.today()
     d = lambda n: (t + dt.timedelta(days=n)).isoformat()
     for title, ch, fmt, st, off in CHAI_POSTS:
-        ins("content_items", dict(workspace_id=wid, title=title, channel=ch, format=fmt, status=st, publish_date=d(off), owner="Asha" if off % 2 == 0 else "Ravi",
+        when = _real_day(title, t) or d(off)
+        if when < t.isoformat() and st in ("Planned", "Scheduled", "Draft", "In review"):
+            st = "Published"            # a day that has passed cannot still be "scheduled"
+        ins("content_items", dict(workspace_id=wid, title=title, channel=ch, format=fmt, status=st, publish_date=when, owner="Asha" if off % 2 == 0 else "Ravi",
                                   copy="A warm winter-evening line, one emoji, ends with the shop link.", cta="Shop the winter blends", hashtags="#chai #winterchai #kulhad",
                                   campaign="Winter chai subscription" if off > -6 else "Diwali gifting 2026"))
     for title, who, off, pr, st, desc in CHAI_TASKS:

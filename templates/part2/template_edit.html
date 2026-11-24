@@ -1,0 +1,64 @@
+{% extends "base.html" %}{% block title %}{{ 'Edit template' if rid else 'New template' }} — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="head"><h1>🧩 {{ 'Edit this template' if rid else 'Write your own template' }}</h1>
+<a class="btn ghost sm" href="{{ url_for('templates_gallery') }}">← All templates</a></div>
+<p class="muted" style="max-width:64ch">A template is the run of posts and jobs you do every time — a festival, a sale, a launch, your usual month. Write it once with the days counted from the main date, and after that it goes onto any date in one tap.</p>
+
+{% if not rid %}<div class="card"><b>Quickest way: build it from a month you already did</b>
+<p class="muted">If last month went well, start from it instead of typing it again. The earliest post becomes day 0.</p>
+<form method="get" class="rowform">
+<label class="sr-only" for="fm">Month to build from</label>
+<select id="fm" name="from_month">{% for v, lab in months %}<option value="{{ v }}">{{ lab }}</option>{% endfor %}</select>
+<button class="btn ghost sm">Bring in that month</button></form></div>{% endif %}
+
+<form method="post" action="{{ url_for('template_save', rid=rid) if rid else url_for('template_save') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="card">
+<div class="tpl-top">
+<label>Name<input name="name" value="{{ one.title if one else '' }}" maxlength="80" required placeholder="e.g. Our usual festival week"></label>
+<label>Icon<input name="icon" value="{{ one.icon if one else '🧩' }}" maxlength="4" placeholder="🧩"></label>
+<label>Group<input name="tag" value="{{ one.tag if one else 'Yours' }}" maxlength="24" placeholder="Festive, Sale, Monthly…"></label>
+</div>
+<label>What is the main date? <small class="muted">The day everything else counts from.</small>
+<input name="anchor" value="{{ one.anchor if one else '' }}" maxlength="60" placeholder="e.g. The first day of the sale"></label>
+<label>What is this for? <small class="muted">Optional, one line.</small>
+<input name="notes" value="{{ one.desc if one else '' }}" maxlength="300" placeholder="Three weeks of build-up, the day itself, then a thank-you"></label>
+</div>
+
+<div class="card">
+<h2 class="tpl-h">The steps</h2>
+<p class="muted">Day <b>0</b> is the main date. <b>-7</b> is a week before, <b>3</b> is three days after. Leave a row blank to drop it.</p>
+<div class="tplrows" id="tplRows">
+{% for day, kind, title, channel, fmt in (steps or [(-7, 'post', '', '', ''), (0, 'post', '', '', ''), (2, 'task', '', '', '')]) %}
+<div class="tplrow">
+<label class="sr-only">Day</label><input class="t-day" type="number" name="day" value="{{ day }}" min="-365" max="365" aria-label="Days from the main date">
+<label class="sr-only">Kind</label><select name="kind" aria-label="Post or job">{% for k, lab in kinds %}<option value="{{ k }}" {{ 'selected' if k == kind }}>{{ lab }}</option>{% endfor %}</select>
+<input name="title" value="{{ title }}" maxlength="200" placeholder="What goes out, or what needs doing" aria-label="Title">
+<select name="channel" aria-label="Where"><option value="">Where…</option>{% for c in channels %}<option value="{{ c }}" {{ 'selected' if c == channel }}>{{ c }}</option>{% endfor %}</select>
+<select name="format" aria-label="Format"><option value="">Format…</option>{% for f in formats %}<option value="{{ f }}" {{ 'selected' if f == fmt }}>{{ f }}</option>{% endfor %}</select>
+</div>
+{% endfor %}
+</div>
+<p><button type="button" class="btn ghost sm" onclick="tplAdd()">+ Another step</button></p>
+</div>
+
+<p><button class="btn">{{ 'Save the changes' if rid else 'Save this template' }}</button>
+<a class="btn ghost" href="{{ url_for('templates_gallery') }}">Cancel</a></p>
+</form>
+
+{% if rid %}<form method="post" action="{{ url_for('template_delete', rid=rid) }}" onsubmit="return confirm('Delete this template? Anything it already put on your calendar stays.')">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button class="btn danger sm">Delete this template</button></form>{% endif %}
+
+<script>
+function tplAdd(){
+  var rows = document.getElementById('tplRows');
+  var last = rows.lastElementChild;
+  var row = last.cloneNode(true);
+  row.querySelectorAll('input').forEach(function(i){ if(i.name === 'title') i.value = ''; });
+  var d = row.querySelector('.t-day');
+  d.value = String(Math.min(365, (parseInt(last.querySelector('.t-day').value, 10) || 0) + 1));
+  rows.appendChild(row);
+  row.querySelector('input[name=title]').focus();
+}
+</script>
+{% endblock %}

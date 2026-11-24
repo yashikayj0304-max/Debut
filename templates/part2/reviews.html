@@ -4,7 +4,7 @@
 
 <div class="card">
 <div class="stepc{{ ' done' if url }}"><span class="sn" aria-hidden="true">{{ '✓' if url else '1' }}</span><div>
-<h3>Copy your review link from Google</h3>
+<h2>Copy your review link from Google</h2>
 {% if url %}<p>Saved. Your customers land on <b>{{ where }}</b>.</p>
 <p class="bio-link"><code>{{ url }}</code></p>
 {% else %}<p>Open your business on Google, tap <b>Ask for reviews</b> (or <b>Share</b> → <b>Copy link</b>), and paste what Google gives you below. Zomato, Swiggy, Practo, JustDial or Amazon work the same way — paste whichever page you want people to land on.</p>
@@ -19,7 +19,7 @@
 </div></div>
 
 <div class="stepc{{ ' done' if url }}"><span class="sn" aria-hidden="true">2</span><div>
-<h3>Send it, or stick it on the counter</h3>
+<h2>Send it, or stick it on the counter</h2>
 {% if url %}
 <p>Share this short Debut link rather than the long Google one. It is easier to read out, and Debut counts every tap.</p>
 <p class="bio-link"><code id="rv-url">{{ short }}</code> <button type="button" class="btn ghost sm" onclick="copyTxt(document.getElementById('rv-url').textContent, this)">Copy link</button></p>
@@ -34,7 +34,7 @@
 </div></div>
 
 <div class="stepc"><span class="sn" aria-hidden="true">3</span><div>
-<h3>Watch how many people you asked</h3>
+<h2>Watch how many people you asked</h2>
 {% if url %}<p><span class="pill">{{ sent }} tap{{ '' if sent == 1 else 's' }} so far</span></p>
 <p class="muted">That is how many people opened your review page from the link or the QR code. Google does not tell anyone who wrote a review, so this is the honest half of the picture: how often you asked. Most shops that ask after every sale see a handful a week.</p>
 {% else %}<p class="muted">Debut counts every tap on your link and QR code, so you can tell whether asking is actually happening.</p>{% endif %}

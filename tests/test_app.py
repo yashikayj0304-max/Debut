@@ -67,8 +67,11 @@ def test_tenant_isolation(app):
     # mood board + media
     a.post("/moodboards/new", data=dict(name="A board"))
     a.post("/moodboards/1/add", data=dict(kind="upload", file=(io.BytesIO(PNG), "x.png")), content_type="multipart/form-data")
-    url = re.search(r'src="(/media/\d+/[\w.]+)"', a.get("/moodboards/1").data.decode()).group(1)
-    assert a.get(url).status_code == 200 and b.get(url).status_code == 404
+    url = re.search(r'src="(/media/\d+/[\w.]+(?:\?s=\w+)?)"', a.get("/moodboards/1").data.decode()).group(1)
+    bare = url.split("?")[0]
+    assert a.get(url).status_code == 200                       # the owner, as before
+    assert b.get(bare).status_code == 404                      # another business, with no signature
+    assert b.get(bare + "?s=" + "0" * 24).status_code == 404    # and a guessed signature is no good
     assert b.get("/moodboards/1").status_code == 404
     assert b.post("/moodboards/1/add", data=dict(kind="note", content="x")).status_code == 404
     # ics token belongs to one workspace
@@ -4936,3 +4939,675 @@ def test_the_chat_bubble_says_what_it_is(app):
     css = open("static/bold.css", encoding="utf-8").read()
     fab = [l for l in css.splitlines() if l.startswith(".deb-fab{")][0]
     assert "background:var(--pri)" in fab and "var(--card)" not in fab   # the brand colour, not the page's
+
+
+def test_every_import_template_downloads_a_real_file(app):
+    """The phone crawl flagged these eight because the browser starts a download instead of
+    rendering a page - which is the point of them. This checks they are genuine files."""
+    o = signup(app, "o@x.com")
+    for url, magic in (("/m/tasks/template.xlsx", b"PK"), ("/m/leads/template.xlsx", b"PK"),
+                       ("/m/creators/template.xlsx", b"PK"), ("/m/influencers/template.xlsx", b"PK"),
+                       ("/m/gtm_plans/template.xlsx", b"PK"), ("/m/personas/template.xlsx", b"PK"),
+                       ("/m/competitors/template.xlsx", b"PK"), ("/team/invite-template.csv", b"")):
+        r = o.get(url)
+        assert r.status_code == 200, (url, r.status_code)
+        assert len(r.data) > 100, (url, len(r.data))
+        if magic:
+            assert r.data[:2] == magic, (url, r.data[:8])
+        else:
+            assert b"," in r.data[:200], (url, r.data[:60])
+
+
+def test_setup_page_tells_the_owner_what_is_actually_switched_on(app):
+    """Every one of these fails silently in production, which is exactly why there has to be a
+    screen that says so. The checks read settings, so in the test environment most are off."""
+    o = signup(app, "o@x.com")
+    page = o.get("/account/setup").data.decode()
+    assert "Is Debut ready?" in page
+    for name in ("Your web address", "Picture storage", "Email", "Database", "Instagram posting",
+                 "Taking payments", "AI writing", "Error reports"):
+        assert name in page, name
+    assert "S3_BUCKET" in page and "SMTP_HOST" in page          # names the setting that fixes it
+    assert "Send me a test email" in page
+    assert o.get("/account").data.decode().count("Is Debut ready?") == 1
+
+    r = o.post("/account/setup/test-email")
+    assert r.status_code == 302                                  # no mail server here, but it must not crash
+    assert dbq(app, "SELECT action FROM audit_log WHERE action='setup_test_email'", one=True)
+
+
+def test_setup_page_is_owner_only_and_never_crashes_on_a_broken_check(app, mails, monkeypatch):
+    o = signup(app, "o@x.com")
+    mgr = _join(app, o, mails, "staff@x.com", "manager", "Mo")
+    assert mgr.get("/account/setup").status_code in (403, 302)   # a manager has no business seeing server settings
+
+    import setupcheck
+    monkeypatch.setattr(setupcheck, "_email", lambda: 1 / 0)     # a check that throws
+    page = o.get("/account/setup").data.decode()
+    assert "Check failed" in page and "Picture storage" in page   # the other seven still render
+
+
+def test_setup_summary_puts_the_worst_thing_first(app):
+    import setupcheck
+    rows = [dict(key="a", name="A", state=setupcheck.OK, detail="", fix=""),
+            dict(key="b", name="B", state=setupcheck.BAD, detail="", fix=""),
+            dict(key="c", name="C", state=setupcheck.WARN, detail="", fix="")]
+    state, line = setupcheck.summary(rows)
+    assert state == setupcheck.BAD and "1 thing to fix" in line
+    state, line = setupcheck.summary([r for r in rows if r["state"] != setupcheck.BAD])
+    assert state == setupcheck.WARN and "1 thing worth a look" in line
+    state, line = setupcheck.summary([rows[0]])
+    assert state == setupcheck.OK and "Everything" in line
+
+
+def test_usage_counts_screens_opened_and_names_the_ones_nobody_touches(app):
+    """The honest answer to "is this feature redundant" is a count, not an opinion."""
+    o = signup(app, "o@x.com")
+    page = o.get("/usage").data.decode()
+    assert "Not enough use yet" in page                      # says so rather than inventing a pattern
+
+    for _ in range(16):                                      # open a few sections repeatedly
+        o.get("/calendar"); o.get("/m/tasks"); o.get("/studio")
+    page = o.get("/usage").data.decode()
+    assert "Not enough use yet" not in page
+    assert "Content &amp; Calendar" in page and "Tasks &amp; Campaigns" in page
+    assert "Nobody opened" in page                           # the sections never visited are named
+    assert "Freelancers &amp; Payments" in page
+
+    import usage
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    with app.app_context():
+        r = usage.report(wid, 30)
+    busiest = r["sections"][0]
+    assert busiest["opens"] > 0 and busiest["people"] == 1
+    assert sum(s["opens"] for s in r["sections"]) == r["total"]
+    assert "Freelancers & Payments" in r["dead"]
+
+
+def test_usage_never_records_assets_posts_or_signed_out_pages(app):
+    o = signup(app, "o@x.com")
+    o.get("/calendar")
+    app.test_client().get("/pricing")                        # signed out
+    o.post("/m/tasks", data=dict(title="T"))                 # a write, not a screen
+    o.get("/static/app.js")
+    rows = dbq(app, "SELECT endpoint FROM feature_hits")
+    eps = {r["endpoint"] for r in rows}
+    assert "calendar_view" in eps
+    assert not {"static", "pricing", "landing"} & eps
+    assert all(not e.startswith("/") for e in eps)           # endpoint names, never URLs
+
+
+def test_usage_is_not_for_creators_and_survives_a_dead_endpoint(app, mails):
+    o = signup(app, "o@x.com")
+    maker = _join(app, o, mails, "c@x.com", "creator", "Cee")
+    assert maker.get("/usage").status_code in (403, 302)
+
+    import usage
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    dbx(app, "INSERT INTO feature_hits (workspace_id, user_id, endpoint, day, n) VALUES (?,?,?,?,?)",
+         (wid, 1, "a_screen_that_no_longer_exists", "2026-01-01", 9))
+    with app.app_context():
+        r = usage.report(wid, 3650)
+    assert r["recorded"] >= 9                                # counted, and no crash from the orphan
+    assert r["total"] + r["other"] == r["recorded"]           # the numbers on screen add up
+
+
+HEAD_RE = re.compile(r"<(h[1-6])\b([^>]*)>", re.I)
+A11Y_PAGES = ["/app", "/calendar", "/studio", "/m/leads", "/m/tasks", "/m/clients", "/m/content_items",
+              "/reviews", "/billing", "/account", "/account/setup", "/usage", "/chat", "/bio",
+              "/moodboards", "/analytics", "/publishing", "/ideas", "/team", "/activity",
+              "/kanban/content_items", "/help", "/utm"]
+
+
+def _outline(html):
+    """The heading levels a screen reader would hear: aria-level wins, role=presentation is silent."""
+    out = []
+    for tag, attrs in HEAD_RE.findall(html):
+        if 'role="presentation"' in attrs:
+            continue
+        m = re.search(r'aria-level="(\d)"', attrs)
+        out.append(int(m.group(1)) if m else int(tag[1]))
+    return out
+
+
+def test_every_page_has_one_top_heading_and_skips_no_level(app):
+    """A jump from h1 to h3 tells someone listening that a whole level of the page is missing,
+    and a page with no h1 gives them nothing to land on."""
+    o = signup(app, "o@x.com")
+    bad = []
+    for path in A11Y_PAGES:
+        r = o.get(path)
+        if r.status_code != 200:
+            bad.append(f"{path}: HTTP {r.status_code}")
+            continue
+        lv = _outline(r.data.decode())
+        if not lv or lv[0] != 1:
+            bad.append(f"{path}: starts at h{lv[0] if lv else '-'}, not h1")
+        for a, b in zip(lv, lv[1:]):
+            if b > a + 1:
+                bad.append(f"{path}: jumps h{a} to h{b}")
+                break
+    assert not bad, "\n".join(bad)
+
+
+def _unnamed(html):
+    """Fields and buttons a screen reader would announce with no words of their own.
+
+    Parsed rather than pattern-matched, because <label>text<input></label> is a perfectly good
+    label and no regex can see the wrapping.
+    """
+    from html.parser import HTMLParser
+
+    class P(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.label, self.btn, self.words, self.btn_attrs = 0, 0, "", {}
+            self.for_ids, self.fields, self.bad = set(), [], []
+
+        def handle_starttag(self, tag, attrs):
+            a = dict(attrs)
+            if tag == "label":
+                self.label += 1
+                if a.get("for"):
+                    self.for_ids.add(a["for"])
+            elif tag == "button":
+                self.btn, self.words, self.btn_attrs = self.btn + 1, "", a
+            elif tag == "img" and self.btn:
+                self.words += a.get("alt", "")
+            elif tag in ("input", "select", "textarea"):
+                if "hidden" in a or a.get("type") in ("hidden", "submit", "button", "image", "reset", "checkbox", "radio"):
+                    return
+                self.fields.append((a, self.label > 0))
+
+        def handle_endtag(self, tag):
+            if tag == "label" and self.label:
+                self.label -= 1
+            elif tag == "button" and self.btn:
+                self.btn -= 1
+                a = self.btn_attrs
+                named = a.get("aria-label") or a.get("aria-labelledby") or a.get("title")
+                if "hidden" not in a and not named and not re.sub(r"[^\w]", "", self.words):
+                    self.bad.append("button with no words: " + str(a)[:70])
+
+        def handle_data(self, d):
+            if self.btn:
+                self.words += d
+
+    p = P()
+    p.feed(html)
+    for a, wrapped in p.fields:
+        if wrapped or a.get("aria-label") or a.get("aria-labelledby") or a.get("id") in p.for_ids:
+            continue
+        p.bad.append("field with no label: " + str({k: v for k, v in a.items() if k in ("name", "type", "placeholder")}))
+    return p.bad
+
+
+def test_no_text_field_or_icon_button_goes_unnamed(app):
+    """A field with no label is read out as "edit text", and a button whose only content is an
+    icon is read out as "button". Both leave someone guessing."""
+    o = signup(app, "o@x.com")
+    bad = []
+    for path in A11Y_PAGES:
+        r = o.get(path)
+        if r.status_code == 200:
+            bad += [f"{path}: {x}" for x in _unnamed(r.data.decode())]
+    assert not bad, "\n".join(bad[:12])
+
+
+def test_pictures_are_readable_without_signing_in(app):
+    """Instagram downloads the picture from its URL with no session at all, and so does every
+    visitor to a link-in-bio page. This used to require being signed in, which broke both on any
+    server without S3 - and S3 is not the default."""
+    o = signup(app, "o@x.com")
+    png = bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a"
+                        "4944415478da63600000000200015c0ce6210000000049454e44ae426082")
+    o.post("/account/logo", data={"file": (io.BytesIO(png), "logo.png")}, content_type="multipart/form-data")
+    ws = dbq(app, "SELECT slug, logo_url FROM workspaces", one=True)
+    assert ws["logo_url"].startswith("/media/")
+
+    with app.app_context():
+        import services as S
+        signed = S.media_url(ws["logo_url"])
+    assert "?s=" in signed                                         # the link carries its own key
+
+    anon = app.test_client()
+    assert anon.get(ws["logo_url"]).status_code == 404              # unsigned, and not a member
+    r = anon.get(signed)
+    assert r.status_code == 200 and r.data == png                  # no redirect, the actual bytes
+    assert r.headers["X-Content-Type-Options"] == "nosniff"        # never sniffed into something executable
+    assert "sandbox" in r.headers["Content-Security-Policy"]
+
+    page = anon.get(f"/l/{ws['slug']}").data.decode()
+    assert "?s=" in page and ws["logo_url"] in page                 # the public page links the signed URL
+
+    for attack in ("..%2f..%2fapp.py", "....//app.py", "%2e%2e/config.py"):
+        assert anon.get(f"/media/1/{attack}").status_code == 404    # still cannot walk out of the folder
+    assert anon.get("/media/1/deadbeef0000.png").status_code == 404
+    assert anon.get(ws["logo_url"] + "?s=" + "0" * 24).status_code == 404   # a wrong key is no key
+
+
+def test_every_table_that_filters_by_workspace_has_an_index_for_it(app):
+    """Every page in a multi-tenant app filters by workspace_id. Without an index that is a full
+    scan of someone else's rows too, and chat is the table that grows fastest."""
+    with app.app_context():
+        import db as D
+        from sqlalchemy import inspect
+        insp = inspect(D.engine)
+        names = set(insp.get_table_names())
+        missing = []
+        for t in names:
+            cols = {c["name"] for c in insp.get_columns(t)}
+            if "workspace_id" not in cols:
+                continue
+            covered = any("workspace_id" in (ix.get("column_names") or [])[:1]
+                          for ix in insp.get_indexes(t))
+            pk = insp.get_pk_constraint(t).get("constrained_columns") or []
+            if not covered and (pk[:1] != ["workspace_id"]):
+                missing.append(t)
+    assert not missing, "no workspace_id index on: " + ", ".join(sorted(missing))
+
+
+def test_a_dead_instagram_connection_is_noticed_before_a_post_needs_it(app, monkeypatch, mails):
+    """A Meta token stops working silently. Without a daily check the first sign is a post that
+    never went out, by which point the moment has passed."""
+    import social, config as Cx
+    o = signup(app, "o@x.com")
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    dbx(app, "INSERT INTO social_accounts (workspace_id, platform, account_id, page_id, name, token, status) "
+             "VALUES (?,?,?,?,?,?,?)", (wid, "instagram", "ig1", "pg1", "acmefoods", "tok", "ok"))
+
+    monkeypatch.setattr(Cx, "META_APP_ID", "x"); monkeypatch.setattr(Cx, "META_APP_SECRET", "y")
+    monkeypatch.setattr(social, "_call", lambda *a, **k: {"id": "ig1"})
+    with app.app_context():
+        assert social.check_connections() == (1, 0)
+    row = dbq(app, "SELECT status, checked_at FROM social_accounts", one=True)
+    assert row["status"] == "ok" and row["checked_at"]
+    assert "Last confirmed working" in o.get("/account/setup").data.decode()
+
+    def boom(*a, **k):
+        raise social.SocialError("Error validating access token: the session has been invalidated.")
+    monkeypatch.setattr(social, "_call", boom)
+    before = len(mails)
+    with app.app_context():
+        assert social.check_connections() == (1, 1)
+    row = dbq(app, "SELECT status, last_error, warned_at FROM social_accounts", one=True)
+    assert row["status"] == "expired" and "invalidated" in row["last_error"] and row["warned_at"]
+    assert len(mails) > before, "the owner was not told"
+    assert dbq(app, "SELECT message FROM notifications WHERE kind='instagram'", one=True)
+
+    with app.app_context():
+        assert social.check_connections() == (1, 0)          # still broken, but no second email
+    assert len(mails) == before + 1
+
+    page = o.get("/account/setup").data.decode()
+    assert "the last attempt failed" in page and "Reconnect the account" in page
+
+
+def test_posting_fills_in_the_caption_and_the_picture_itself(app, monkeypatch):
+    """"Post this now" has to mean that even for a post that is still only a title on the
+    calendar. Before this it sent an empty caption and no picture, which is no use to anyone."""
+    import autofill, social
+    o = signup(app, "o@x.com")
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    o.post("/m/content_items/save", data=dict(title="Fresh kulhad chai at both outlets",
+                                              channel="Instagram", format="Post", status="Planned"))
+    cid = dbq(app, "SELECT id FROM content_items ORDER BY id DESC", one=True)["id"]
+    row = dbq(app, "SELECT copy, asset_url FROM content_items WHERE id=?", (cid,), one=True)
+    assert not (row["copy"] or "").strip() and not (row["asset_url"] or "").strip()
+
+    sent = {}
+    monkeypatch.setattr(social, "publish", lambda acct, image, caption: sent.update(image=image, caption=caption) or "mid1")
+    dbx(app, "INSERT INTO social_accounts (workspace_id, platform, account_id, page_id, name, token, status) "
+             "VALUES (?,?,?,?,?,?,?)", (wid, "instagram", "ig1", "pg1", "acme", "tok", "ok"))
+
+    r = o.post(f"/publishing/now/{cid}")
+    assert r.status_code == 302
+    assert sent.get("caption", "").strip(), "it still posted an empty caption"
+    assert "kulhad" in sent["caption"].lower()
+    assert "#" in sent["caption"]                               # hashtags came from the industry
+    assert sent.get("image", "").startswith("/media/") and "?s=" in sent["image"]
+
+    row = dbq(app, "SELECT copy, asset_url FROM content_items WHERE id=?", (cid,), one=True)
+    assert row["copy"].strip() and row["asset_url"].startswith("/media/")   # saved, so she can edit it
+    pic = app.test_client().get(social.S.media_url(row["asset_url"]))
+    assert pic.status_code == 200 and pic.data[:2] == b"\xff\xd8"           # a real JPEG, 
+    assert len(pic.data) > 5000
+
+
+def test_a_caption_or_picture_the_owner_wrote_is_never_replaced(app):
+    import autofill
+    o = signup(app, "o@x.com")
+    ws = dbq(app, "SELECT * FROM workspaces", one=True)
+    o.post("/m/content_items/save", data=dict(title="Diwali hampers", channel="Instagram", format="Post",
+                                              copy="Our Diwali hampers are back.", hashtags="#diwali",
+                                              asset_url="https://example.com/mine.jpg"))
+    item = dbq(app, "SELECT * FROM content_items ORDER BY id DESC", one=True)
+    with app.app_context():
+        out = autofill.prepare(item, ws, allow_ai=False, save=False)
+    assert out["caption"].startswith("Our Diwali hampers are back.") and "#diwali" in out["caption"]
+    assert out["image"] == "https://example.com/mine.jpg"
+    assert out["filled"] == []                                  # nothing of hers was touched
+
+
+def test_the_generated_picture_is_the_right_shape_for_the_format(app):
+    import postcard
+    from PIL import Image
+    import io as _io
+    for fmt, expect in (("Post", (1080, 1080)), ("Story", (1080, 1920)),
+                        ("Reel / Short", (1080, 1920)), ("Carousel", (1080, 1080))):
+        data = postcard.card("A headline that is long enough to need wrapping onto several lines",
+                             "Acme Foods", "#5b3cc4", "#f26b7f", postcard.shape_for(fmt))
+        assert Image.open(_io.BytesIO(data)).size == expect, fmt
+    light = postcard.card("Readable on a pale background", "Acme", "#fdf3c7", "#fff6d8")
+    assert len(light) > 3000                                    # dark ink chosen, not white on cream
+
+
+def _published(app, client, title, fmt, date, reach=0, likes=0, saves=0, shares=0, comments=0):
+    """A post that went out and that Instagram has reported numbers for."""
+    client.post("/m/content_items/save", data=dict(title=title, channel="Instagram", format=fmt,
+                                                   status="Published", publish_date=date))
+    cid = dbq(app, "SELECT id FROM content_items ORDER BY id DESC", one=True)["id"]
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    dbx(app, "INSERT INTO post_stats (workspace_id, content_id, platform, media_id, reach, likes, saves, "
+             "shares, comments, permalink, fetched_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (wid, cid, "instagram", f"m{cid}", reach, likes, saves, shares, comments,
+         f"https://instagram.com/p/{cid}", date))
+    return cid
+
+
+def test_insights_say_how_much_they_are_based_on_before_claiming_a_pattern(app):
+    """"Reels beat photos" from two posts is noise. Below the threshold it has to say so."""
+    import insights
+    o = signup(app, "o@x.com")
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    with app.app_context():
+        w = insights.what_works(wid)
+        sug = insights.suggestions(wid)
+    assert not w["enough"] and w["n"] == 0
+    assert sug[0]["kind"] == "wait" and "4 more" in sug[0]["text"]
+
+    _published(app, o, "Reel one", "Reel / Short", "2026-11-02", reach=5000, saves=40)
+    _published(app, o, "Reel two", "Reel / Short", "2026-11-09", reach=4600, saves=30)
+    with app.app_context():
+        assert not insights.what_works(wid)["enough"]        # two is still not a pattern
+
+
+def test_insights_rank_formats_and_days_from_real_numbers(app):
+    import insights
+    o = signup(app, "o@x.com")
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    for i, d in enumerate(("2026-11-02", "2026-11-09", "2026-11-16")):      # Mondays
+        _published(app, o, f"Reel {i}", "Reel / Short", d, reach=5000 + i, likes=200, saves=40)
+    for i, d in enumerate(("2026-11-04", "2026-11-11", "2026-11-18")):      # Wednesdays
+        _published(app, o, f"Photo {i}", "Post", d, reach=900 + i, likes=20, saves=1)
+    with app.app_context():
+        w = insights.what_works(wid)
+        sug = insights.suggestions(wid)
+    assert w["enough"] and w["n"] == 6
+    assert w["formats"][0]["name"] == "Reel / Short" and w["formats"][0]["n"] == 3
+    assert w["weekdays"][0]["name"] == "Monday"
+    texts = " ".join(s["text"] for s in sug)
+    assert "Reel / Short" in texts and "Monday" in texts
+    assert all(s["why"] for s in sug), "every suggestion must say what it is based on"
+    whys = " ".join(s["why"] for s in sug)
+    assert "3 posts" in whys and "5,00" in whys                 # the actual figures, checkable
+
+
+def test_a_post_with_no_reported_reach_is_not_counted_as_zero(app):
+    """Averaging an unreported post as 0 would quietly halve every average on the page."""
+    import insights
+    o = signup(app, "o@x.com")
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    for i in range(4):
+        _published(app, o, f"Measured {i}", "Post", "2026-11-10", reach=1000, likes=10)
+    _published(app, o, "Not reported yet", "Post", "2026-11-11", reach=0)
+    with app.app_context():
+        w = insights.what_works(wid)
+        s = insights.summary(wid)
+    assert w["n"] == 4 and w["avg_reach"] == 1000               # the unreported one is excluded
+    assert s["n"] == 5                                          # but it is still a post that went out
+
+
+def test_one_posts_numbers_come_with_how_it_did_against_the_average(app):
+    import insights
+    o = signup(app, "o@x.com")
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    for i in range(4):
+        _published(app, o, f"Normal {i}", "Post", "2026-11-10", reach=1000)
+    big = _published(app, o, "The good one", "Reel / Short", "2026-11-12", reach=9000, saves=55)
+    with app.app_context():
+        one = insights.for_item(wid, big)
+        many = insights.for_items(wid, [big])
+    assert one["reach"] == 9000 and "above your average" in one["verdict"]
+    assert one["permalink"].startswith("https://instagram.com/")
+    assert many[big]["reach"] == 9000                           # and the list version agrees
+    with app.app_context():
+        assert insights.for_item(wid, 999999) is None           # a post with nothing reported
+
+
+def test_the_dashboard_headline_uses_the_followers_instagram_last_reported(app):
+    import insights
+    o = signup(app, "o@x.com")
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    with app.app_context():
+        assert insights.headline(wid) == ""                     # nothing connected, so say nothing
+    for day, n in (("2026-10-25", "1000"), ("2026-11-22", "1180")):
+        dbx(app, "INSERT INTO kpis (workspace_id, metric, channel, period, value) VALUES (?,?,?,?,?)",
+            (wid, "Followers", "Instagram", day, n))
+    with app.app_context():
+        line = insights.headline(wid)
+        s = insights.summary(wid)
+    assert "1,180 followers" in line and "+180" in line
+    assert s["followers"] == 1180 and s["gain"] == 180
+
+
+def test_the_live_numbers_show_up_on_every_screen_that_needs_them(app):
+    """Measuring is not the point. These numbers were being pulled from Instagram and then shown
+    on one screen; this checks each place a person actually makes a decision."""
+    o = signup(app, "o@x.com")
+    wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+    for day, n in (("2026-10-25", "1000"), (S.today().isoformat(), "1180")):
+        dbx(app, "INSERT INTO kpis (workspace_id, metric, channel, period, value) VALUES (?,?,?,?,?)",
+            (wid, "Followers", "Instagram", day, n))
+    for i, d in enumerate(("2026-11-02", "2026-11-09", "2026-11-16")):
+        _published(app, o, f"Reel {i}", "Reel / Short", d, reach=5200, likes=210, saves=44)
+    big = _published(app, o, "Kulhad chai close-up", "Post", "2026-11-18", reach=910, likes=18, saves=2)
+    _published(app, o, "Shop front", "Post", "2026-11-11", reach=880, likes=15, saves=1)
+
+    dash = o.get("/app").data.decode()
+    assert "From Instagram" in dash and "1,180" in dash                 # headline on the first screen
+    assert "reach per post" in dash
+    assert "Reel / Short" in dash or "Monday" in dash                   # and what to do about it
+
+    cal = o.get("/calendar?y=2026&mth=11").data.decode()
+    assert "5.2k" in cal, "reach is not on the calendar chips"
+
+    lst = o.get("/m/content_items").data.decode()
+    assert "5,200" in lst and "instagram.com/p/" in lst                 # on the cards in the list
+
+    res = o.get("/analytics").data.decode()
+    assert "Measured by Instagram" in res
+    assert "Which format reaches more" in res and "Which day reaches more" in res
+    assert "Your best posts" in res and "Kulhad chai close-up" in res
+    assert "What you said about your posts" in res                      # kept separate, clearly labelled
+
+    edit = o.get(f"/m/content_items/{big}/edit").data.decode()
+    assert "910" in edit
+
+
+def test_no_live_numbers_means_no_empty_boxes(app):
+    """A workspace that has never connected Instagram should see none of this, not zeroes."""
+    o = signup(app, "o@x.com")
+    for path in ("/app", "/analytics", "/m/content_items", "/calendar"):
+        page = o.get(path).data.decode()
+        assert "From Instagram" not in page and "Measured by Instagram" not in page, path
+        assert "reach per post" not in page, path
+
+
+def test_an_owner_can_write_a_template_and_use_it_like_a_built_in_one(app):
+    """A saved template is the same shape as a built-in, so one tap has to do exactly the same
+    thing: a campaign, dated posts and the tasks around them."""
+    o = signup(app, "o@x.com")
+    page = o.get("/templates").data.decode()
+    assert "Your own templates" in page and "have not written one yet" in page
+
+    assert o.get("/templates/mine/new").status_code == 200
+    r = o.post("/templates/mine/save", data={
+        "name": "Our usual festival week", "icon": "🪔", "tag": "Festive",
+        "anchor": "The first day of the sale", "notes": "What we do every time",
+        "day": ["-7", "0", "2"], "kind": ["post", "post", "task"],
+        "title": ["Teaser reel", "It starts today", "Count what sold"],
+        "channel": ["Instagram", "Instagram", ""], "format": ["Reel / Short", "Post", ""]})
+    assert r.status_code == 302
+    page = o.get("/templates").data.decode()
+    assert "Our usual festival week" in page and "🪔" in page
+    assert "2 posts" in page and "1 tasks" in page
+
+    rid = dbq(app, "SELECT id FROM own_templates", one=True)["id"]
+    assert o.post(f"/templates/use/own-{rid}", data={"date": "2026-12-10"}).status_code == 302
+    titles = [r["title"] for r in dbq(app, "SELECT title FROM content_items")]
+    assert "Teaser reel" in titles and "It starts today" in titles
+    made = dbq(app, "SELECT title, publish_date, format FROM content_items WHERE title='Teaser reel'", one=True)
+    assert made["publish_date"] == "2026-12-03" and made["format"] == "Reel / Short"   # 7 days before
+    assert dbq(app, "SELECT title FROM tasks WHERE title='Count what sold'", one=True)
+    assert dbq(app, "SELECT name FROM campaigns", one=True)                             # and the campaign
+
+
+def test_a_template_can_be_built_from_a_month_already_on_the_calendar(app):
+    """Nobody will type a template from scratch if the month that worked is already there."""
+    o = signup(app, "o@x.com")
+    for d, t in (("2026-11-04", "Shop front"), ("2026-11-11", "Behind the scenes"), ("2026-11-20", "Offer ends")):
+        o.post("/m/content_items/save", data=dict(title=t, channel="Instagram", format="Post",
+                                                  status="Planned", publish_date=d))
+    page = o.get("/templates/mine/new?from_month=2026-11").data.decode()
+    assert "Brought in 3 posts" in page
+    assert "Shop front" in page and "Behind the scenes" in page
+    assert 'value="0"' in page and 'value="7"' in page and 'value="16"' in page    # offsets, not dates
+
+    page = o.get("/templates/mine/new?from_month=2026-01").data.decode()
+    assert "nothing on the calendar that month" in page
+
+
+def test_a_bad_template_is_refused_with_a_reason_and_never_crashes(app):
+    import owntemplates as OT
+    o = signup(app, "o@x.com")
+    for data, expect in (
+            ({"name": "", "day": ["0"], "title": ["x"]}, "Give the template a name"),
+            ({"name": "No steps", "day": [], "title": []}, "at least one post or job"),
+            ({"name": "Bad day", "day": ["soon"], "title": ["x"]}, "whole number of days"),
+            ({"name": "Too far", "day": ["900"], "title": ["x"]}, "within a year")):
+        r = o.post("/templates/mine/save", data=data, follow_redirects=True)
+        assert expect in r.data.decode(), data
+    assert not dbq(app, "SELECT id FROM own_templates")
+
+    with app.app_context():
+        wid = dbq(app, "SELECT id FROM workspaces", one=True)["id"]
+        dbx(app, "INSERT INTO own_templates (workspace_id, name, steps) VALUES (?,?,?)",
+            (wid, "Corrupt", "{not json at all"))
+        assert OT.all_for(wid)[0]["items"] == []        # a bad row must not take down the gallery
+    assert o.get("/templates").status_code == 200
+
+
+def test_only_managers_can_write_templates(app, mails):
+    o = signup(app, "o@x.com")
+    maker = _join(app, o, mails, "c@x.com", "creator", "Cee")
+    assert maker.get("/templates/mine/new").status_code in (403, 302)
+    assert maker.post("/templates/mine/save", data={"name": "x", "day": ["0"], "title": ["y"]}).status_code in (403, 302)
+    assert not dbq(app, "SELECT id FROM own_templates")
+    assert "Write your own template" not in maker.get("/templates").data.decode()
+
+
+INVENTED = ("Shared with permission", "shared with permission", "1 lakh+", "FAMILY10", "Our whole family loves it", "₹149", "₹199", "No added colours",
+            "Pack of 3", "20% OFF", "10,000+ orders shipped", "500+ happy customers",
+            "4.9★", "4.8★", "4.6★", "SHIP20", "FESTIVE20", "Happy customer", "2,000+ guests")
+
+
+def test_the_studio_never_ships_a_price_claim_or_review_it_made_up(app):
+    """The blocker. A deck built from nothing but a product name was printing a price, a
+    discount code, a sales figure and a customer review that did not exist. Posting those is an
+    advertising and consumer-protection problem in India before it is a trust one."""
+    js = open("static/studio_tpl.js", encoding="utf-8").read()
+    for bad in INVENTED:
+        assert bad not in js, f"studio_tpl.js still carries the invented fact {bad!r}"
+    assert "[paste a real review" in js and "[your price]" in js and "[YOURCODE]" in js
+
+
+def test_unfilled_details_come_out_as_obvious_placeholders(app):
+    """What a person sees before they have told Debut anything: brackets, not plausible fakes."""
+    import subprocess, json as J
+    out = subprocess.run(["node", "-e", """
+      global.window = {}; require('./static/studio_tpl.js');
+      var TPL = window.TPL, topic = ['Kulhad Gift Box','Brand','🎁','#x','gift box for weddings','excitement'];
+      var res = {};
+      ['review-card','price-drop','coupon','stat-trio','menu-card','pro-tips'].forEach(function (k) {
+        var b = TPL.build('Instagram', topic, TPL.siOf(k), 'Chai & Co', '', 'fmcg');
+        res[k] = b.slides.map(function (s) { return [s.headline, s.body].filter(Boolean).join(' | '); }).join(' ~ ');
+      });
+      console.log(JSON.stringify(res));
+    """], capture_output=True, text=True, cwd=".", timeout=60)
+    assert out.returncode == 0, out.stderr
+    got = J.loads(out.stdout)
+    whole = " ".join(got.values())
+    for bad in INVENTED:
+        assert bad not in whole, f"a deck with nothing filled in still shows {bad!r}"
+    assert "[paste a real review from a real customer]" in got["review-card"]
+    assert "[your price]" in got["price-drop"]
+    assert "[your offer]" in got["coupon"]
+
+
+def test_the_details_the_owner_types_are_the_ones_that_get_used(app):
+    import subprocess, json as J
+    out = subprocess.run(["node", "-e", """
+      global.window = {}; require('./static/studio_tpl.js');
+      var TPL = window.TPL, topic = ['Kulhad Gift Box','Brand','🎁','#x','gift box','excitement'];
+      var facts = {price:'₹899;;2 kulhads + 250g chai', off:'Wedding-season offer', code:'SHAADI10',
+                   proof:'300+ wedding orders', rev:'Guests asked where we got them.', revwho:'Ritu, Jaipur'};
+      var res = {};
+      ['review-card','price-drop','coupon'].forEach(function (k) {
+        var b = TPL.build('Instagram', topic, TPL.siOf(k), 'Chai & Co', '', 'fmcg', facts);
+        res[k] = b.slides.map(function (s) { return [s.headline, s.body, s.sub].filter(Boolean).join(' | '); }).join(' ~ ');
+      });
+      console.log(JSON.stringify(res));
+    """], capture_output=True, text=True, cwd=".", timeout=60)
+    assert out.returncode == 0, out.stderr
+    got = J.loads(out.stdout)
+    assert "₹899" in got["price-drop"] and "[your price]" not in got["price-drop"]
+    assert "SHAADI10" in got["coupon"] and "Wedding-season offer" in got["coupon"]
+    assert "Guests asked where we got them." in got["review-card"] and "Ritu, Jaipur" in got["review-card"]
+    assert "[" not in got["price-drop"] and "[" not in got["review-card"]
+
+
+def test_the_owner_can_save_their_real_details_and_they_reach_the_deck(app):
+    o = signup(app, "o@x.com")
+    page = o.get("/launch-deck").data.decode()
+    assert "never make up a price" in page and "Still placeholders" in page
+
+    assert o.post("/studio/facts", data=dict(price="₹899", rev="Guests asked where we got them.",
+                                             revwho="Ritu, Jaipur", code="SHAADI10")).status_code == 302
+    page = o.get("/launch-deck").data.decode()
+    assert "₹899" in page and "SHAADI10" in page
+    assert "Still placeholders" in page                     # honest about what is still missing
+    assert "price" not in page.split("Still placeholders")[1][:120].lower()
+
+    import studio
+    ws = dbq(app, "SELECT * FROM workspaces", one=True)
+    with app.app_context():
+        assert studio.brand_facts(ws)["rev"] == "Guests asked where we got them."
+        assert "Price" not in studio.facts_missing(ws)
+
+
+def test_ask_deb_gives_a_real_reason_in_the_demo_rather_than_a_fake_error(app):
+    """In the demo a POST to /api/ask returned an HTML nudge page. The chat asked for JSON, the
+    parse threw, and the person saw "Oops, the internet ate it" - a working product looking broken."""
+    c = app.test_client()
+    c.get("/demo", follow_redirects=True)
+    r = c.post("/api/ask", json={"q": "a funny wedding season caption please"})
+    assert r.status_code == 403
+    assert r.is_json, "the chat asks for JSON; an HTML page here is what produced the fake error"
+    body = r.get_json()
+    assert body.get("demo") is True
+    assert "demo" in body["error"].lower() and "sign up" in body["error"].lower()
+    assert "internet ate it" not in body["error"]
+
+    js = open("templates/part1/_chatbot.html", encoding="utf-8").read()
+    assert "j.demo" in js and "kind of answer you would get" in js

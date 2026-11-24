@@ -7,9 +7,25 @@
 <label>One line about it<input id="ld-prod" maxlength="60" placeholder="e.g. vitamin C face serum"></label>
 <label>Launch day<input type="date" id="ld-date"></label>
 <label>Post on<select id="ld-plat"><option>Instagram</option><option>LinkedIn</option><option>Facebook</option><option>YouTube</option><option>WhatsApp</option></select></label>
-<label>Colours<select id="ld-look"><option value="launch">Launch (bright)</option><option value="celebrate">Celebrate</option><option value="flash">Flash sale</option><option value="trust">Trust (calm)</option><option value="people">Warm and human</option><option value="brand">My brand colour</option></select></label></div>
+<label>Colours<select id="ld-look"><option value="brand" selected>My brand colours</option><option value="launch">Launch (bright)</option><option value="celebrate">Celebrate</option><option value="flash">Flash sale</option><option value="trust">Trust (calm)</option><option value="people">Warm and human</option></select></label></div>
 <div class="st-row"><button type="button" class="btn" id="ld-build">✨ Build my deck</button><span class="muted" id="ld-msg" aria-live="polite"></span></div></section>
+
+<section class="card" aria-label="Your real details">
+<h2 class="tpl-h">Your real details</h2>
+<p class="muted" style="max-width:66ch">Debut will never make up a price, a review, a sales figure or a discount code. Whatever you leave blank shows on the design as <b>[a placeholder in brackets]</b> for you to replace before the post goes out — so nothing untrue can reach a customer by accident.</p>
+{% if missing %}<p class="muted">Still placeholders: <b>{{ missing|join(', ')|lower }}</b>.</p>{% endif %}
+<details{{ ' open' if missing|length > 8 }}><summary>{{ 'Fill these in' if missing else 'Change these' }}</summary>
+<form method="post" action="{{ url_for('studio.save_facts') }}" class="stack" style="margin-top:10px">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="next" value="{{ url_for('studio.launch_deck') }}">
+{% for key, n, label, eg in fact_fields %}
+<label>{{ label }}<input name="{{ key }}" maxlength="{{ n }}" value="{{ facts.get(key, '') }}" placeholder="{{ eg }}"></label>
+{% endfor %}
+<button class="btn">Save my details</button>
+</form></details>
+</section>
 <section id="ld-out" hidden>
+<div class="card ld-gaps" id="ld-gaps" hidden></div>
 <div class="card ld-sum" id="ld-sum"></div>
 <div class="st-row ld-acts"><button type="button" class="btn" id="ld-add">📅 Add the whole deck to my calendar</button><button type="button" class="btn ghost" id="ld-txt">⬇ Download all captions</button><button type="button" class="btn ghost" onclick="window.print()">🖨 Print / save as PDF</button></div>
 <div id="ld-done" class="card" hidden></div>

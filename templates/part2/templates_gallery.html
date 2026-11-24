@@ -2,6 +2,28 @@
 {% if user %}
 <div class="head"><h1>🧩 Start from a template</h1></div>
 <p class="muted">Pick the date it builds around — Diwali, launch day, the first day of the sale — and the whole plan lands on your calendar: the posts, dated and in order, and the tasks around them. Everything is a draft you can change or delete.</p>
+{% if role in ('owner','admin','lead','manager') %}
+<h2 class="tpl-h">Your own templates</h2>
+{% if mine %}<div class="tpl-list">
+{% for p in mine %}{% set posts, tasks, span = summary(p) %}
+<div class="card tpl-card">
+  <b>{{ p.icon }} {{ p.title }}</b>
+  {% if p.desc %}<p class="muted" style="margin:4px 0 8px">{{ p.desc }}</p>{% endif %}
+  <p class="tpl-meta"><span class="pill">{{ posts }} posts</span> <span class="pill">{{ tasks }} tasks</span> <span class="pill">over {{ span }} days</span> <span class="muted">{{ p.tag }}</span></p>
+  <form method="post" action="{{ url_for('templates_use', key=p.key) }}" class="st-row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="sr-only" for="d-{{ p.key }}">{{ p.anchor }}</label>
+    <input id="d-{{ p.key }}" type="date" name="date" value="{{ today }}" required>
+    <button class="btn">Use this</button>
+  </form>
+  <p class="tpl-meta"><a href="{{ url_for('template_edit', rid=p.id) }}">Edit</a></p>
+</div>
+{% endfor %}
+</div>
+{% else %}<p class="muted">You have not written one yet. The month you repeat every time is the one worth saving — and you can build it straight from a month already on your calendar.</p>{% endif %}
+<p><a class="btn" href="{{ url_for('template_edit') }}">+ Write your own template</a></p>
+<h2 class="tpl-h" style="margin-top:22px">Ready-made</h2>
+{% endif %}
 <div class="tpl-list">
 {% for p in books %}{% set posts, tasks, span = summary(p) %}
 <div class="card tpl-card">

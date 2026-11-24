@@ -8,6 +8,8 @@ import config as C
 import services as S
 import industries as IND
 import brand_scan
+import setupcheck
+import usage
 from db import q, ex, ins
 from modules import MODULES
 from auth import EMAIL_RE, check_password, send_verify, dev_link
@@ -359,6 +361,49 @@ def connected_accounts():
     from it - that's a one-time setup only the business owner can do, not something built into this screen
     yet. Listed honestly as 'Not connected' rather than faking a connection, so nothing here misleads anyone."""
     return render_template("connected_accounts.html", integrations=INTEGRATIONS)
+
+
+@bp.route("/usage")
+@S.roles(*C.TEAM_MANAGERS)
+def usage_page():
+    """What people here actually open, so cutting a feature is a decision based on a count.
+
+    Deliberately rolled up: how many opens and how many people, never who. The question being
+    answered is which screens earn their place, and that needs no names.
+    """
+    days = 30 if S.to_int(request.args.get("d"), 30) != 90 else 90
+    return render_template("usage.html", r=usage.report(g.ws["id"], days), days=days)
+
+
+@bp.route("/account/setup")
+@S.roles("owner")
+def setup():
+    """Which of the things Debut depends on are actually switched on.
+
+    Every one of these fails silently: no mail server means invitations never arrive, no S3 means
+    pictures vanish on the next redeploy and Instagram posting breaks with them, an expired
+    Instagram token looks exactly like a working one until a post is due. Only the owner sees it,
+    because the fixes are server settings and the detail would worry anyone else for no reason.
+    """
+    rows = setupcheck.checks(g.ws["id"])
+    state, line = setupcheck.summary(rows)
+    return render_template("setup.html", rows=rows, state=state, line=line, words=setupcheck.WORDS)
+
+
+@bp.route("/account/setup/test-email", methods=["POST"])
+@S.roles("owner")
+def setup_test_email():
+    """The only check that cannot be done by reading settings: whether mail actually leaves."""
+    to = g.user["email"]
+    sent = S.send_email(to, f"Test email from {C.APP_NAME}",
+                        f"If you are reading this, {C.APP_NAME} can send email from your server.\n\n"
+                        f"Nothing else to do - this was only a test.\n")
+    S.audit("setup_test_email", "sent" if sent else "not sent")
+    flash(f"Test email sent to {to}. If it does not arrive in a few minutes, check your spam folder and "
+          f"your mail provider's logs." if sent else
+          "Debut could not send it, so no mail server is set up yet (or it refused the connection). "
+          "Nothing is broken for your customers - the links people need are shown on screen instead.")
+    return redirect(url_for("ws.setup"))
 
 
 @bp.route("/account/brand-deck", methods=["POST"])

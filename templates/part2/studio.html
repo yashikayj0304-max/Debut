@@ -2,9 +2,13 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='studio.css') }}?v={{ ASSET_V }}">
 <div class="head"><h1>Create studio</h1><a class="btn ghost sm" href="{{ url_for('studio.grid') }}">🧩 Instagram grid</a></div>
 <p class="muted">Pick a platform, tap a template, edit it. Exports are free.</p>
+{% if ig_live and ig_tips and ig_tips[0].kind != 'wait' %}<div class="card" aria-label="What your own numbers show">
+<b>📷 What your own posts show</b>
+<ul class="ig-tips" style="margin-top:8px">{% for t in ig_tips[:2] %}<li><b>{{ t.text }}</b><small>{{ t.why }}</small></li>{% endfor %}</ul>
+</div>{% endif %}
 <section id="st-post" class="card st-postbar" hidden aria-label="Post it now"><b>📣 Ready to post it?</b>
 <div class="st-row"><button type="button" class="btn" id="pm-img">⬇ Download the images</button><button type="button" class="btn ghost" id="pm-share">📲 Share to an app</button><button type="button" class="btn ghost" id="pm-cap">Copy caption</button><button type="button" class="btn ghost" id="pm-tags">Copy hashtags</button><a class="btn ghost" id="pm-open" target="_blank" rel="noopener">Open channel ↗</a><button type="button" class="btn" id="pm-done">✅ I posted it</button></div>
-<div id="pm-nums" hidden><p class="muted">Optional: add the first numbers so your Results fill themselves.</p><div class="st-row"><input id="pm-reach" type="number" min="0" placeholder="Reach" inputmode="numeric"><input id="pm-likes" type="number" min="0" placeholder="Likes" inputmode="numeric"><input id="pm-saves" type="number" min="0" placeholder="Saves" inputmode="numeric"><button type="button" class="btn" id="pm-save">Save and finish</button></div></div><p id="pm-msg" role="status" aria-live="polite"></p></section>
+<div id="pm-nums" hidden><p class="muted">Optional: add the first numbers so your Results fill themselves.</p><div class="st-row"><input id="pm-reach" type="number" min="0" aria-label="Reach so far" placeholder="Reach" inputmode="numeric"><input id="pm-likes" type="number" min="0" aria-label="Likes so far" placeholder="Likes" inputmode="numeric"><input id="pm-saves" type="number" min="0" aria-label="Saves so far" placeholder="Saves" inputmode="numeric"><button type="button" class="btn" id="pm-save">Save and finish</button></div></div><p id="pm-msg" role="status" aria-live="polite"></p></section>
 <div class="st">
 <section class="card st-left" aria-label="Make it">
   <div class="st-step"><b>1. Where will you post it?</b>
@@ -44,10 +48,10 @@
   <label class="st-chk"><input type="checkbox" id="st-guides"> Show safe zone (Instagram buttons cover the edges)</label>
   <label>Repeat weekly<select id="st-rep"><option value="0">Just once</option><option value="3">For 4 weeks</option><option value="7">For 8 weeks</option></select></label>
   <div id="st-hooks" class="st-fmts" aria-label="Hook ideas"></div><div class="st-row"><select id="st-sets" aria-label="My hashtag sets"><option value="">My hashtag sets</option></select><button type="button" class="btn ghost sm" id="st-saveset">Save these as a set</button></div>
-  <h3>One idea, every channel</h3><div id="st-vers" class="st-vers"></div>
+  <h2>One idea, every channel</h2><div id="st-vers" class="st-vers"></div>
   </details>
   <div id="st-rizz" class="st-rizz" aria-live="polite"></div>
-  <h3>Before you post</h3><ul id="st-checks" class="st-checks" aria-live="polite"></ul>
+  <h2>Before you post</h2><ul id="st-checks" class="st-checks" aria-live="polite"></ul>
   <p class="muted" style="font-size:13px">Reels record as MP4 in Chrome and Edge, and as WebM elsewhere. Add trending audio inside Instagram; that is what helps reach.</p>
 </section></div>
 <script>window.STUDIO={{ cfg|tojson }};</script><script src="{{ url_for('static', filename='studio_tpl.js') }}?v={{ ASSET_V }}" defer></script><script src="{{ url_for('static', filename='studio.js') }}?v={{ ASSET_V }}" defer></script>

@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Is Debut ready? — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="head"><h1>🔌 Is Debut ready?</h1></div>
+<p class="muted" style="max-width:64ch">Each of these can be switched off without anything on screen looking wrong — mail simply never arrives, pictures simply disappear. This page is the one place that says so out loud. Only you can see it.</p>
+
+<div class="card sc-sum sc-{{ state }}"><b>{{ line }}</b>
+<p class="muted">Worst first. Everything marked <b>Working</b> or <b>Switched off</b> needs nothing from you today.</p></div>
+
+<div class="card">
+{% for r in rows %}
+<div class="sc-row"><span class="sc-dot sc-{{ r.state }}" aria-hidden="true"></span><div>
+<h2>{{ r.name }} <span class="sc-tag sc-{{ r.state }}">{{ words[r.state] }}</span></h2>
+<p>{{ r.detail }}</p>
+{% if r.fix %}<p class="muted"><b>To fix it:</b> {{ r.fix }}</p>{% endif %}
+{% if r.key == 'email' %}<form method="post" action="{{ url_for('ws.setup_test_email') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn ghost sm">Send me a test email</button></form>
+{% elif r.key == 'instagram' %}<p><a class="btn ghost sm" href="{{ url_for('ws.connected_accounts') }}">Connected accounts</a></p>
+{% endif %}
+</div></div>
+{% endfor %}
+</div>
+
+<p class="muted">Settings are environment variables on your host — on Render that is your service's <b>Environment</b> tab. Changing one restarts the app, and this page tells you straight away whether it worked. <code>DEPLOY.md</code> in the code has the full list.</p>
+{% endblock %}

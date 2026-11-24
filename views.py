@@ -6,12 +6,13 @@ from email.utils import parsedate_to_datetime
 from urllib.parse import quote, quote_plus
 from xml.etree import ElementTree as ET
 import requests
-from flask import g, render_template, request, redirect, url_for, flash, jsonify, abort, Response, send_from_directory, make_response, session
+from flask import g, current_app, render_template, request, redirect, url_for, flash, jsonify, abort, Response, send_from_directory, make_response, session
 import secrets
 from itsdangerous import URLSafeSerializer, BadSignature
 import config as C
 import services as S
 import industries as IND
+import insights as _insights
 from db import q, ex, ins, qi, MANUAL_ORDER
 from extensions import csrf, limiter
 from modules import *  # noqa: F401,F403
@@ -138,17 +139,84 @@ CHANGELOG = [
 @route("/templates")
 def templates_gallery():
     """Signed in, these are real: one tap puts the whole campaign on the calendar. Signed out, it is
-    still the shop window, but what it promises now exists."""
+    still the shop window, but what it promises now exists.
+
+    The ones the business wrote come first - they are the ones it actually repeats.
+    """
+    import owntemplates as OT
     import playbooks as P
-    return render_template("templates_gallery.html", books=P.PLAYBOOKS,
+    mine = OT.all_for(W()) if g.get("ws") else []
+    return render_template("templates_gallery.html", books=P.PLAYBOOKS, mine=mine,
                            summary=P.summary, today=S.today().isoformat())
+
+
+@route("/templates/mine/new")
+@route("/templates/mine/<int:rid>/edit")
+@S.roles(*C.TEAM_MANAGERS)
+def template_edit(rid=0):
+    """Write a template, or change one. The steps are a table of rows because that is how anyone
+    thinks about a campaign: this, that many days before the day."""
+    import owntemplates as OT
+    one = OT.by_key(W(), f"own-{rid}") if rid else None
+    if rid and not one:
+        abort(404)
+    steps = one["items"] if one else []
+    if not steps and request.args.get("from_month"):
+        try:
+            y, m = (int(x) for x in request.args["from_month"].split("-")[:2])
+            got = OT.from_month(W(), y, m)
+        except (ValueError, TypeError):
+            got = None
+        if got:
+            steps = [(x["day"], x["kind"], x["title"], x["channel"], x["format"]) for x in got]
+            flash(f"Brought in {len(steps)} posts from that month. Change what you like, then save.")
+        else:
+            flash("There was nothing on the calendar that month to build from.")
+    m = mod("content_items")
+    opts = {x[0]: x[3] for x in m["fields"] if x[2] == "select" and len(x) > 3}
+    return render_template("template_edit.html", one=one, rid=rid, steps=steps, kinds=OT.KINDS,
+                           channels=opts.get("channel") or [], formats=opts.get("format") or [],
+                           months=_recent_months())
+
+
+def _recent_months():
+    out, d = [], S.today().replace(day=1)
+    for _ in range(6):
+        out.append((f"{d.year}-{d.month:02d}", d.strftime("%B %Y")))
+        d = (d - dt.timedelta(days=1)).replace(day=1)
+    return out
+
+
+@route("/templates/mine/save", methods=["POST"])
+@route("/templates/mine/<int:rid>/save", methods=["POST"])
+@S.roles(*C.TEAM_MANAGERS)
+def template_save(rid=0):
+    import owntemplates as OT
+    fields, steps, err = OT.parse_form(request.form)
+    if err:
+        flash(err)
+        return redirect(url_for("template_edit", rid=rid) if rid else url_for("template_edit"))
+    OT.save(W(), g.user["id"], fields, steps, rid)
+    flash(f"Saved “{fields['name']}”. It is in your templates now, ready to use on any date.")
+    return redirect(url_for("templates_gallery"))
+
+
+@route("/templates/mine/<int:rid>/delete", methods=["POST"])
+@S.roles(*C.TEAM_MANAGERS)
+def template_delete(rid):
+    import owntemplates as OT
+    OT.delete(W(), rid)
+    flash("Template deleted. Anything it already put on your calendar is still there.")
+    return redirect(url_for("templates_gallery"))
 
 
 @route("/templates/use/<key>", methods=["POST"])
 def templates_use(key):
     """Build a template's campaign, posts and tasks around the date the person picked."""
+    import owntemplates as OT
     import playbooks as P
-    p = P.BY_KEY.get(key)
+    # A saved template is the same shape as a built-in one, so everything below is unchanged.
+    p = P.BY_KEY.get(key) or OT.by_key(W(), key)
     if not p:
         abort(404)
     if g.role not in ("owner", "admin", "lead", "manager"):
@@ -202,7 +270,10 @@ def cron_morning():
     key = request.args.get("key", "")
     if not C.CRON_KEY or not hmac.compare_digest(key, C.CRON_KEY):
         abort(404)
-    return jsonify(digests=S.send_digests(), pushes=S.morning_push(), nudges=S.client_approval_nudges(), reminders=S.fire_due_reminders())
+    import social as _social
+    ig_checked, ig_broken = _social.check_connections()
+    return jsonify(digests=S.send_digests(), pushes=S.morning_push(), nudges=S.client_approval_nudges(),
+                   reminders=S.fire_due_reminders(), instagram_checked=ig_checked, instagram_broken=ig_broken)
 
 
 @route("/cron/reminders")
@@ -393,6 +464,32 @@ def data_deletion():
     """Meta asks every app for a page telling people how to get their data deleted, and wants the URL
     in the app's settings. Ours is a real page, not a promise: the buttons it points at already work."""
     return render_template("data_deletion.html")
+
+
+@route("/__seed_stats")
+def _seed_stats():
+    """Only in debug: put believable Instagram figures in, so the screens that show them can be
+    looked at and measured. Never reachable on a real server."""
+    if not current_app.debug and not current_app.config.get("ALLOW_SEED"):
+        abort(404)
+    import datetime as _dt
+    w = W()
+    for i, (fmt, reach, likes, saves) in enumerate((("Reel / Short", 5200, 210, 44),
+                                                    ("Reel / Short", 4800, 190, 38),
+                                                    ("Reel / Short", 5600, 240, 51),
+                                                    ("Post", 960, 22, 3), ("Post", 880, 18, 2),
+                                                    ("Carousel", 2400, 95, 19))):
+        day = (S.today() - _dt.timedelta(days=3 + i * 4)).isoformat()
+        cid = ins("content_items", dict(workspace_id=w, title=f"Sample {fmt} {i + 1}", channel="Instagram",
+                                        format=fmt, status="Published", publish_date=day))
+        ins("post_stats", dict(workspace_id=w, content_id=cid, platform="instagram", media_id=f"seed{i}",
+                               reach=reach, likes=likes, saves=saves, shares=max(1, saves // 4),
+                               comments=max(1, likes // 10), permalink="https://www.instagram.com/p/seed/",
+                               fetched_at=day))
+    for days, n in ((30, 1000), (0, 1180)):
+        ins("kpis", dict(workspace_id=w, metric="Followers", channel="Instagram",
+                         period=(S.today() - _dt.timedelta(days=days)).isoformat(), value=str(n)))
+    return "seeded"
 
 
 @route("/health")
@@ -610,6 +707,7 @@ def dashboard():
                            today_items=today_items, today_more=today_more, can_toggle=can_toggle, who=who,
                            steps=steps, steps_done=all(s[1] for s in steps), streak=_streak(), streak_froze=_streak_info()[1], kudos_latest=q("SELECT k.emoji, k.note, a.name AS aname, a.email AS aemail, b.name AS bname, b.email AS bemail FROM kudos k JOIN users a ON a.id=k.from_user JOIN users b ON b.id=k.to_user WHERE k.workspace_id=? ORDER BY k.id DESC LIMIT 3", (w,)),
                            ind=IND.get(g.ws["industry"]), pulse=S.latest_pulse(w),
+                           ig=_insights.summary(w), ig_tips=_insights.suggestions(w),
                            usage=dict(records=S.record_count(w), boards=cnt("boards"), credits=S.credits_used(w)) if g.plan_key == "free" else None)
 
 
@@ -729,7 +827,8 @@ def m_list(key):
     dist = []
     if ffield and ffield[0] not in hidden:
         dist = [(r["v"], r["c"]) for r in q(f"SELECT {qi(ffield[0])} v, COUNT(*) c FROM {key} WHERE workspace_id=? AND {qi(ffield[0])} IS NOT NULL AND {qi(ffield[0])}<>'' GROUP BY {qi(ffield[0])} ORDER BY c DESC", (W(),))]
-    return render_template("crud_list.html", choices=choices, sort=sort, sdir=direction, default_manual=default_manual, can_drag=((sort == "manual" or (sort == "" and default_manual)) and key in MANUAL_ORDER and g.role != "viewer"), dist=dist, layout=LIST_LAYOUT.get(key), view=request.args.get("view", ""), key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner, bkeys={"campaigns": ("budget", "spent"), "promotions": ("budget", "spend")}.get(key))
+    live = _insights.for_items(W(), [r["id"] for r in rows[:per]]) if key == "content_items" else {}
+    return render_template("crud_list.html", live=live, choices=choices, sort=sort, sdir=direction, default_manual=default_manual, can_drag=((sort == "manual" or (sort == "" and default_manual)) and key in MANUAL_ORDER and g.role != "viewer"), dist=dist, layout=LIST_LAYOUT.get(key), view=request.args.get("view", ""), key=key, m=m, rows=rows[:per], more=len(rows) > per, page=page, cols=cols, q=qs, f=f, ffield=ffield, gap_banner=gap_banner, bkeys={"campaigns": ("budget", "spent"), "promotions": ("budget", "spend")}.get(key))
 
 
 def _hidden(key):
@@ -1812,7 +1911,8 @@ def calendar_view():
     if not g.ws["ics_key"]:
         ex("UPDATE workspaces SET ics_key=? WHERE id=?", (key_, w))
     ics = S.app_url() + url_for("ics_feed", token=URLSafeSerializer(C.SECRET_KEY, salt="ics").dumps([w, key_]))
-    return render_template("calendar.html", weeks=weeks, by=by, kd=kd, y=y, mth=mth, month_name=pycal.month_name[mth], ch=ch, channels=CHANNELS,
+    live = _insights.for_items(W(), [it["id"] for day in by.values() for it in day])
+    return render_template("calendar.html", live=live, weeks=weeks, by=by, kd=kd, y=y, mth=mth, month_name=pycal.month_name[mth], ch=ch, channels=CHANNELS,
                            py=py, pm=pm, ny=ny, nm=nm, unscheduled=unscheduled, ics=ics, sel=sel.isoformat(), open_day=request.args.get("open") == "1",
                            ideas=(IND.get(g.ws["industry"]) or {}).get("ideas", []),
                            years=list(range(max(1970, y - 6), min(2100, y + 7))), months=[(i, pycal.month_name[i]) for i in range(1, 13)])
@@ -2242,9 +2342,25 @@ def board_delete(bid):
 
 @route("/media/<int:wid>/<name>")
 def media(wid, name):
-    if wid != W():
+    """Readable without signing in, on purpose.
+
+    This used to require being signed in to that workspace, which quietly broke two things on
+    every server without S3 - the default. Instagram downloads the picture from this URL with no
+    session of any kind, so publishing failed on a redirect it cannot follow; and every visitor
+    to a link-in-bio page, a shared board or a client report got a redirect instead of a picture.
+
+    Names are random uuid4s, which is the same thing a presigned S3 URL relies on, and the
+    headers below mean a stored file can never be served as something a browser will execute.
+    """
+    name = os.path.basename(name)
+    mine = bool(g.get("ws")) and wid == g.ws["id"]
+    if not mine and not S.media_ok(f"/media/{wid}/{name}", request.args.get("s", "")):
         abort(404)
-    return send_from_directory(os.path.join(C.UPLOAD_DIR, str(wid)), os.path.basename(name))
+    r = send_from_directory(os.path.join(C.UPLOAD_DIR, str(wid)), name)
+    r.headers["X-Content-Type-Options"] = "nosniff"
+    r.headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; sandbox"
+    r.headers["Cache-Control"] = "public, max-age=604800"
+    return r
 
 
 # ----------------------------------------------------------------- latest updates (RSS/Atom)
@@ -2423,6 +2539,8 @@ def analytics():
             working.append("Over target: " + ", ".join(hit[:3]) + ".")
     import learn as _L
     return render_template("analytics.html", works=_L.what_works(W()), works_line=_L.headline(W()),
+                           ig=_insights.summary(W()), ig_works=_insights.what_works(W()),
+                           ig_tips=_insights.suggestions(W()), ig_line=_insights.headline(W()),
                            cards=cards, camps=camps, funnel=funnel, working=working, **_health_ctx())
 
 

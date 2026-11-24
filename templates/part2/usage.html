@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block title %}What gets used — {{ C.APP_NAME }}{% endblock %}{% block body %}
+<div class="head"><h1>📊 What gets used</h1>
+<div><a class="btn ghost sm{{ ' on' if days == 30 }}" href="{{ url_for('ws.usage_page', d=30) }}">Last 30 days</a>
+<a class="btn ghost sm{{ ' on' if days == 90 }}" href="{{ url_for('ws.usage_page', d=90) }}">Last 90 days</a></div></div>
+
+{% if not r.enough %}
+<div class="card"><b>Not enough use yet to tell you anything honest</b>
+<p class="muted">{{ r.recorded }} screen{{ '' if r.recorded == 1 else 's' }} opened in the last {{ r.days }} days. Debut counts how often each screen is opened, and once there are a few dozen it can show you which parts of the app are carrying their weight and which nobody touches. Come back after a week or two of real use.</p>
+<p class="muted">It counts opens and how many people, never who opened what.</p></div>
+{% else %}
+<p class="muted" style="max-width:64ch">{{ r.total }} screen{{ '' if r.total == 1 else 's' }} opened across your sections in the last {{ r.days }} days{% if r.other %}, plus {{ r.other }} on the dashboard and settings{% endif %}. Busiest section first. This counts how often and by how many people — never who. If a section sits at the bottom with nothing in it after a month of real use, that is your answer about whether it belongs in the menu.</p>
+
+{% if r.dead %}<div class="card" style="border-left:4px solid var(--warn)"><b>Nobody opened {{ r.dead|length }} section{{ '' if r.dead|length == 1 else 's' }} at all</b>
+<p>{{ r.dead|join(', ') }}</p>
+<p class="muted">You can switch a section off in <a href="{{ url_for('ws.account') }}#menu">Customise menu</a> — it moves to More tools rather than disappearing, so nothing is lost and you can bring it back.</p></div>{% endif %}
+
+<div class="card">
+{% for s in r.sections %}
+<div class="us-row">
+<div class="us-head"><b>{{ s.icon }} {{ s.label }}</b>
+<span class="pill">{{ s.opens }} open{{ '' if s.opens == 1 else 's' }}{% if s.people %} · {{ s.people }} {{ 'person' if s.people == 1 else 'people' }}{% endif %}</span></div>
+<div class="us-bar"><span style="width:{{ s.share if s.share > 1 else (1 if s.opens else 0) }}%"></span></div>
+<ul class="us-screens">{% for x in s.screens %}<li{{ ' class="us-zero"'|safe if not x.opens }}>{{ x.name }} <b>{{ x.opens or '—' }}</b></li>{% endfor %}</ul>
+{% if s.unused and s.opens %}<p class="muted">Untouched here: {{ s.unused|join(', ') }}.</p>{% endif %}
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+<p class="muted">Counting starts from the day you install this, so a brand-new section will look quiet simply because it is new. Nothing here is sent anywhere — it stays in your own database.</p>
+{% endblock %}

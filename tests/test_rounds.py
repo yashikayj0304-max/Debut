@@ -372,7 +372,7 @@ def test_morning_cron_levels_grid_sets(app, monkeypatch):
     monkeypatch.setattr(Cfg, "CRON_KEY", "s3cret-key")
     anon = app.test_client()
     assert anon.get("/cron/morning?key=nope").status_code == 404 and anon.get("/cron/morning").status_code == 404
-    r = anon.get("/cron/morning?key=s3cret-key"); assert r.status_code == 200 and set(r.get_json()) == {"digests", "pushes", "nudges", "reminders"}
+    r = anon.get("/cron/morning?key=s3cret-key"); assert r.status_code == 200 and set(r.get_json()) == {"digests", "pushes", "nudges", "reminders", "instagram_checked", "instagram_broken"}
     # levels start at zero and grow with real actions
     c.post("/studio/save", json={"title": "T", "kind": "post", "board": {"slides": [{"layout": "cover", "headline": "h"}]}, "thumb": "data:image/jpeg;base64,AAAA"}, headers=h)
     d = c.get("/app").data.decode(); assert "progcard" in d and "Level 1" in d and "1 designed" in d
@@ -990,7 +990,9 @@ def test_three_taps_teach_the_app_what_works(app):
     assert w["formats"][0][0] == "Reel / Short"              # its own evidence, not an industry average
     assert w["days"] and "Monday" in [d[0] for d in w["days"]]
     assert "Reel" in line
-    assert "What works for you" in o.get("/analytics").data.decode()
+    page = o.get("/analytics").data.decode()
+    assert "What you said about your posts" in page
+    assert "Measured by Instagram" not in page           # nothing was published through Debut here
 
 
 def test_rating_is_one_per_post_and_blocked_for_viewers(app):

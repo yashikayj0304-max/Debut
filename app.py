@@ -210,10 +210,19 @@ def create_app(config=None, init=True, database_url=None):
             # A fetch that expects JSON and gets an HTML page throws, and the person sees a
             # made-up "the internet ate it" error that makes a working product look broken.
             # Anything called from script gets the real reason, in JSON, in words they can act on.
-            if ep in ("api_ask", "api_ai") or (request.path or "").startswith("/api/"):
-                return jsonify(error="Deb can't chat freely in the demo — that part needs an account. "
-                                     "Sign up free and ask her anything. The buttons below work right now, "
-                                     "from this workspace's own calendar.", demo=True), 403
+            # Listing the endpoints one by one meant every new fetch had to remember to join the
+            # list, and the ones that forgot showed the person a made-up error. A request that
+            # sent or asked for JSON is script, whatever it is called, and gets JSON back.
+            wants_json = (ep in ("api_ask", "api_ai") or (request.path or "").startswith("/api/")
+                          or request.is_json or request.accept_mimetypes.best == "application/json"
+                          or request.headers.get("X-Requested-With") == "fetch")
+            if wants_json:
+                if ep in ("api_ask", "api_ai"):
+                    return jsonify(error="Deb can't chat freely in the demo — that part needs an account. "
+                                         "Sign up free and ask her anything. The buttons below work right now, "
+                                         "from this workspace's own calendar.", demo=True), 403
+                return jsonify(error="This is a read-only demo, so that one is switched off here. "
+                                     "Sign up free and it works on your own workspace.", demo=True), 403
             try:
                 S.audit("demo_blocked", ep or "", wid=g.ws["id"], uid=g.user["id"])      # counted, so we can see which locked buttons people reach for
             except Exception:

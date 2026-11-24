@@ -250,12 +250,12 @@ function openFinder(grp,el){var F=document.getElementById("finder");if(!F)return
 
 // ---------- Pick your vibe: a palette of two colours, in rich or soft tones; works in light and dark ----------
 var VP=__D.vp;
-function vmRows(){var t=document.getElementById('vmTheme'),s=document.getElementById('vmSnd');if(t)t.textContent=document.documentElement.getAttribute('data-theme')==='dark'?'☀️ Light mode':'🌙 Dark mode';if(s)s.textContent=soundOn()?'🔊 Sound on':'🔇 Sound off';}
+function vmRows(){var t=document.getElementById('vmTheme'),s=document.getElementById('vmSnd');if(t){t.textContent=document.documentElement.getAttribute('data-theme')==='dark'?'☀️ Light mode':'🌙 Dark mode';t.setAttribute('aria-label',t.textContent);}if(s){s.textContent=soundOn()?'🔊 Sound on':'🔇 Sound off';s.setAttribute('aria-label',s.textContent);}}
 function openVibes(btn){
   var m=document.getElementById("vibeMenu");
   if(m){var open=!m.hidden;m.hidden=open;if(btn&&btn.setAttribute)btn.setAttribute("aria-expanded",open?"false":"true");if(!open){markVibe();vmRows();}return;}
   m=document.createElement("div");m.id="vibeMenu";m.className="vibemenu";m.setAttribute("role","dialog");m.setAttribute("aria-label","Pick your vibe");
-  var h='<div class="vm-head"><b>Pick your vibe</b><button type="button" class="vm-x" aria-label="Close" onclick="openVibes()">✕</button></div><div class="vm-row"><button type="button" class="vm-tog" id="vmTheme" onclick="toggleTheme();vmRows()"></button><button type="button" class="vm-tog" id="vmSnd" onclick="toggleSound();vmRows()"></button></div><p class="vm-sub">Two colours, your whole app. Works in light and dark.</p>';
+  var h='<div class="vm-head"><b>Pick your vibe</b><button type="button" class="vm-x" aria-label="Close" onclick="openVibes()">✕</button></div><div class="vm-row"><button type="button" class="vm-tog" id="vmTheme" aria-label="Switch between light and dark mode" onclick="toggleTheme();vmRows()"></button><button type="button" class="vm-tog" id="vmSnd" aria-label="Turn sounds on or off" onclick="toggleSound();vmRows()"></button></div><p class="vm-sub">Two colours, your whole app. Works in light and dark.</p>';
   h+='<button type="button" class="vm-auto" data-k="auto" onclick="setVibe(\'auto\')"><i class="vm-sw vm-auto-sw"></i> Auto <small>your workspace colours</small></button>';
   [["rich","Rich and deep"],["soft","Soft and light"]].forEach(function(t){
     h+='<div class="vm-h">'+t[1]+'</div><div class="vm-grid">';

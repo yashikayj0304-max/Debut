@@ -96,12 +96,14 @@ def studio():
         except ValueError:
             saved = {}
     cfg = dict(ind=g.ws["industry"] or "general", brand=g.ws["name"].replace(" (demo)", ""), pri=(brand or {}).get("pri") or g.ws["brand_color"] or "#6a3df0", sec=g.ws["secondary_color"] or "#ff4f9a",
-               logo=g.ws["logo_url"] or "", today=S.today().isoformat(), kd=kd, rizz=__import__("voice").tn("rizz"), saved=saved, rid=item["id"] if item else 0, title=item["title"] if item else "",
+               logo=g.ws["logo_url"] or "", today=S.today().isoformat(), kd=kd, rizz=__import__("voice").tn("rizz"), saved=saved, facts=brand_facts(g.ws), rid=item["id"] if item else 0, title=item["title"] if item else "",
                channel=item["channel"] if item else "", date=item["publish_date"] if item else "", caption=item["copy"] if item else "", demo=_is_demo(),
                goal=_trim(request.args.get("goal"), 140), offer=_trim(request.args.get("offer"), 80), kind=request.args.get("kind") if request.args.get("kind") in KINDS else "carousel",
                post=bool(request.args.get("post")) and bool(item), status=item["status"] if item else "", hashtags=item["hashtags"] if item else "", ideas=[c["title"] for c in suggestions(W(), g.ws["industry"], S.today())[:3]], canwrite=g.role not in ("viewer", "client"), ai=bool(C.ANTHROPIC_API_KEY) and not _is_demo())
     import modules as MOD
-    return render_template("studio.html", cfg=cfg, ind=ind, kinds=KINDS, chans=MOD.CHANNELS)
+    import insights as _ins
+    return render_template("studio.html", cfg=cfg, ind=ind, kinds=KINDS, chans=MOD.CHANNELS,
+                           ig_tips=_ins.suggestions(g.ws["id"]), ig_live=_ins.summary(g.ws["id"])["live"])
 
 
 @bp.route("/studio/draft", methods=["POST"])
@@ -375,6 +377,53 @@ def pack():
     return jsonify(items=items)
 
 
+# ------------------------------------------------------- the business's own real details
+# The studio used to fill price cards, review cards and coupons with plausible samples taken
+# from a per-industry table. On a real post those read as a real price, a real review and a
+# real discount, which is an advertising problem before it is a trust one. Now Debut uses only
+# what the business has typed here, and shows an obvious placeholder for everything else.
+FACT_FIELDS = (
+    ("prod", 80, "What you are selling", "Kulhad Gift Box"),
+    ("price", 120, "Price", "₹899;;2 kulhads + 250g masala chai"),
+    ("off", 60, "Your offer, if you have one", "Wedding-season offer"),
+    ("code", 24, "Offer code", "SHAADI10"),
+    ("proof", 60, "A real number you can stand behind", "300+ wedding orders"),
+    ("rev", 240, "A real review, in the customer's words", "We gave these as return gifts and guests asked where we got them."),
+    ("revwho", 60, "Who said it", "Ritu, Jaipur"),
+    ("feats", 200, "What is true about it, separated by ;", "Hand-thrown clay kulhads;Loose-leaf masala chai;Packed to gift"),
+    ("nums", 200, "Three real numbers, separated by ;", "300+ wedding orders;4.8★ on Google;Ships in 3 days"),
+    ("menu", 240, "Your price list, separated by ;", "Gift box - ₹899;Twin box - ₹1,599;Bulk 25+ - on request"),
+    ("steps", 240, "How ordering works, separated by ;", "Tell us how many;We confirm the date;We pack and ship;It reaches you"),
+    ("tips", 240, "Tips you would actually give, separated by ;", "Order 2 weeks before the wedding;Pick the twin box for close family;Tell us the names for the tags"),
+)
+
+
+def brand_facts(ws):
+    try:
+        got = json.loads((ws["brand_facts"] if "brand_facts" in ws.keys() else "") or "{}")
+    except (ValueError, TypeError):
+        return {}
+    return {k: str(got.get(k) or "")[:n] for k, n, _l, _e in FACT_FIELDS if got.get(k)}
+
+
+def facts_missing(ws):
+    """Which of these Debut still has to put a placeholder in for."""
+    have = brand_facts(ws)
+    return [label for key, _n, label, _e in FACT_FIELDS if not have.get(key)]
+
+
+@bp.route("/studio/facts", methods=["POST"])
+def save_facts():
+    if g.role in ("viewer", "client"):
+        abort(403)
+    got = {k: S.clean_text(request.form.get(k), n) for k, n, _l, _e in FACT_FIELDS}
+    ex("UPDATE workspaces SET brand_facts=? WHERE id=?",
+       (json.dumps({k: v for k, v in got.items() if v}), g.ws["id"]))
+    S.audit("brand_facts_saved", f"{sum(1 for v in got.values() if v)} of {len(FACT_FIELDS)} filled in")
+    flash("Saved. Debut will use these instead of placeholders from now on.")
+    return redirect(request.form.get("next") or url_for("studio.launch_deck"))
+
+
 # ---------------------------------------------------------------- launch deck (paid)
 @bp.route("/launch-deck")
 def launch_deck():
@@ -383,9 +432,10 @@ def launch_deck():
     brand = S.brand_shades(g.ws)
     cfg = dict(ind=g.ws["industry"] or "general", brand=g.ws["name"].replace(" (demo)", ""), pri=(brand or {}).get("pri") or g.ws["brand_color"] or "#6a3df0", sec=g.ws["secondary_color"] or "#ff4f9a",
                logo=g.ws["logo_url"] or "", today=S.today().isoformat(), paid=S.feature_ok(g.ws, "launch_deck"), canwrite=g.role not in ("viewer",) and not _is_demo(),
-               prefill=_trim(request.args.get("name"), 80))
+               prefill=_trim(request.args.get("name"), 80), facts=brand_facts(g.ws))
     import modules as MOD
-    return render_template("launch_deck.html", cfg=cfg, chans=MOD.CHANNELS, plan_name=S.plan_of(g.ws)["name"])
+    return render_template("launch_deck.html", cfg=cfg, chans=MOD.CHANNELS, plan_name=S.plan_of(g.ws)["name"],
+                           fact_fields=FACT_FIELDS, facts=brand_facts(g.ws), missing=facts_missing(g.ws))
 
 
 @bp.route("/launch-deck/create", methods=["POST"])

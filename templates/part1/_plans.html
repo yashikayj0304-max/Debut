@@ -3,7 +3,7 @@
 <label class="yrsw"><input type="checkbox" id="yrToggle" onchange="togglePlanYear(this.checked)"> Pay yearly <b>(2 months free)</b></label></div>
 {% set _billing = (cta == 'billing') %}{% set _cards = C.plan_cards(cur if _billing else '') %}{% set _currank = (_cards|selectattr('key', 'equalto', cur)|map(attribute='rank')|first) if (_billing and cur in ('free','starter','team','agency')) else -1 %}
 <div class="plans">{% for c in _cards %}
-<div class="plan {{ 'cur' if cur == c.key }} {{ 'pop' if c.popular and not _billing }}"><h3>{{ c.name }}</h3><div class="pwho">{{ c.who }}</div>
+<div class="plan {{ 'cur' if cur == c.key }} {{ 'pop' if c.popular and not _billing }}"><h2>{{ c.name }}</h2><div class="pwho">{{ c.who }}</div>
 {% if c.price == 0 %}<div class="price">₹0</div><div class="per">free plan</div>
 {% elif c.hidden %}<div class="price pquote">Let's talk</div><div class="per">pricing tailored to your team</div>
 {% else %}<div class="price"><span class="pamt" data-m="{{ '{:,}'.format(c.price) }}" data-y="{{ '{:,}'.format(c.yearly) }}">₹{{ '{:,}'.format(c.price) }}</span></div><div class="per"><span class="pper">per month</span> {{ C.PRICE_NOTE }}</div>{% endif %}

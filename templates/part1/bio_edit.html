@@ -21,7 +21,7 @@
 <label>One line about you<input name="sub" maxlength="160" value="{{ d.sub }}" placeholder="{{ fl.sub }}"></label>
 <label>Special offer button (optional)<input name="offer" maxlength="100" value="{{ d.offer }}" placeholder="e.g. 10% off your first order"></label>
 <label>Offer link<input name="offer_url" value="{{ d.offer_url }}" placeholder="https://"></label>
-<p class="muted" style="margin:0 0 6px">Your page uses your brand colours and logo (change them in Brand kit) and the wording for <b>{{ fl.chip|lower }}</b>. Empty boxes show our suggestions in grey.</p><h3 style="margin:14px 0 6px">Links <small class="muted">(up to {{ slots }})</small></h3>
+<p class="muted" style="margin:0 0 6px">Your page uses your brand colours and logo (change them in Brand kit) and the wording for <b>{{ fl.chip|lower }}</b>. Empty boxes show our suggestions in grey.</p><h2 style="margin:14px 0 6px">Links <small class="muted">(up to {{ slots }})</small></h2>
 {% for i in range(slots) %}{% set l = d.links[i] if i < d.links|length else {} %}
 <div style="display:grid;grid-template-columns:1fr 1.6fr 64px;gap:8px;margin-bottom:6px;align-items:center">
 <input name="label{{ i }}" maxlength="40" value="{{ l.get('label','') }}" placeholder="{{ fl.labels[i] if i < fl.labels|length else 'Label' }}" aria-label="Link {{ i+1 }} label">

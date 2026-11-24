@@ -1,5 +1,6 @@
 {% extends "base.html" %}{% block title %}Chat — {{ C.APP_NAME }}<script>document.body.classList.add("chatting")</script>
 {% endblock %}{% block body %}
+<h1 class="sr-only">Chat</h1>
 <div class="chat-app" data-chatting="1"><div class="ca-list">{% set kind = '' %}{% set ident = 0 %}{% include "_chatlist.html" %}</div>
-<div class="ca-pane ca-empty"><div class="deb-lost">💬</div><b>Your team, one place</b><p class="muted">Pick a channel or a person. Share posts, files, voice notes and pictures. No WhatsApp group needed.</p></div></div>
+<div class="ca-pane ca-empty"><div class="deb-lost">💬</div><h2 class="ca-h1">Your team, one place</h2><p class="muted">Pick a channel or a person. Share posts, files, voice notes and pictures. No WhatsApp group needed.</p></div></div>
 {% endblock %}

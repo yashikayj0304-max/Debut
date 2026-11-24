@@ -470,7 +470,7 @@
     V.push(["X / Twitter", (hook + (body ? " " + body.split(/\n/)[0] : "")).slice(0, 250).trim() + (tags[0] ? " " + tags[0] : "")]);
     V.push(["WhatsApp", "*" + hook + "*\n" + (body.split(/\n/)[0] || "") + "\n\nReply to this message to order 👇"]);
     V.push(["Email", "Subject: " + hook.slice(0, 60) + "\nPreview: " + (body.split(/\n/)[0] || hook).slice(0, 90) + "\n\n" + cap]);
-    box.innerHTML = V.map(function (v, i) { return '<details><summary>' + esc(v[0]) + '</summary><textarea rows="5" readonly id="ver' + i + '">' + esc(v[1]) + '</textarea><button type="button" class="btn ghost sm" data-copy="ver' + i + '">Copy</button></details>'; }).join("");
+    box.innerHTML = V.map(function (v, i) { return '<details><summary>' + esc(v[0]) + '</summary><textarea rows="5" readonly aria-label="' + esc(v[0]) + ' draft" id="ver' + i + '">' + esc(v[1]) + '</textarea><button type="button" class="btn ghost sm" data-copy="ver' + i + '">Copy</button></details>'; }).join("");
     box.querySelectorAll("[data-copy]").forEach(function (b) { b.onclick = function () { var t = $(b.dataset.copy); t.select(); if (window.copyTxt) return copyTxt(t.value, b); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand("copy"); } b.textContent = "Copied ✓"; setTimeout(function () { b.textContent = "Copy"; }, 1500); }; });
   }
 

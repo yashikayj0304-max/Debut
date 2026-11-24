@@ -1,7 +1,29 @@
 {% extends "base.html" %}{% from "_bold.html" import line %}{% from "_empty.html" import empty %}{% block body %}
 {{ line('analytics') }}
+{% if ig.live %}<div class="card" aria-label="Measured by Instagram">
+<div class="ig-h"><b>📷 Measured by Instagram</b>{% if ig_works.n %}<span class="pill">{{ ig_works.n }} posts, last {{ ig_works.days }} days</span>{% endif %}</div>
+<div class="ig-nums">
+{% if ig.followers is not none %}<div><b>{{ "{:,}".format(ig.followers) }}</b><small>followers{% if ig.gain %} · {{ '+' if ig.gain > 0 }}{{ ig.gain }} in {{ ig.days }}d{% endif %}</small></div>{% endif %}
+{% if ig_works.avg_reach %}<div><b>{{ "{:,}".format(ig_works.avg_reach) }}</b><small>average reach</small></div>{% endif %}
+{% if ig.likes %}<div><b>{{ ig.likes }}</b><small>likes per post</small></div>{% endif %}
+{% if ig.saves %}<div><b>{{ ig.saves }}</b><small>saves per post</small></div>{% endif %}
+</div>
+{% if not ig_works.enough %}<p class="muted" style="margin:10px 0 0">{{ ig_tips[0].text if ig_tips else '' }} <span class="muted">{{ ig_tips[0].why if ig_tips else '' }}</span></p>
+{% else %}
+<div class="twocol" style="margin-top:12px">
+{% if ig_works.formats %}<div><b>Which format reaches more</b><table class="mini"><tbody>{% for f in ig_works.formats %}<tr><td>{{ f.name }}</td><td class="num">{{ "{:,}".format(f.reach) }}</td><td class="muted">{{ f.n }} post{{ '' if f.n == 1 else 's' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if ig_works.weekdays %}<div><b>Which day reaches more</b><table class="mini"><tbody>{% for d in ig_works.weekdays %}<tr><td>{{ d.name }}</td><td class="num">{{ "{:,}".format(d.reach) }}</td><td class="muted">{{ d.n }} post{{ '' if d.n == 1 else 's' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</div>
+{% if ig_works.top %}<p class="muted" style="margin:12px 0 4px"><b>Your best posts</b></p>
+<table class="mini"><thead><tr><th>Post</th><th class="num">Reached</th><th class="num">Likes</th><th class="num">Saves</th><th></th></tr></thead><tbody>
+{% for t in ig_works.top %}<tr><td>{% if t['content_id'] %}<a href="{{ url_for('m_edit', key='content_items', rid=t['content_id']) }}">{{ (t['title'] or 'Untitled')|truncate(44, true, '…') }}</a>{% else %}{{ (t['title'] or 'Untitled')|truncate(44, true, '…') }}{% endif %}<small class="muted"> {{ t['format'] or '' }}</small></td>
+<td class="num">{{ "{:,}".format(t['reach'] or 0) }}</td><td class="num">{{ t['likes'] or 0 }}</td><td class="num">{{ t['saves'] or 0 }}</td>
+<td>{% if t['permalink'] %}<a href="{{ t['permalink'] }}" target="_blank" rel="noopener">open ↗</a>{% endif %}</td></tr>{% endfor %}
+</tbody></table>{% endif %}
+{% if ig_tips %}<ul class="ig-tips" style="margin-top:14px">{% for t in ig_tips %}<li><b>{{ t.text }}</b><small>{{ t.why }}</small></li>{% endfor %}</ul>{% endif %}
+{% endif %}</div>{% endif %}
 {% if works %}<div class="card">
-<b>🧠 What works for you</b> <span class="muted">— from your own posts, not an industry average</span>
+<b>🧠 What you said about your posts</b> <span class="muted">— your own three-tap ratings, including posts that never went out through Debut</span>
 {% if not works.enough %}<p class="muted" style="margin:6px 0 0">{{ works_line }}</p>
 {% else %}
 <p class="muted" style="margin:6px 0 8px">{{ works.n }} posts rated · {{ works.liked }}% did well</p>

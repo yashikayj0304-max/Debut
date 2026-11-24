@@ -65,6 +65,8 @@
 <form method="post" action="{{ url_for('social.publishing_now', cid=row['id']) }}" style="margin:8px 0 0">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.path }}">
 <button class="btn ghost sm">Post it now</button> <a class="btn ghost sm" href="{{ url_for('social.publishing') }}">Publishing settings</a></form>
+{% set _nocopy = not (row['copy'] or '').strip() %}{% set _nopic = not (row['asset_url'] or '').strip() %}
+{% if _nocopy or _nopic %}<p class="muted" style="font-size:13px;margin:6px 0 0">✨ No {{ 'caption or picture' if (_nocopy and _nopic) else ('caption' if _nocopy else 'picture') }} yet — Debut will {{ 'write one and draw one' if (_nocopy and _nopic) else ('write one' if _nocopy else 'draw one') }} from the title and your brand colours, save it here, and you can change it afterwards.</p>{% endif %}
 {% if pub.why %}<p class="muted" style="font-size:13px;margin:8px 0 0">⏰ Suggested time: {{ pub.why }}. Change it to anything you like.</p>{% endif %}
 {% if not pub_ready %}<p class="muted" style="font-size:13px;margin:8px 0 0">No Instagram account is connected yet. <a href="{{ url_for('social.publishing') }}">Connect one</a> and these go out on their own.</p>{% endif %}
 </div>{% endif %}

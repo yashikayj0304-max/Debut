@@ -41,7 +41,11 @@ document.getElementById("debClear").onclick=function(){hist=[];ls(KEY,null);rend
 document.getElementById("debHide").onclick=function(){ls(HID,"1");f.hidden=true;p.hidden=true;};
 document.querySelectorAll("#debChips [data-k]").forEach(function(b){b.onclick=function(){quick(b.dataset.k,b.textContent.replace(/^\S+\s/,""));};});
 document.getElementById("debF").onsubmit=function(e){e.preventDefault();var i=document.getElementById("debQ"),v=i.value.trim();if(!v)return;i.value="";
- ask(v,function(){return fetch("/api/ask",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-CSRFToken":window.CSRF},body:JSON.stringify({q:v})}).then(function(r){return r.json();}).then(function(j){return j.text?{text:j.text}:{text:(j.error&&/not configured/i.test(j.error)?"I can't chat freely yet (AI is off), but the buttons below answer from your own calendar.":j.error)||ERR};});});};
+ ask(v,function(){return fetch("/api/ask",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-CSRFToken":window.CSRF},body:JSON.stringify({q:v})}).then(function(r){return r.json();}).then(function(j){if(j.text)return{text:j.text};
+   var msg=(j.error&&/not configured/i.test(j.error))?"I can't chat freely yet (AI is off on this server), but the buttons below answer from your own calendar.":(j.error||ERR);
+   var out={text:msg};
+   if(j.demo){out.items=["Here is the kind of answer you would get:","\u201cFor wedding season, post the gift box on a Sunday evening \u2014 that is when families plan together. Lead with the kulhads in hand, not the box.\u201d"];}
+   return out;}).catch(function(){return{text:ERR};});});};
 render();
 // a gentle nudge: a dot on the bubble when something is due today and the chat has not been opened today
 (function(){var seen=+ls("debSeen")||0;if(new Date(seen).toDateString()===new Date().toDateString())return;fetch("/deb/quick?k=due",{credentials:"same-origin"}).then(function(r){return r.json();}).then(function(j){if(j.items&&j.items.length&&p.hidden)document.getElementById("debDot").hidden=false;}).catch(function(){});})();

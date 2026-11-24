@@ -89,7 +89,7 @@
   function S(layout, headline, sub, extra) { var o = { layout: layout, headline: headline, sub: sub || "" }; if (extra) for (var k in extra) o[k] = extra[k]; return o; }
   var ST = [
 
-    ["coupon", "Coupon", "post", function (t, B, d) { return { slides: [S("coupon", "20% OFF", t.code + "; " + (d ? "Valid till " + d : "Valid this week") + "; On your " + t.n + " order"), S("cta", t.cta, B)], hook: t.e + " 20% off for " + t.n, body: "Use code " + t.code + (d ? " till " + d : " this week") + ". Our " + t.w + " is waiting.", cta: t.cta + " and use the code." }; }],
+    ["coupon", "Coupon", "post", function (t, B, d) { return { slides: [S("coupon", t.off, t.code + "; " + (d ? "Valid till " + d : "Valid this week") + "; On your " + t.n + " order"), S("cta", t.cta, B)], hook: t.e + " 20% off for " + t.n, body: "Use code " + t.code + (d ? " till " + d : " this week") + ". Our " + t.w + " is waiting.", cta: t.cta + " and use the code." }; }],
     ["menu-card", "Price list", "post", function (t, B) { return { slides: [S("menu", t.n + " price list", t.menu), S("cta", t.cta, B)], hook: t.e + " " + t.n + " price list", body: t.menu.split(";").slice(0, 3).join(". ") + ".", cta: t.cta + "." }; }],
     ["event-invite", "Event invite", "post", function (t, B, d) { return { slides: [S("event", "Join us for " + t.n, (d ? d.split(" ").reverse().join(" ") : "Sat 25") + "; 6 PM onwards; Add your venue here"), S("cta", "Save your spot", t.cta)], hook: t.e + " You are invited: " + t.n, body: "Join us" + (d ? " on " + d : "") + ". Add your venue and time in the image.", cta: t.cta + " to save your spot." }; }],
     ["launch-ribbon", "New ribbon", "post", function (t, B) { return { slides: [S("ribbon", t.prod + " is here", "Made for " + t.n + "; NEW"), S("cta", t.cta, B)], hook: t.e + " New: " + t.prod, body: "Meet our " + t.prod.toLowerCase() + " for " + t.n + ". " + t.feats.replace(/;/g, ", ") + ".", cta: t.cta + "." }; }],
@@ -98,19 +98,19 @@
     ["picks-collage", "Picks collage", "post", function (t, B) { return { slides: [S("collage", "Our " + t.n + " picks", t.feats + "; " + t.prod), S("cta", t.cta, B)], hook: t.e + " Our " + t.n + " picks", body: t.feats.replace(/;/g, ", ") + ".", cta: t.cta + "." }; }],
     ["this-vs-that", "Versus", "post", function (t, B) { return { slides: [S("versus", "Which one are you?", "Last-minute rush; Planned with " + B), S("cta", "Be option B", t.cta)], hook: t.e + " Which one are you?", body: "Last-minute rush, or planned ahead for " + t.n + "?", cta: "Comment A or B." }; }],
     ["how-it-works", "How it works", "carousel", function (t, B) { return { slides: [S("cover", "How it works", B + " · " + t.n + " " + t.e), S("timeline", "4 easy steps", t.steps), S("cta", t.cta, B)], hook: "How it works " + t.e, body: t.steps.split(";").map(function (x, i) { return (i + 1) + ") " + x; }).join(" "), cta: t.cta + "." }; }],
-    ["coupon-story", "Coupon story", "story", function (t, B, d) { return { slides: [S("ribbon", "A gift for " + t.n, "Swipe up for your code; NEW"), S("coupon", "20% OFF", t.code + "; " + (d ? "Valid till " + d : "Valid this week") + "; On your " + t.n + " order"), S("cta", t.cta, B)], hook: t.e + " A gift for " + t.n, body: "Use code " + t.code + ".", cta: t.cta + "." }; }],
+    ["coupon-story", "Coupon story", "story", function (t, B, d) { return { slides: [S("ribbon", "A gift for " + t.n, "Swipe up for your code; NEW"), S("coupon", t.off, t.code + "; " + (d ? "Valid till " + d : "Valid this week") + "; On your " + t.n + " order"), S("cta", t.cta, B)], hook: t.e + " A gift for " + t.n, body: "Use code " + t.code + ".", cta: t.cta + "." }; }],
     ["event-story", "Event story", "story", function (t, B, d) { return { slides: [S("bold", "You are invited"), S("event", t.n + " at " + B, (d ? d.split(" ").reverse().join(" ") : "Sat 25") + "; 6 PM onwards; Add your venue here"), S("cta", "Save your spot", t.cta)], hook: t.e + " You are invited", body: "Join us for " + t.n + ".", cta: t.cta + "." }; }],
     ["spotlight", "Product spotlight", "post", function (t, B) { return { slides: [S("spotlight", t.prod + " for " + t.n, t.feats, { emoji: t.e }), S("cta", t.cta, B)], hook: t.e + " " + t.prod + " for " + t.n, body: "Meet our " + t.prod.toLowerCase() + ". " + t.feats.replace(/;/g, ", ") + ".", cta: t.cta + ". Link in bio." }; }],
-    ["stop-scroll", "Stop scrolling reel", "reel", function (t, B) { return { slides: [S("bold", "Stop scrolling", t.n + " " + t.e), S("bold", "Your " + t.w + " is here"), S("price", t.price[0], t.prod + "; " + t.price[1] + "; " + t.price[2]), S("cta", t.cta, B)], hook: "Stop scrolling " + t.e, body: "Your " + t.w + " for " + t.n + " is here. " + t.price[2] + ".", cta: t.cta + "." }; }],
+    ["stop-scroll", "Stop scrolling reel", "reel", function (t, B) { return { slides: [S("bold", "Stop scrolling", t.n + " " + t.e), S("bold", t.prod && t.prod.charAt(0) !== "[" ? t.prod + " is here" : "It is here"), S("price", t.price[0], t.prod + "; " + t.price[1] + "; " + t.price[2]), S("cta", t.cta, B)], hook: "Stop scrolling " + t.e, body: t.n + " is here." + (t.price[2] ? " " + t.price[2] + "." : ""), cta: t.cta + "." }; }],
     ["three-reasons", "3 reasons", "carousel", function (t, B) { return { slides: [S("cover", "3 reasons to choose " + B, t.n + " " + t.e), S("split", t.tips[0], "Why it matters for " + t.n + ".", { emoji: "1️⃣" }), S("split", t.tips[1], "Small things, big difference.", { emoji: "2️⃣" }), S("split", t.tips[2], "Ask us and we will help.", { emoji: "3️⃣" }), S("cta", t.cta, B)], hook: "3 reasons " + t.e, body: t.tips.join(". ") + ".", cta: t.cta + "." }; }],
     ["offer-ends", "Offer ends soon", "story", function (t, B, d) { return { slides: [S("countdown", "3", "days left for " + t.n), S("price", t.price[0], t.prod + "; " + t.price[1] + "; " + t.price[2]), S("cta", t.cta, B)], hook: "Offer ends soon " + t.e, body: t.prod + " at " + t.price[0] + " for " + t.n + ".", cta: t.cta + "." }; }],
     ["price-drop", "Price tag", "post", function (t, B, d) { return { slides: [S("price", t.price[0], t.prod + "; " + t.price[1] + "; " + t.price[2], { emoji: t.e }), S("cta", t.cta, d ? "Offer till " + d : "Limited time only")], hook: t.e + " " + t.prod + " now " + t.price[0], body: "Was " + t.price[1] + ", now " + t.price[0] + ". " + t.price[2] + ".", cta: t.cta + " before " + (d || "it ends") + "." }; }],
     ["new-arrival", "New arrival reel", "reel", function (t, B) { return { slides: [S("bold", "New in", B), S("spotlight", t.prod, t.feats, { emoji: t.e }), S("price", t.price[0], t.prod + "; " + t.price[1] + "; " + t.price[2]), S("cta", t.cta, "Link in bio")], hook: "New in " + t.e, body: "Say hello to our " + t.prod.toLowerCase() + ". " + t.feats.replace(/;/g, ", ") + ".", cta: t.cta + "." }; }],
-    ["review-card", "Review card", "post", function (t, B) { return { slides: [S("review", t.rev, "Happy customer"), S("cta", "Join " + t.proof.split(" ")[0] + " others", t.cta)], hook: "★★★★★ " + t.e + " What our customers say", body: "“" + t.rev + "” Shared with permission.", cta: t.cta + "." }; }],
+    ["review-card", "Review card", "post", function (t, B) { return { slides: [S("review", t.rev, t.revwho || "[who said it]"), S("cta", "Join " + t.proof, t.cta)], hook: "★★★★★ " + t.e + " What our customers say", body: "“" + t.rev + "”", cta: t.cta + "." }; }],
     ["vote-story", "Vote story", "story", function (t, B) { return { slides: [S("poll", "Which one for " + t.n + "?", t.prod + "; Something new"), S("cta", "Thanks for voting", "Follow " + B)], hook: "You decide " + t.e, body: "Vote in the poll sticker.", cta: "We will share the winner." }; }],
     ["photo-story", "Photo story", "story", function (t, B) { return { slides: [S("photo", t.n + " at " + B, "Add your photo here", { emoji: t.e }), S("photo", t.prod, "Swap in a close-up of the " + t.prod.toLowerCase(), { emoji: "✨" }), S("cta", t.cta, B)], hook: t.e + " " + t.n + " at " + B, body: "A little peek for you.", cta: t.cta + "." }; }],
     ["pro-tips", "3 pro tips", "carousel", function (t, B) { return { slides: [S("cover", "3 tips before " + t.n, "From people who do this every day"), S("tip", t.tips[0], "", { num: 1 }), S("tip", t.tips[1], "", { num: 2 }), S("tip", t.tips[2], "", { num: 3 }), S("cta", t.cta, B)], hook: "3 tips before " + t.n + " " + t.e, body: t.tips.join(". ") + ".", cta: t.cta + "." }; }],
-    ["proof-reel", "Proof reel", "reel", function (t, B) { return { slides: [S("bold", "Why people trust us"), S("stat", t.proof.split(" ")[0], t.proof.split(" ").slice(1).join(" ")), S("review", t.rev, "Happy customer"), S("cta", t.cta, B)], hook: t.proof + " " + t.e, body: "“" + t.rev + "”", cta: t.cta + "." }; }],
+    ["proof-reel", "Proof reel", "reel", function (t, B) { return { slides: [S("bold", "Why people trust us"), S("stat", t.proof, ""), S("review", t.rev, t.revwho), S("cta", t.cta, B)], hook: t.proof + " " + t.e, body: "“" + t.rev + "”", cta: t.cta + "." }; }],
     ["countdown-reel", "Countdown reel", "reel", function (t, B) { return { slides: [S("countdown", "3", "days to " + t.n), S("countdown", "2", "days to " + t.n), S("countdown", "1", "day to " + t.n), S("price", t.price[0], t.prod + "; " + t.price[1] + "; " + t.price[2]), S("cta", t.cta, B)], hook: t.e + " " + t.n + " is almost here", body: t.prod + " at " + t.price[0] + ". " + t.price[2] + ".", cta: t.cta + "." }; }],
     ["hook-tips", "3 tips", "carousel", function (t, B) { return { slides: [S("cover", t.n + "? Read this first.", "3 quick things before you buy"), S("tip", "Start early", "The best " + t.w + " goes first.", { num: 1 }), S("tip", "Know what you want", "Pick one thing you will really use.", { num: 2 }), S("tip", "Ask us", "Message " + B + " and we will help you pick.", { num: 3 }), S("cta", "Need help choosing?", "Message " + B)], hook: t.n + "? Read this first.", body: "Three quick things before you buy your " + t.w + ".", cta: "Save this and send it to someone who needs it." }; }],
     ["problem-proof", "Problem, 3 points, proof", "carousel", function (t, B) { return { slides: [S("cover", "Struggling with " + t.n + " shopping?", "Here is the easy way"), S("step", "Skip the rush", "Order your " + t.w + " ahead.", { num: 1 }), S("step", "Keep it simple", "One choice, no stress.", { num: 2 }), S("step", "We handle the rest", "Packed and sent with care.", { num: 3 }), S("quote", "Exactly what I needed.", "A happy customer"), S("cta", "Your turn", "Message " + B + " to order")], hook: "Struggling with " + t.n + " shopping?", body: "Three ways " + B + " makes it easy, plus what a customer said.", cta: "Message us to order." }; }],
@@ -118,8 +118,8 @@
     ["countdown", "Countdown", "story", function (t, B) { return { slides: [S("cover", "3 days to " + t.n, "Get ready " + t.e), S("cover", "2 days to " + t.n, "Your " + t.w + " is waiting"), S("cover", "Tomorrow!", t.n + " is almost here"), S("offer", "It's here", t.w + " is live now")], hook: "Counting down to " + t.n + " " + t.e, body: "Turn on notifications so you do not miss our " + t.w + ".", cta: "Tap the link in bio." }; }],
     ["before-after", "Before and after", "reel", function (t, B) { return { slides: [S("cover", "Before vs after " + t.n, "Which one are you?"), S("compare", "Before vs after", "Last-minute panic; A calm " + t.n + " with " + B), S("cta", "Want the after?", "Message " + B)], hook: "Before vs after " + t.n, body: "From last-minute panic to a calm " + t.n + ".", cta: "Which one are you? Tell us below." }; }],
     ["pov", "POV", "reel", function (t, B) { return { slides: [S("cover", "POV: it's " + t.n + " and you planned ahead", t.e), S("quote", "I found the perfect " + t.w + " in two minutes.", "You, with " + B), S("cta", "Be this person", "Follow " + B)], hook: "POV: it's " + t.n + " and you planned ahead " + t.e, body: "Be the person who sorted it early.", cta: "Follow us for more." }; }],
-    ["big-number", "Big number", "post", function (t, B) { return { slides: [S("stat", "500+", "happy customers this " + t.n), S("cta", "Be next", "Message " + B)], hook: "500+ happy customers this " + t.n, body: "Thank you for trusting " + B + " with your " + t.w + ".", cta: "Be our next happy customer." }; }],
-    ["testimonial", "Testimonial", "post", function (t, B) { return { slides: [S("quote", "Paste a real customer review here", "Customer name"), S("cta", "Join them", "Message " + B)], hook: "What our customers say " + t.e, body: "Real words from real customers (shared with permission).", cta: "Want the same? Message us." }; }],
+    ["big-number", "Big number", "post", function (t, B) { return { slides: [S("stat", t.proof, t.n), S("cta", "Be next", "Message " + B)], hook: t.proof + " this " + t.n, body: "Thank you for trusting " + B + " with your " + t.w + ".", cta: "Be our next happy customer." }; }],
+    ["testimonial", "Testimonial", "post", function (t, B) { return { slides: [S("quote", t.rev, t.revwho), S("cta", "Join them", "Message " + B)], hook: "What our customers say " + t.e, body: "In their own words - paste only reviews you really received.", cta: "Want the same? Message us." }; }],
     ["bts", "Behind the scenes", "reel", function (t, B) { return { slides: [S("cover", "Behind the scenes: " + t.n, B), S("step", "How it starts", "Add a photo of the first step.", { num: 1 }), S("step", "How it is made", "Add a photo of the work.", { num: 2 }), S("cta", "See more", "Follow " + B)], hook: "A peek behind the scenes " + t.e, body: "How we get ready for " + t.n + ".", cta: "What should we show next?" }; }],
     ["myth", "Myth vs fact", "carousel", function (t, B) { return { slides: [S("cover", "Myths about " + t.n, "Let's clear them up"), S("compare", "Myth vs fact", "You need to spend a lot; A small budget works if you plan"), S("tip", "The fact", "Simple and early wins every time.", { num: 1 }), S("cta", "Questions?", "Ask " + B)], hook: "3 myths about " + t.n, body: "Let's clear them up, one by one.", cta: "Which one surprised you?" }; }],
     ["faq", "FAQ", "carousel", function (t, B) { return { slides: [S("cover", t.n + " questions, answered", "Quick answers"), S("step", "How do I order?", "Message " + B + " or tap the link in bio.", { num: 1 }), S("step", "How long does it take?", "Add your delivery time here.", { num: 2 }), S("step", "Can I customise it?", "Yes. Tell us what you need.", { num: 3 }), S("cta", "Still unsure?", "Ask " + B)], hook: "Your " + t.n + " questions, answered", body: "The three things people ask us most.", cta: "Ask us anything in the comments." }; }],
@@ -183,23 +183,69 @@
     "Pre-order": "launch", "Giveaway": "giveaway", "Referral offer": "giveaway", "Loyalty reward": "celebrate", "Bundle deal": "bundle", "Early-bird offer": "flash", "Limited edition": "flash", "Collab drop": "launch",
     "Anniversary": "celebrate", "Customer story": "trust", "Behind the scenes": "people", "Meet the team": "people", "FAQ": "learn", "Myth busting": "learn", "Quick tips": "learn", "Milestone": "celebrate", "How it's made": "people" };
   // Industry flavour: the looks an industry leans towards when a moment has no colours of its own, plus what that industry really sells
+  // What is true of an INDUSTRY: the kind of offer it runs, the looks that suit it, what its
+  // call to action says. Nothing here is a claim about a particular business. Prices, sales
+  // figures, reviews and discount codes used to live here too, as plausible-looking samples,
+  // and they went out on real posts as though they were real. They are gone; see FACTS below.
   var IND = {
-    general:   { w: "special offer", looks: ["launch", "celebrate", "people"], tags: "#smallbusiness #shoplocal", cta: "Message us", prod: "Bestseller", proof: "500+ happy customers", tips: "Plan early;Keep it simple;Ask us anything", price: "₹499;₹799;Free delivery", rev: "Quick, friendly and exactly what I wanted.", feats: "Made with care;Fast delivery;Easy returns", menu: "Starter pack - ₹499;Family pack - ₹899;Gift box - ₹1,299", steps: "Tell us what you need;We suggest the best fit;Confirm and pay;Delivered to you", nums: "500+ happy customers;4.9★ average rating;48h delivery", code: "FESTIVE20" },
-    d2c:       { w: "bestseller bundle", looks: ["bundle", "flash", "celebrate"], tags: "#d2cindia #shoponline #madeinindia", cta: "Shop now", prod: "Bestseller bundle", proof: "10,000+ orders shipped", tips: "Check the ingredients;Start with the mini pack;Pair it with a routine", price: "₹799;₹1,199;Free shipping", rev: "Arrived in 2 days and the quality is unreal.", feats: "Free shipping;COD available;7-day returns", menu: "Starter kit - ₹799;Bestseller bundle - ₹1,499;Gift set - ₹1,999", steps: "Pick your product;Place the order;We pack and ship;Unbox in 2 days", nums: "10,000+ orders shipped;4.8★ rating;7-day returns", code: "SHIP20" },
-    hospitality:{ w: "festive menu and stays", looks: ["summer", "wedding", "diwali"], tags: "#foodiesofindia #staycation #restaurantindia", cta: "Book a table", prod: "Chef's special", proof: "2,000+ guests this month", tips: "Book ahead for weekends;Ask for the chef's special;Come hungry", price: "₹599;₹899;Includes a drink", rev: "Best meal we have had in months. Staff were lovely.", feats: "Fresh ingredients;Family friendly;Pure veg options", menu: "Butter chicken - ₹399;Dal makhani - ₹299;Paneer tikka - ₹349;Gulab jamun - ₹149", steps: "Reserve your table;Choose from the menu;Enjoy fresh food;Tell us how it was", nums: "2,000+ guests a month;4.7★ on Google;15 min avg wait", code: "TABLE20" },
-    fmcg:      { w: "festive family pack", looks: ["flash", "harvest", "bundle"], tags: "#fmcg #madeinindia #familypack", cta: "Find it near you", prod: "Family pack", proof: "1 lakh+ packs sold", tips: "Check the label;Store it cool and dry;Buy the family pack to save", price: "₹149;₹199;Pack of 3", rev: "Our whole family loves it. Always in the kitchen.", feats: "No added colours;Value pack;Available nearby", menu: "Single pack - ₹49;Family pack - ₹149;Value pack of 3 - ₹399", steps: "Find it at your store;Pick your pack;Enjoy with family;Share your review", nums: "1 lakh+ packs sold;4.6★ rated;Available in 500 stores", code: "FAMILY10" },
-    saas:      { w: "free trial", looks: ["launch", "trust", "learn"], tags: "#saas #startupindia #productivity", cta: "Start free trial", prod: "Pro plan", proof: "1,200+ teams onboard", tips: "Automate the boring bits;Track one metric daily;Invite your team early", price: "₹999;₹1,499;14-day free trial", rev: "Saved us 6 hours every week from day one.", feats: "No credit card;Setup in 5 min;Cancel anytime", menu: "Starter - ₹499;Pro - ₹999;Team - ₹2,499", steps: "Sign up free;Connect your tools;Invite your team;See results in a week", nums: "1,200+ teams;4.8★ on G2;Setup in 5 min", code: "START14" },
-    realestate:{ w: "site visit slot", looks: ["trust", "winterfest", "wedding"], tags: "#realestateindia #dreamhome #propertyinvestment", cta: "Book a site visit", prod: "3 BHK sample flat", proof: "300+ families moved in", tips: "Visit at different times of day;Check the RERA number;Ask about maintenance cost", price: "₹68 L;₹75 L;Limited units", rev: "Honest advice and a smooth registration.", feats: "RERA approved;Ready to move;Bank loan help", menu: "2 BHK - ₹45 L;3 BHK - ₹68 L;4 BHK - ₹92 L", steps: "Book a site visit;See the flat;Check paperwork and loan;Move in", nums: "300+ families;RERA approved;Ready to move", code: "VISIT10" },
-    education: { w: "admissions window", looks: ["school", "exam", "learn"], tags: "#education #admissionsopen #learnwithus", cta: "Enrol now", prod: "Weekend batch", proof: "5,000+ students taught", tips: "Revise a little every day;Practise past papers;Sleep before the exam", price: "₹4,999;₹7,999;Free demo class", rev: "My marks went up in just two months.", feats: "Small batches;Doubt sessions;Free demo", menu: "Weekend batch - ₹4,999;Weekday batch - ₹6,999;Crash course - ₹2,999", steps: "Book a free demo;Pick your batch;Learn and practise;Track your progress", nums: "5,000+ students;92% pass rate;Doubt help daily", code: "LEARN15" },
-    healthcare:{ w: "health check-up", looks: ["trust", "monsoon", "learn"], tags: "#healthcare #wellness #stayhealthy", cta: "Book an appointment", prod: "Full health check-up", proof: "10,000+ patients served", tips: "Drink enough water;Get a yearly check-up;Do not ignore small symptoms", price: "₹1,499;₹2,499;Reports in 24 hrs", rev: "Caring doctors and zero waiting time.", feats: "Trusted doctors;Same-day reports;Home sample pickup", menu: "Basic check-up - ₹999;Full body - ₹1,999;Senior plan - ₹2,499", steps: "Book a slot;Visit or home pickup;Get reports in 24 hrs;Talk to a doctor", nums: "10,000+ patients;4.8★ rated;Reports in 24 hrs", code: "CARE15" },
-    fashion:   { w: "new collection", looks: ["wedding", "love", "celebrate"], tags: "#ootd #fashionindia #styleinspo", cta: "Shop the look", prod: "New collection", proof: "Loved by 8,000+ customers", tips: "Start with one hero piece;Mix prints with solids;Check the fit before the colour", price: "₹1,299;₹1,999;Easy exchange", rev: "The fit is perfect and the fabric feels premium.", feats: "Easy exchange;Real photos;Ships in 48 hrs", menu: "Kurta set - ₹1,499;Co-ord set - ₹1,999;Festive saree - ₹2,799", steps: "Pick your style;Choose your size;Order in 2 taps;Easy exchange", nums: "8,000+ happy customers;4.8★ rated;48h shipping", code: "STYLE20" },
-    fintech:   { w: "zero-fee plan", looks: ["trust", "launch", "learn"], tags: "#fintech #moneymatters #investsmart", cta: "Get started", prod: "Zero-fee plan", proof: "50,000+ users trust us", tips: "Automate your savings;Track every expense;Start a small SIP", price: "₹0;₹499;Zero fees", rev: "Simple, safe and super quick to set up.", feats: "Bank-grade security;Zero hidden fees;Instant setup", menu: "Basic - ₹0;Plus - ₹199;Pro - ₹499", steps: "Download the app;Verify in minutes;Add money;Start saving", nums: "50,000+ users;Zero hidden fees;Bank-grade security", code: "SAVE50" },
-    agency:    { w: "free marketing audit", looks: ["launch", "trust", "people"], tags: "#digitalmarketing #marketingagency #growthmarketing", cta: "Book a free audit", prod: "Growth package", proof: "40+ brands grown", tips: "Post at one fixed time;Reuse your best post;Measure what you post", price: "₹24,999;₹39,999;Per month", rev: "Our leads doubled in 90 days.", feats: "Content plan;Monthly report;Dedicated manager", menu: "Starter - ₹14,999;Growth - ₹24,999;Scale - ₹39,999", steps: "Free audit;Strategy plan;Content and ads live;Monthly report", nums: "40+ brands grown;3x average reach;Reports every month", code: "AUDIT0" },
-    personal_brand:{ w: "free 1:1 session", looks: ["people", "celebrate", "learn"], tags: "#personalbrand #creatoreconomy #contentcreator", cta: "Book a free call", prod: "1:1 session", proof: "300+ people coached", tips: "Show up weekly;Share one real story;Reply to every comment", price: "₹1,999;₹2,999;60 minutes", rev: "One session gave me more clarity than a year of guessing.", feats: "1:1 attention;Action plan;Follow-up notes", menu: "Intro call - ₹0;1:1 session - ₹1,999;Monthly mentoring - ₹7,999", steps: "Book a free call;Share your goal;Get your plan;Check in weekly", nums: "300+ people coached;4.9★ rated;Plans in 48h", code: "CALL1" },
-    b2b:       { w: "free consultation", looks: ["trust", "learn", "launch"], tags: "#b2b #manufacturingindia #businessgrowth", cta: "Request a quote", prod: "Bulk order", proof: "150+ businesses supplied", tips: "Ask for samples first;Compare total cost;Check delivery timelines", price: "₹95;₹120;Per unit, 500+", rev: "On-time delivery, every single time.", feats: "GST invoice;Bulk pricing;Pan-India delivery", menu: "100 units - ₹120;500 units - ₹105;1000 units - ₹95", steps: "Share your need;Get a quote;Approve a sample;Bulk delivery", nums: "150+ businesses;On-time delivery;GST invoice", code: "BULK5" },
-    retail:    { w: "in-store offer", looks: ["sale", "flash", "bundle"], tags: "#retail #shoplocal #storeoffer", cta: "Visit the store", prod: "Store special", proof: "Serving this area since 2015", tips: "Visit on weekdays for peace;Ask about combo offers;Check the warranty", price: "₹999;₹1,499;In-store only", rev: "Great range and the staff helped me choose.", feats: "In-store offers;Easy exchange;Free parking", menu: "Combo 1 - ₹999;Combo 2 - ₹1,499;Gift hamper - ₹1,999", steps: "Visit the store;Try before you buy;Pick your combo;Carry it home", nums: "Serving since 2015;4.7★ rated;Free parking", code: "STORE10" },
-    startup:   { w: "early access", looks: ["launch", "flash", "celebrate"], tags: "#startupindia #buildinpublic #founderlife", cta: "Join the waitlist", prod: "Early access", proof: "2,000+ on the waitlist", tips: "Talk to users weekly;Ship small, ship often;Share what you learn", price: "₹0;₹999;Early-bird", rev: "Finally a tool that gets what we actually need.", feats: "Early-bird price;Founder support;Shape the product", menu: "Early access - ₹0;Founding plan - ₹499;Team - ₹1,999", steps: "Join the waitlist;Get your invite;Try the beta;Tell us what to build", nums: "2,000+ on the waitlist;Beta this month;Founder replies daily", code: "EARLY" }
+    general:     { w: "special offer", looks: ["launch", "celebrate", "people"], cta: "Message us", tags: "#smallbusiness #shoplocal" },
+    d2c:         { w: "bestseller bundle", looks: ["bundle", "flash", "celebrate"], cta: "Shop now", tags: "#d2cindia #shoponline #madeinindia" },
+    hospitality: { w: "festive menu and stays", looks: ["summer", "wedding", "diwali"], cta: "Book a table", tags: "#foodiesofindia #staycation #restaurantindia" },
+    fmcg:        { w: "festive family pack", looks: ["flash", "harvest", "bundle"], cta: "Find it near you", tags: "#fmcg #madeinindia #familypack" },
+    saas:        { w: "free trial", looks: ["launch", "trust", "learn"], cta: "Start free trial", tags: "#saas #startupindia #productivity" },
+    realestate:  { w: "site visit slot", looks: ["trust", "winterfest", "wedding"], cta: "Book a site visit", tags: "#realestateindia #dreamhome #propertyinvestment" },
+    education:   { w: "admissions window", looks: ["school", "exam", "learn"], cta: "Enrol now", tags: "#education #admissionsopen #learnwithus" },
+    healthcare:  { w: "health check-up", looks: ["trust", "monsoon", "learn"], cta: "Book an appointment", tags: "#healthcare #wellness #stayhealthy" },
+    fashion:     { w: "new collection", looks: ["wedding", "love", "celebrate"], cta: "Shop the look", tags: "#ootd #fashionindia #styleinspo" },
+    fintech:     { w: "zero-fee plan", looks: ["trust", "launch", "learn"], cta: "Get started", tags: "#fintech #moneymatters #investsmart" },
+    agency:      { w: "free marketing audit", looks: ["launch", "trust", "people"], cta: "Book a free audit", tags: "#digitalmarketing #marketingagency #growthmarketing" },
+    personal_brand: { w: "free 1:1 session", looks: ["people", "celebrate", "learn"], cta: "Book a free call", tags: "#personalbrand #creatoreconomy #contentcreator" },
+    b2b:         { w: "free consultation", looks: ["trust", "learn", "launch"], cta: "Request a quote", tags: "#b2b #manufacturingindia #businessgrowth" },
+    retail:      { w: "in-store offer", looks: ["sale", "flash", "bundle"], cta: "Visit the store", tags: "#retail #shoplocal #storeoffer" },
+    startup:     { w: "early access", looks: ["launch", "flash", "celebrate"], cta: "Join the waitlist", tags: "#startupindia #buildinpublic #founderlife" }
   };
+
+  // Facts belong to the BUSINESS, and Debut only knows the ones it has been told. Anything
+  // missing comes back as an obvious placeholder in square brackets, never as a plausible
+  // sample: a price, a sales figure, a review or a discount code that was invented would go out
+  // on a real post as though it were real, and in India that is an advertising and consumer-
+  // protection problem as well as a trust one.
+  var ASK = {
+    price:  ["[your price]", "[was ₹…, if there is an old price]", "[what is included]"],
+    prod:   "[what you are selling]",
+    proof:  "[your real number] customers",
+    nums:   "[a real number];[a real rating];[a real promise]",
+    rev:    "[paste a real review from a real customer]",
+    feats:  "[something true about it];[another true thing];[a third]",
+    menu:   "[item] – [price];[item] – [price];[item] – [price]",
+    steps:  "[what happens first];[then this];[then this];[and finally]",
+    tips:   "[a tip you would actually give];[another one];[a third]",
+    code:   "[YOURCODE]",
+    off:    "[your offer]"
+  };
+  // Is this piece still carrying something Debut made up for the person to replace?
+  TPLNEEDS = /\[[^\]]+\]/;
+  function factsOf(f) {
+    f = f || {};
+    function pick(k, d) { var v = (f[k] || "").toString().trim(); return v ? v : d; }
+    var price = pick("price", "");
+    return {
+      prod:  pick("prod", ASK.prod),
+      price: (function () { var a = price ? price.split(";") : ASK.price.slice();
+                            while (a.length < 3) a.push(""); return a; })(),
+      proof: pick("proof", ASK.proof),
+      nums:  pick("nums", ASK.nums),
+      rev:   pick("rev", ASK.rev),
+      feats: pick("feats", ASK.feats),
+      menu:  pick("menu", ASK.menu),
+      steps: pick("steps", ASK.steps),
+      tips:  pick("tips", ASK.tips).split(";"),
+      code:  pick("code", ASK.code),
+      revwho: pick("revwho", "[who said it]"),
+      off:   pick("off", ASK.off)
+    };
+  }
+
   function lookFor(t, ind, si) {
     var k = TOPIC_LOOK[t[0]], I = IND[ind] || IND.general;
     if (k && (t[1] === "Festival" || t[1] === "Season" || t[1] === "Sale")) return k;
@@ -212,11 +258,38 @@
 
   function tagsFor(pl, t) { var n = PL[pl].tags; if (!n) return []; return (t[3] || "").split(/\s+/).filter(Boolean).slice(0, n); }
   var BUL = ["✔", "✨", "👉", "🎯", "💛", "🔥"];
-  function cap(pl, x, t, ind) {
+  // Fifteen captions with one skeleton read as a bot, which is what they were: hook, three
+  // ticked bullets, the same closing couplet, every single time. These are five different
+  // shapes, picked by the piece's own index so a run of them varies, and the closing line is
+  // only added where it earns its place rather than on all of them.
+  var CLOSERS = ["", "", "💾 Save this one for later.", "📤 Send this to whoever is planning.", ""];
+  function shape(n, hook, lines, cta, closer) {
+    var b = lines.map(function (l, i) { return BUL[i % 3] + " " + l; }).join("\n");
+    var tail = (closer ? "\n" + closer : "");
+    switch (n % 5) {
+      case 0: return hook + "\n\n" + b + "\n\n👉 " + cta + tail;
+      case 1: return hook + "\n\n" + lines.join("\n\n") + "\n\n" + cta + tail;
+      case 2: return lines[0] + "\n\n" + hook + "\n\n" + lines.slice(1).map(function (l) { return "— " + l; }).join("\n") + "\n\n" + cta + tail;
+      case 3: return hook + "\n" + lines[0] + "\n\n" + cta + tail;
+      default: return hook + "\n\n" + lines.join(" ") + "\n\n👉 " + cta + tail;
+    }
+  }
+  function cap(pl, x, t, ind, vi) {
+    vi = vi || 0;
     var I = IND[ind] || IND.general, tags = tagsFor(pl, t), extra = PL[pl].tags ? (I.tags || "").split(/\s+/).filter(Boolean).slice(0, 2) : [], all = tags.concat(extra).join(" ");
-    var lines = String(x.body || "").split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 3), cat = t[1];
-    if (lines.length < 3) lines.push(cat === "Brand" ? "Built with care, and shared with honesty." : "Made for " + t[5] + ", so every detail counts.");
-    if (lines.length < 3) lines.push(cat === "Sale" || cat === "Promo" ? "Limited time, so do not wait till the last minute." : cat === "Festival" ? "Order early so it reaches you in time." : "Tell us what you would love to see next.");
+    var lines = String(x.body || "").split(/(?<=[.!?])\s+/)
+      .map(function (l) { return l.trim(); })
+      .filter(function (l) { return l && l !== "." && /[\p{L}\p{N}]/u.test(l); })   // a blank entry in a list left "— ."
+      .slice(0, 3), cat = t[1];
+    // The filler used to be one fixed sentence per category, so it repeated down the whole deck.
+    var FILL_BRAND = ["Made slowly, and honestly.", "Small batch, made to last.", "The details are the point.",
+                      "Made by people, not a machine.", "Nothing in it we would not use ourselves."];
+    var FILL_END = ["Tell us what you would love to see next.", "Ask us anything in the comments.",
+                    "Tell us who you are buying for.", "Questions? We answer every message.",
+                    "What would you want us to make next?"];
+    if (lines.length < 2) lines.push(cat === "Brand" ? FILL_BRAND[vi % FILL_BRAND.length] : "Made for " + t[5] + ", so every detail counts.");
+    if (lines.length < 3) lines.push(cat === "Sale" || cat === "Promo" ? "Limited time, so do not leave it to the last minute."
+      : cat === "Festival" ? "Order early so it reaches you in time." : FILL_END[vi % FILL_END.length]);
     var bullets = lines.map(function (l, i) { return BUL[i % 3] + " " + l; }).join("\n");
     if (pl === "LinkedIn") return x.hook + "\n\n" + lines.join("\n\n") + "\n\nWhat has your experience been? I would love to hear it in the comments.\n\n" + x.cta + (all ? "\n\n" + all : "");
     if (pl === "X / Twitter") { var s = x.hook + " " + x.body + " " + x.cta; return s.length > 240 ? s.slice(0, 237) + "..." : s; }
@@ -224,7 +297,7 @@
     if (pl === "WhatsApp") return "Hi! 👋\n\n" + x.hook + "\n\n" + bullets + "\n\nReply *YES* and we will share the details. 🙌";
     if (pl === "Email") return "Subject: " + x.hook + "\n\nHi there,\n\n" + x.body + "\n\n" + x.cta + "\n\nWarmly,\nThe team";
     if (pl === "Facebook") return x.hook + "\n\n" + bullets + "\n\n👉 " + x.cta + (all ? "\n\n" + all : "");
-    return x.hook + "\n\n" + bullets + "\n\n👉 " + x.cta + "\n💾 Save this for later  ·  📤 Share it with someone who needs it" + (all ? "\n\n" + all : "");
+    return shape(vi, x.hook, lines, x.cta, CLOSERS[vi % CLOSERS.length]) + (all ? "\n\n" + all : "");
   }
   function kindFor(pl, k) {
     var ok = PL[pl].kinds; if (ok.indexOf(k) > -1) return k;
@@ -251,13 +324,14 @@
     });
     return out;
   };
-  TPL.build = function (pl, ti, si, B, dateIso, ind) {
+  TPL.build = function (pl, ti, si, B, dateIso, ind, facts) {
     var t = Array.isArray(ti) ? ti : T[ti], s = ST[si], I = IND[ind] || IND.general, w = (t[1] === "Brand") ? t[4] : (ind && ind !== "general" ? I.w : t[4]);
-    var tt = { n: t[0], c: t[1], e: t[2], t: t[3], w: w, g: t[5], I: I, cta: I.cta, prod: I.prod, proof: I.proof, tips: I.tips.split(";"), price: I.price.split(";"), rev: I.rev, feats: I.feats, menu: I.menu, steps: I.steps, nums: I.nums, code: I.code }; tt[3] = t[3]; tt[0] = t[0];
+    var F = factsOf(facts);
+    var tt = { n: t[0], c: t[1], e: t[2], t: t[3], w: w, g: t[5], I: I, cta: I.cta, prod: F.prod, proof: F.proof, tips: F.tips, price: F.price, rev: F.rev, revwho: F.revwho, feats: F.feats, menu: F.menu, steps: F.steps, nums: F.nums, code: F.code, off: F.off }; tt[3] = t[3]; tt[0] = t[0];
     if (Array.isArray(ti)) { tt.prod = t[4]; tt.w = t[4]; }
     var x = s[3](tt, B, nice(dateIso)), k = kindFor(pl, s[2]), look = lookFor(t, ind, si);
     x.slides.forEach(function (sl, i) { if (ind && ind !== "general" && sl.layout === "cta" && /^(Order now|Be next|Find out more|Want one\?|Want the after\?|Join them|Easy|Be this person)$/.test(sl.headline)) sl.headline = I.cta; sl.look = look; if (!sl.emoji && (sl.layout === "cover" || sl.layout === "offer")) sl.emoji = t[2]; });
-    return { kind: k, slides: x.slides, caption: cap(pl, x, t, ind), tags: tagsFor(pl, t), title: t[0] + ": " + s[1], channel: pl, look: look };
+    return { kind: k, slides: x.slides, caption: cap(pl, x, t, ind, si), tags: tagsFor(pl, t), title: t[0] + ": " + s[1], channel: pl, look: look };
   };
   TPL.LOOK = LOOK;
   TPL.siOf = function (key) { for (var i = 0; i < ST.length; i++) if (ST[i][0] === key) return i; return -1; };
